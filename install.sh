@@ -1216,8 +1216,9 @@ check_existing_installation() {
   - 更新系统: 使用 update.sh 脚本
   - 重新安装: 先运行以下命令清理:
     cd ${INSTALL_DIR}
-    docker-compose down -v
-    rm -f .installed .env
+    docker compose down -v
+    rm -f .installed .env .credentials /db/postgres /redis/data
+    或者将安装目录下的所有文件和目录删除，然后重新拉取配置文件
     然后再运行安装脚本
 
 如果确定要强制重新安装，请先删除 .installed 文件:
@@ -1338,21 +1339,14 @@ main() {
     export REGISTRY_NGINX_IMAGE
     export REGISTRY_SECSNOW_IMAGE
     
-    # 检查并清理旧的 .env 文件
-    if [ -f "${INSTALL_DIR}/.env" ]; then
-        show_warning "检测到已存在的 .env 配置文件"
-        BACKUP_FILE=".env.backup.$(date +%Y%m%d_%H%M%S)"
-        mv "${INSTALL_DIR}/.env" "${INSTALL_DIR}/${BACKUP_FILE}"
-        show_info "已备份为: ${BACKUP_FILE}"
-        show_success "旧配置文件已清理，将重新生成"
-        echo ""
-    fi
-    
     echo ""
     echo "========================================="
     echo -e "${GREEN}SECSNOW首次安装脚本${NC}"
     echo "========================================="
     echo ""
+    
+    # ⚠️ 重要：先检查是否已安装，避免误删配置文件
+    check_existing_installation
     
     # 显示配置信息
     echo -e "${BLUE}安装配置:${NC}"
@@ -1376,8 +1370,17 @@ main() {
     
     echo ""
     
+    # 检查并清理旧的 .env 文件（仅在确认安装后执行）
+    if [ -f "${INSTALL_DIR}/.env" ]; then
+        show_warning "检测到已存在的 .env 配置文件"
+        BACKUP_FILE=".env.backup.$(date +%Y%m%d_%H%M%S)"
+        mv "${INSTALL_DIR}/.env" "${INSTALL_DIR}/${BACKUP_FILE}"
+        show_info "已备份为: ${BACKUP_FILE}"
+        show_success "旧配置文件已清理，将重新生成"
+        echo ""
+    fi
+    
     # 执行安装步骤
-    check_existing_installation
     check_docker
     
     # 根据模式选择镜像获取方式
