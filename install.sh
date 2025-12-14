@@ -1199,6 +1199,66 @@ show_help() {
     echo ""
 }
 
+# 检查是否已安装
+check_existing_installation() {
+    show_step "检查现有安装..."
+    
+    # 检查标志文件
+    if [ -f "${INSTALL_DIR}/.installed" ]; then
+        show_error "检测到系统已经安装过！
+
+安装标志文件: ${INSTALL_DIR}/.installed
+安装时间: $(cat ${INSTALL_DIR}/.installed 2>/dev/null || echo '未知')
+
+⚠️  重复安装可能导致数据丢失！
+
+如果需要：
+  - 更新系统: 使用 update.sh 脚本
+  - 重新安装: 先运行以下命令清理:
+    cd ${INSTALL_DIR}
+    docker-compose down -v
+    rm -f .installed .env
+    然后再运行安装脚本
+
+如果确定要强制重新安装，请先删除 .installed 文件:
+  rm -f ${INSTALL_DIR}/.installed
+"
+    fi
+    
+    # 检查是否有运行中的容器
+    if docker ps -a --format '{{.Names}}' | grep -q "^secsnow-"; then
+        show_warning "检测到 SecSnow 相关容器正在运行或存在！"
+        echo ""
+        echo "运行中的容器:"
+        docker ps -a --filter "name=secsnow-" --format "  - {{.Names}} ({{.Status}})"
+        echo ""
+        
+        read -p "是否停止并删除现有容器继续安装? (y/n): " -n 1 -r
+        echo
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            show_info "停止并删除现有容器..."
+            cd "${INSTALL_DIR}" 2>/dev/null || true
+            
+            # 获取 compose 命令
+            COMPOSE_CMD=$(get_compose_command)
+            if [ -n "$COMPOSE_CMD" ] && [ -f "docker-compose.yml" ]; then
+                $COMPOSE_CMD down -v
+            else
+                # 手动删除容器
+                docker stop $(docker ps -aq --filter "name=secsnow-") 2>/dev/null || true
+                docker rm $(docker ps -aq --filter "name=secsnow-") 2>/dev/null || true
+            fi
+            
+            show_success "现有容器已清理"
+        else
+            show_error "安装已取消。请先手动清理现有安装。"
+        fi
+    fi
+    
+    show_success "安装检查通过"
+}
+
 # 主函数
 main() {
     # 解析参数
@@ -1317,6 +1377,7 @@ main() {
     echo ""
     
     # 执行安装步骤
+    check_existing_installation
     check_docker
     
     # 根据模式选择镜像获取方式
@@ -1334,6 +1395,10 @@ main() {
     start_services
     run_migrations
     create_admin_user
+    
+    # 创建安装标志文件
+    echo "安装时间: $(date '+%Y-%m-%d %H:%M:%S')" > "${INSTALL_DIR}/.installed"
+    echo "安装模式: $([ "$USE_REGISTRY" = true ] && echo '仓库拉取' || echo '本地加载')" >> "${INSTALL_DIR}/.installed"
     
     echo ""
     show_completion
