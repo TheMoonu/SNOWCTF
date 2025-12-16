@@ -377,6 +377,68 @@ start_services() {
     $COMPOSE_CMD ps
 }
 
+# 清理废弃的简历表
+clean_resume_tables() {
+    show_step "检查并清理废弃的简历表..."
+    
+    # 检查容器是否运行
+    if ! docker ps | grep -q secsnow-postgres; then
+        show_warning "PostgreSQL 容器未运行，跳过简历表清理"
+        return
+    fi
+    
+    # 检查简历表是否存在
+    RESUME_TABLES=$(docker exec secsnow-postgres psql -U secsnow -d secsnow -t -c "
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('resume_resume', 'resume_resumetemplate')
+    " 2>/dev/null | tr -d ' ')
+    
+    if [ -z "$RESUME_TABLES" ]; then
+        show_info "未发现简历相关表，跳过清理"
+        return
+    fi
+    
+    # 统计表中的数据
+    show_info "发现简历相关表，检查数据量..."
+    for table in $RESUME_TABLES; do
+        COUNT=$(docker exec secsnow-postgres psql -U secsnow -d secsnow -t -c "SELECT COUNT(*) FROM $table" 2>/dev/null | tr -d ' ')
+        show_warning "  - $table: $COUNT 条数据"
+    done
+    
+    # 询问是否删除（如果没有设置自动清理）
+    if [ "$AUTO_CLEAN_RESUME" != true ]; then
+        echo ""
+        read -p "是否删除这些废弃的简历表？(y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            show_info "跳过简历表清理"
+            return
+        fi
+    fi
+    
+    # 删除表
+    show_info "删除简历表..."
+    for table in $RESUME_TABLES; do
+        docker exec secsnow-postgres psql -U secsnow -d secsnow -c "DROP TABLE IF EXISTS $table CASCADE" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            show_success "  ✓ 已删除: $table"
+        else
+            show_warning "  ✗ 删除失败: $table"
+        fi
+    done
+    
+    # 清理迁移记录
+    show_info "清理简历 app 的迁移记录..."
+    docker exec secsnow-postgres psql -U secsnow -d secsnow -c "DELETE FROM django_migrations WHERE app = 'resume'" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        show_success "  ✓ 迁移记录已清理"
+    fi
+    
+    show_success "简历表清理完成"
+}
+
 # 执行数据库迁移
 run_migrations() {
     show_step "执行数据库迁移..."
@@ -389,6 +451,11 @@ run_migrations() {
     if ! docker ps | grep -q secsnow-web; then
         show_error "Web 容器未运行，无法执行迁移"
     fi
+    
+    # 清理废弃的简历表（在迁移之前）
+    clean_resume_tables
+    
+    echo ""
     
     # 执行迁移
     show_info "检查并应用数据库迁移..."
@@ -570,6 +637,7 @@ show_help() {
     echo "  --no-backup                       跳过备份步骤"
     echo "  --no-migrate                      跳过数据库迁移"
     echo "  --cleanup                         更新后自动清理旧镜像"
+    echo "  --clean-resume                    自动清理废弃的简历表（不询问）"
     echo ""
     echo "更新方式:"
     echo ""
@@ -585,14 +653,15 @@ show_help() {
     echo ""
     echo "  # 从本地文件更新"
     echo "  $0 -y --cleanup"
+    echo "  $0 -y --cleanup --clean-resume"
     echo ""
     echo "  # 从 Docker Hub 拉取"
     echo "  $0 -r secsnow/secsnow:v1.0.0"
-    echo "  $0 -r secsnow/secsnow:latest -y"
+    echo "  $0 -r secsnow/secsnow:latest -y --clean-resume"
     echo ""
     echo "  # 从私有 Harbor 拉取"
     echo "  $0 -r harbor.company.com/secsnow/secsnow:v1.0.0"
-    echo "  $0 -r harbor.company.com/secsnow/secsnow:latest --cleanup"
+    echo "  $0 -r harbor.company.com/secsnow/secsnow:latest --cleanup --clean-resume"
     echo ""
     echo "  # 从阿里云容器镜像服务拉取"
     echo "  $0 -r crpi-xxx.cn-chengdu.personal.cr.aliyuncs.com/secsnow/secsnow_cty:1.0.1"
@@ -616,6 +685,7 @@ main() {
     SKIP_BACKUP=false
     SKIP_MIGRATE=false
     AUTO_CLEANUP=false
+    AUTO_CLEAN_RESUME=false
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -644,6 +714,10 @@ main() {
                 ;;
             --cleanup)
                 AUTO_CLEANUP=true
+                shift
+                ;;
+            --clean-resume)
+                AUTO_CLEAN_RESUME=true
                 shift
                 ;;
             *)

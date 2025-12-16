@@ -2,7 +2,7 @@
 #
 # 🚀 启动说明：
 # ────────────────────────────────────────────────────────────
-# 1. 启动核心服务（PostgreSQL + Redis + Django + Nginx）:
+# 1. 启动核心服务（PostgreSQL + Redis + MinIO + Django + Nginx）:
 #    docker-compose up -d
 #
 # 2. 启动全部服务（包含 Celery 异步任务 + Flower 监控）:
@@ -13,6 +13,11 @@
 #
 # 4. 停止并删除所有服务:
 #    docker-compose --profile celery down
+#
+# 📦 MinIO 对象存储（已默认启用）:
+#    - 管理控制台: http://服务器IP:7901
+#    - API 服务: http://服务器IP:7900
+#    - 密码: 查看 .env 文件中的 MINIO_ROOT_PASSWORD
 # ────────────────────────────────────────────────────────────
 
 services:
@@ -87,13 +92,57 @@ services:
       timeout: 5s
       retries: 5
 
+  # MinIO 对象存储
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    container_name: ${CONTAINER_PREFIX:-secsnow}-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123456}
+      TZ: Asia/Shanghai
+    volumes:
+      - ${MINIO_DATA_DIR:-./minio/data}:/data
+    # 端口映射（使用不常用端口）
+    ports:
+      - "${MINIO_API_PORT:-7900}:9000"      # API 端口
+      - "${MINIO_CONSOLE_PORT:-7901}:9001"  # 管理控制台端口
+    networks:
+      - secsnow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MinIO 初始化（自动创建 bucket）
+  minio-init:
+    image: ${MINIO_MC_IMAGE:-minio/mc:latest}
+    container_name: ${CONTAINER_PREFIX:-secsnow}-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      echo '等待 MinIO 启动...';
+      sleep 5;
+      echo '配置 MinIO 别名...';
+      mc alias set secsnow http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123456};
+      echo '创建 bucket: ${MINIO_BUCKET_NAME:-secsnow}';
+      mc mb secsnow/${MINIO_BUCKET_NAME:-secsnow} --ignore-existing;
+      echo '设置 bucket 为公开访问...';
+      mc anonymous set public secsnow/${MINIO_BUCKET_NAME:-secsnow};
+      echo 'MinIO 初始化完成！';
+      "
+    networks:
+      - secsnow-network
+
   # Django Web 应用（前端）
   web:
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-web
     restart: always
-    env_file:                    # ⬅ 新增
-      - .env
     environment:
       # Django 配置（使用 SNOW_ 前缀）
       SNOW_SECRET_KEY: ${SNOW_SECRET_KEY:-django-insecure-)+vh#@l4crslu5fza1e8da!2(0s10mw5%_1=*uko7cu9ju*yv-}
@@ -109,6 +158,16 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      # MinIO 配置（使用 SNOW_ 前缀）
+      SNOW_USE_MINIO: ${SNOW_USE_MINIO:-False}
+      SNOW_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      SNOW_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123456}
+      SNOW_MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-secsnow}
+      SNOW_MINIO_ENDPOINT_URL: http://minio:9000
+      SNOW_MINIO_REGION: us-east-1
+      SNOW_MINIO_USE_SSL: ${SNOW_MINIO_USE_SSL:-False}
+      SNOW_MINIO_VERIFY_SSL: ${SNOW_MINIO_VERIFY_SSL:-False}
+      SNOW_MINIO_CUSTOM_DOMAIN: ${SNOW_MINIO_CUSTOM_DOMAIN:-}
       # 时区配置
       TZ: Asia/Shanghai
         
@@ -129,6 +188,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
       - secsnow-network
     healthcheck:
@@ -142,8 +203,6 @@ services:
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-celery-worker
     restart: always
-    env_file:                    # ⬅ 新增
-      - .env
     command: celery -A secsnow worker -l info --concurrency=${CELERY_WORKER_CONCURRENCY:-4}
     environment:
       # Django 配置（使用 SNOW_ 前缀）
@@ -159,6 +218,16 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      # MinIO 配置（使用 SNOW_ 前缀）
+      SNOW_USE_MINIO: ${SNOW_USE_MINIO:-False}
+      SNOW_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      SNOW_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123456}
+      SNOW_MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-secsnow}
+      SNOW_MINIO_ENDPOINT_URL: http://minio:9000
+      SNOW_MINIO_REGION: us-east-1
+      SNOW_MINIO_USE_SSL: ${SNOW_MINIO_USE_SSL:-False}
+      SNOW_MINIO_VERIFY_SSL: ${SNOW_MINIO_VERIFY_SSL:-False}
+      SNOW_MINIO_CUSTOM_DOMAIN: ${SNOW_MINIO_CUSTOM_DOMAIN:-}
       # 时区配置
       TZ: Asia/Shanghai
     volumes:
@@ -175,6 +244,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
       web:
         condition: service_started
     networks:
@@ -190,8 +261,6 @@ services:
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-celery-beat
     restart: always
-    env_file:                    # ⬅ 新增
-      - .env
     command: celery -A secsnow beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     environment:
       # Django 配置（使用 SNOW_ 前缀）
@@ -207,6 +276,16 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      # MinIO 配置（使用 SNOW_ 前缀）
+      SNOW_USE_MINIO: ${SNOW_USE_MINIO:-False}
+      SNOW_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      SNOW_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123456}
+      SNOW_MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-secsnow}
+      SNOW_MINIO_ENDPOINT_URL: http://minio:9000
+      SNOW_MINIO_REGION: us-east-1
+      SNOW_MINIO_USE_SSL: ${SNOW_MINIO_USE_SSL:-False}
+      SNOW_MINIO_VERIFY_SSL: ${SNOW_MINIO_VERIFY_SSL:-False}
+      SNOW_MINIO_CUSTOM_DOMAIN: ${SNOW_MINIO_CUSTOM_DOMAIN:-}
       # 时区配置
       TZ: Asia/Shanghai
     volumes:
@@ -221,6 +300,8 @@ services:
       pgbouncer:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
       web:
         condition: service_started

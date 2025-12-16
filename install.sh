@@ -639,6 +639,7 @@ generate_env() {
     REDIS_PASSWORD=$(generate_redis_password)  # Redis使用纯字母数字密码
     SECRET_KEY=$(generate_password)$(generate_password)$(generate_password)
     FLOWER_PASSWORD=$(generate_password)
+    MINIO_PASSWORD=$(generate_password)  # MinIO密码
     
     # 获取当前时间戳
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
@@ -669,6 +670,10 @@ NGINX_IMAGE=${LOADED_NGINX_IMAGE:-nginx:stable}
 
 # SecSnow 应用镜像（从tar文件加载）
 SECSNOW_IMAGE=${LOADED_SECSNOW_IMAGE:-secsnow_cty_sy_sp1:1.0}
+
+# MinIO 对象存储镜像（如果启用 MinIO 才需要）
+MINIO_IMAGE=minio/minio:latest
+MINIO_MC_IMAGE=minio/mc:latest
 
 # ================================================
 # 🗄️ PostgreSQL 数据库配置
@@ -731,6 +736,10 @@ NGINX_HTTP_PORT=80
 # Nginx HTTPS 端口
 NGINX_HTTPS_PORT=443
 
+# MinIO 端口配置
+MINIO_API_PORT=7900
+MINIO_CONSOLE_PORT=7901
+
 # Flower 监控端口
 FLOWER_PORT=5555
 
@@ -776,6 +785,32 @@ CELERY_WORKER_CONCURRENCY=4
 TZ=Asia/Shanghai
 
 # ================================================
+# 📦 MinIO 对象存储配置
+# ================================================
+# 是否启用 MinIO 对象存储（True 启用，False 使用本地文件系统）
+SNOW_USE_MINIO=True
+
+# MinIO 管理员用户名
+MINIO_ROOT_USER=minioadmin
+
+# MinIO 管理员密码（生产环境必须修改！）
+MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
+
+# MinIO 存储桶名称
+MINIO_BUCKET_NAME=secsnow
+
+# MinIO 数据目录
+MINIO_DATA_DIR=./minio/data
+
+# MinIO SSL 配置
+SNOW_MINIO_USE_SSL=False
+SNOW_MINIO_VERIFY_SSL=False
+
+# MinIO 自定义域名（可选，配置 CDN 或反向代理后填写）
+# 示例：SNOW_MINIO_CUSTOM_DOMAIN=cdn.example.com
+SNOW_MINIO_CUSTOM_DOMAIN=
+
+# ================================================
 # 🔧 高级配置（一般不需要修改）
 # ================================================
 # Docker 网络名称（用于多实例部署时区分网络）
@@ -810,6 +845,17 @@ MAX_CONTAINERS_PER_TEAM=1
 #   docker-compose up -d     (docker-compose V1)
 # 单独重启某个服务:
 #   docker compose restart web
+#
+# ================================================
+# 📦 MinIO 对象存储说明
+# ================================================
+# MinIO 已默认启用作为对象存储服务
+# 访问控制台：http://服务器IP:7901
+# API 服务：http://服务器IP:7900
+# 用户名：minioadmin
+# 密码：已自动生成随机密码（见上方 MINIO_ROOT_PASSWORD）
+# 如需禁用：将 SNOW_USE_MINIO 改为 False
+# 如需修改端口：修改 MINIO_API_PORT 和 MINIO_CONSOLE_PORT
 # ================================================
 ENV_EOF
 
@@ -1012,6 +1058,46 @@ EOF
     fi
 }
 
+# 初始化 MinIO 默认文件
+initialize_minio_defaults() {
+    show_step "初始化 MinIO 默认文件..."
+    
+    # 检查是否启用了 MinIO
+    MINIO_ENABLED=$(grep "^SNOW_USE_MINIO=" .env | cut -d'=' -f2)
+    
+    if [ "$MINIO_ENABLED" != "True" ]; then
+        show_info "MinIO 未启用，跳过默认文件初始化"
+        return 0
+    fi
+    
+    # 检查是否有默认 media 文件
+    if [ -d "web/media" ] && [ "$(ls -A web/media 2>/dev/null)" ]; then
+        show_info "检测到默认 media 文件，正在同步到 MinIO..."
+        
+        # 从 .env 读取 MinIO 配置
+        MINIO_USER=$(grep "^MINIO_ROOT_USER=" .env | cut -d'=' -f2)
+        MINIO_PASSWORD=$(grep "^MINIO_ROOT_PASSWORD=" .env | cut -d'=' -f2)
+        MINIO_BUCKET=$(grep "^MINIO_BUCKET_NAME=" .env | cut -d'=' -f2)
+        
+        # 同步默认文件到 MinIO
+        docker run --rm \
+            -v "$(pwd)/web/media:/media" \
+            --network=secsnow-network \
+            minio/mc:latest sh -c "
+                mc alias set secsnow http://minio:9000 ${MINIO_USER} '${MINIO_PASSWORD}' >/dev/null 2>&1;
+                mc cp --recursive --quiet /media/ secsnow/${MINIO_BUCKET}/ 2>/dev/null;
+            " >/dev/null 2>&1
+        
+        if [ $? -eq 0 ]; then
+            show_success "默认文件已同步到 MinIO"
+        else
+            show_warning "默认文件同步失败（可能已存在）"
+        fi
+    else
+        show_info "未检测到默认 media 文件，跳过"
+    fi
+}
+
 # 显示安装完成信息
 show_completion() {
     show_success " 安装完成！"
@@ -1026,6 +1112,8 @@ show_completion() {
     echo ""
     echo -e "${BLUE}服务访问:${NC}"
     echo "  Web服务: http://您的IP地址，默认端口：80"
+    echo "  MinIO控制台: http://您的IP地址:7901"
+    echo "  MinIO API: http://您的IP地址:7900"
     echo "  (如果配置了Nginx，请检查nginx配置)"
     echo ""
     echo -e "${BLUE}管理命令:${NC}"
@@ -1051,6 +1139,8 @@ show_completion() {
     echo "  3. 生产环境请配置防火墙规则"
     echo "  4. 首次安装需要登录系统获取机器码，然后提供给开发者获取授权！"
     echo "  5. 网站首页内容，页脚内容，导航栏内容，请根据实际情况再后台管理对应模块进行修改！"
+    echo "  6. MinIO 对象存储已默认启用，所有文件将自动保存到 MinIO"
+    echo "  7. MinIO 管理密码见 .credentials 文件中的 MINIO_ROOT_PASSWORD"
     echo "========================================="
 }
 
@@ -1398,6 +1488,7 @@ main() {
     start_services
     run_migrations
     create_admin_user
+    initialize_minio_defaults
     
     # 创建安装标志文件
     echo "安装时间: $(date '+%Y-%m-%d %H:%M:%S')" > "${INSTALL_DIR}/.installed"
