@@ -790,25 +790,29 @@ TZ=Asia/Shanghai
 # 是否启用 MinIO 对象存储（True 启用，False 使用本地文件系统）
 SNOW_USE_MINIO=True
 
-# MinIO 管理员用户名
+# MinIO 容器配置（Docker 服务）
 MINIO_ROOT_USER=minioadmin
-
-# MinIO 管理员密码（生产环境必须修改！）
 MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
-
-# MinIO 存储桶名称
 MINIO_BUCKET_NAME=secsnow
-
-# MinIO 数据目录
 MINIO_DATA_DIR=./minio/data
+MINIO_API_PORT=7900
+MINIO_CONSOLE_PORT=7901
 
-# MinIO SSL 配置
+# Django 应用访问 MinIO 配置（内部连接）
+SNOW_MINIO_ACCESS_KEY=minioadmin
+SNOW_MINIO_SECRET_KEY=${MINIO_PASSWORD}
+SNOW_MINIO_BUCKET_NAME=secsnow
+SNOW_MINIO_ENDPOINT_URL=http://minio:9000
+SNOW_MINIO_REGION=us-east-1
+
+# SSL 配置（生产环境建议启用）
 SNOW_MINIO_USE_SSL=False
 SNOW_MINIO_VERIFY_SSL=False
 
-# MinIO 自定义域名（可选，配置 CDN 或反向代理后填写）
-# 示例：SNOW_MINIO_CUSTOM_DOMAIN=cdn.example.com
-SNOW_MINIO_CUSTOM_DOMAIN=
+# 公开访问配置（浏览器访问文件的地址）
+# 留空则使用相对路径 /minio/ （推荐，通过 Nginx 代理）
+# 或填写完整域名（如 http://your-ip:port 或 https://yourdomain.com）
+SNOW_MINIO_PUBLIC_URL=
 
 # ================================================
 # 🔧 高级配置（一般不需要修改）
@@ -850,12 +854,20 @@ MAX_CONTAINERS_PER_TEAM=1
 # 📦 MinIO 对象存储说明
 # ================================================
 # MinIO 已默认启用作为对象存储服务
-# 访问控制台：http://服务器IP:7901
-# API 服务：http://服务器IP:7900
+# 
+# 管理控制台：http://服务器IP/minio-console/
 # 用户名：minioadmin
 # 密码：已自动生成随机密码（见上方 MINIO_ROOT_PASSWORD）
+#
+# 文件访问地址：http://服务器IP/media/文件路径
+# （与本地存储保持一致，Nginx 自动代理到 MinIO）
+#
+# 配置说明：
+# - SNOW_MINIO_ENDPOINT_URL：Django 内部连接地址（不要改）
+# - SNOW_MINIO_PUBLIC_URL：留空即可（使用 /media/ 路径）
+# - 如使用 CDN，填写 CDN 域名（如 https://cdn.yourdomain.com）
+# 
 # 如需禁用：将 SNOW_USE_MINIO 改为 False
-# 如需修改端口：修改 MINIO_API_PORT 和 MINIO_CONSOLE_PORT
 # ================================================
 ENV_EOF
 
@@ -894,8 +906,8 @@ Flower监控:
 MinIO对象存储:
   用户名:   minioadmin
   密码:     ${MINIO_PASSWORD}
-  控制台:   http://YOUR_IP:7901
-  API地址:  http://YOUR_IP:7900
+  控制台:   http://YOUR_IP/minio-console/
+  文件访问: http://YOUR_IP/media/
 
 # ================================================
 # 重要提示
@@ -1134,10 +1146,12 @@ show_completion() {
     echo "========================================="
     echo ""
     echo -e "${BLUE}服务访问:${NC}"
-    echo "  Web服务: http://您的IP地址，默认端口：80"
-    echo "  MinIO控制台: http://您的IP地址:7901"
-    echo "  MinIO API: http://您的IP地址:7900"
-    echo "  (如果配置了Nginx，请检查nginx配置)"
+    echo "  Web服务: http://您的IP地址（默认端口 80）"
+    echo "  MinIO控制台: http://您的IP地址/minio-console/"
+    echo "  媒体文件: http://您的IP地址/media/（自动代理到MinIO）"
+    echo ""
+    echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 MinIO"
+    echo "       MinIO 端口（7900/7901）仅用于容器间内部通信"
     echo ""
     echo -e "${BLUE}管理命令:${NC}"
     echo "  查看服务状态:"
