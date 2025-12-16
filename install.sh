@@ -891,6 +891,12 @@ Flower监控:
   密码:     ${FLOWER_PASSWORD}
   访问地址: http://YOUR_IP:5555
 
+MinIO对象存储:
+  用户名:   minioadmin
+  密码:     ${MINIO_PASSWORD}
+  控制台:   http://YOUR_IP:7901
+  API地址:  http://YOUR_IP:7900
+
 # ================================================
 # 重要提示
 # ================================================
@@ -958,6 +964,23 @@ start_services() {
     show_step "启动Docker服务..."
     
     cd "${INSTALL_DIR}" || show_error "无法进入安装目录"
+    
+    # 创建必要的数据目录
+    show_info "创建数据目录..."
+    mkdir -p db/postgres
+    mkdir -p redis/data
+    mkdir -p minio/data
+    mkdir -p web/media
+    mkdir -p web/static
+    mkdir -p web/log
+    mkdir -p web/log/nginx
+    mkdir -p web/whoosh_index
+    mkdir -p nginx/ssl
+    
+    # 设置目录权限
+    chmod -R 755 minio 2>/dev/null || true
+    
+    show_success "数据目录创建完成"
     
     # 获取可用的 compose 命令
     COMPOSE_CMD=$(get_compose_command)

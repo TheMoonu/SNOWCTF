@@ -358,6 +358,21 @@ start_services() {
     
     cd "${INSTALL_DIR}" || show_error "无法进入安装目录"
     
+    # 确保必要的数据目录存在
+    show_info "检查数据目录..."
+    mkdir -p db/postgres 2>/dev/null || true
+    mkdir -p redis/data 2>/dev/null || true
+    mkdir -p minio/data 2>/dev/null || true
+    mkdir -p web/media 2>/dev/null || true
+    mkdir -p web/static 2>/dev/null || true
+    mkdir -p web/log 2>/dev/null || true
+    mkdir -p web/log/nginx 2>/dev/null || true
+    mkdir -p web/whoosh_index 2>/dev/null || true
+    mkdir -p nginx/ssl 2>/dev/null || true
+    
+    # 设置 MinIO 目录权限
+    chmod -R 755 minio 2>/dev/null || true
+    
     COMPOSE_CMD=$(get_compose_command)
     
     # 拉起所有服务
@@ -375,6 +390,210 @@ start_services() {
     # 显示服务状态
     show_info "服务状态："
     $COMPOSE_CMD ps
+}
+
+# 检查并初始化 MinIO（老用户适配）
+check_and_init_minio() {
+    show_step "检查 MinIO 配置..."
+    
+    # 检查 .env 中是否有 MinIO 配置
+    if ! grep -q "SNOW_USE_MINIO" .env 2>/dev/null; then
+        show_info "检测到旧版本配置，添加 MinIO 配置..."
+        
+        # 添加 MinIO 配置到 .env
+        cat >> .env << 'EOF'
+
+# ================================================
+# 📦 MinIO 对象存储配置（新增）
+# ================================================
+SNOW_USE_MINIO=False
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin123456
+MINIO_BUCKET_NAME=secsnow
+MINIO_DATA_DIR=./minio/data
+MINIO_API_PORT=7900
+MINIO_CONSOLE_PORT=7901
+SNOW_MINIO_USE_SSL=False
+SNOW_MINIO_VERIFY_SSL=False
+SNOW_MINIO_CUSTOM_DOMAIN=
+MINIO_IMAGE=minio/minio:latest
+MINIO_MC_IMAGE=minio/mc:latest
+EOF
+        show_success "MinIO 配置已添加"
+        show_info "MinIO 默认为禁用状态，可稍后启用"
+    fi
+    
+    # 检查是否启用了 MinIO
+    MINIO_ENABLED=$(grep "^SNOW_USE_MINIO=" .env | cut -d'=' -f2)
+    
+    if [ "$MINIO_ENABLED" = "True" ]; then
+        show_info "MinIO 已启用"
+        
+        # 检查 MinIO 服务是否在运行
+        if ! docker ps | grep -q secsnow-minio; then
+            show_warning "MinIO 服务未运行，将在启动服务时自动启动"
+        else
+            show_success "MinIO 服务运行正常"
+        fi
+        
+        # 检查是否需要迁移 media 文件
+        if [ -d "web/media" ] && [ "$(find web/media -type f | wc -l)" -gt 0 ]; then
+            check_media_migration
+        fi
+    else
+        show_info "MinIO 未启用（使用本地存储）"
+        
+        # 询问是否要启用 MinIO
+        if [ "$AUTO_ENABLE_MINIO" != true ] && [ "$SKIP_CONFIRM" = false ]; then
+            echo ""
+            echo -e "${YELLOW}MinIO 是什么？${NC}"
+            echo "  MinIO 是高性能的对象存储服务，用于存储上传的文件"
+            echo "  优势：高可用、可扩展、支持分布式部署"
+            echo ""
+            read -p "是否启用 MinIO 对象存储？(y/n): " -n 1 -r
+            echo
+            
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                enable_minio_storage
+            else
+                show_info "保持使用本地存储"
+            fi
+        fi
+    fi
+}
+
+# 检查是否需要迁移 media 文件到 MinIO
+check_media_migration() {
+    show_info "检查 media 文件迁移状态..."
+    
+    # 检查 MinIO 中是否已有文件
+    MINIO_USER=$(grep "^MINIO_ROOT_USER=" .env | cut -d'=' -f2)
+    MINIO_PASSWORD=$(grep "^MINIO_ROOT_PASSWORD=" .env | cut -d'=' -f2)
+    MINIO_BUCKET=$(grep "^MINIO_BUCKET_NAME=" .env | cut -d'=' -f2)
+    
+    # 检查 MinIO 中的文件数量
+    MINIO_FILE_COUNT=$(docker run --rm \
+        --network=secsnow-network \
+        minio/mc:latest sh -c "
+            mc alias set secsnow http://minio:9000 ${MINIO_USER} '${MINIO_PASSWORD}' >/dev/null 2>&1;
+            mc ls --recursive secsnow/${MINIO_BUCKET}/ 2>/dev/null | wc -l
+        " 2>/dev/null || echo "0")
+    
+    LOCAL_FILE_COUNT=$(find web/media -type f | wc -l)
+    
+    echo ""
+    echo -e "${YELLOW}文件迁移状态:${NC}"
+    echo "  本地文件数: $LOCAL_FILE_COUNT"
+    echo "  MinIO文件数: $MINIO_FILE_COUNT"
+    
+    # 如果 MinIO 中文件明显少于本地，提示迁移
+    if [ "$MINIO_FILE_COUNT" -lt "$((LOCAL_FILE_COUNT / 2))" ]; then
+        show_warning "MinIO 中文件数量较少，可能需要迁移"
+        
+        if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
+            migrate_media_to_minio
+        elif [ "$SKIP_CONFIRM" = false ]; then
+            echo ""
+            read -p "是否现在迁移本地文件到 MinIO？(y/n): " -n 1 -r
+            echo
+            
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                migrate_media_to_minio
+            else
+                show_info "跳过文件迁移"
+                show_warning "可稍后运行: ./migrate_media_to_minio.sh"
+            fi
+        fi
+    else
+        show_success "文件已同步到 MinIO"
+    fi
+}
+
+# 启用 MinIO 存储
+enable_minio_storage() {
+    show_step "启用 MinIO 对象存储..."
+    
+    # 修改 .env 配置
+    sed -i.bak 's/^SNOW_USE_MINIO=.*/SNOW_USE_MINIO=True/' .env
+    
+    # 生成随机密码（如果是默认密码）
+    CURRENT_PASSWORD=$(grep "^MINIO_ROOT_PASSWORD=" .env | cut -d'=' -f2)
+    if [ "$CURRENT_PASSWORD" = "minioadmin123456" ]; then
+        NEW_PASSWORD=$(openssl rand -base64 16 | tr -d '+/=' | head -c 20)
+        sed -i "s/^MINIO_ROOT_PASSWORD=.*/MINIO_ROOT_PASSWORD=${NEW_PASSWORD}/" .env
+        show_info "已生成随机 MinIO 密码"
+    fi
+    
+    show_success "MinIO 已启用"
+    show_info "MinIO 将在服务启动时自动运行"
+}
+
+# 迁移 media 文件到 MinIO
+migrate_media_to_minio() {
+    show_step "迁移 media 文件到 MinIO..."
+    
+    # 确保 MinIO 服务运行
+    if ! docker ps | grep -q secsnow-minio; then
+        show_warning "MinIO 未运行，先启动 MinIO..."
+        docker-compose up -d minio 2>/dev/null || true
+        sleep 5
+    fi
+    
+    # 从 .env 读取配置
+    MINIO_USER=$(grep "^MINIO_ROOT_USER=" .env | cut -d'=' -f2)
+    MINIO_PASSWORD=$(grep "^MINIO_ROOT_PASSWORD=" .env | cut -d'=' -f2)
+    MINIO_BUCKET=$(grep "^MINIO_BUCKET_NAME=" .env | cut -d'=' -f2)
+    
+    # 统计本地文件
+    LOCAL_FILE_COUNT=$(find web/media -type f | wc -l)
+    show_info "准备迁移 $LOCAL_FILE_COUNT 个文件..."
+    
+    # 使用 mc 客户端同步文件
+    docker run --rm \
+        -v "$(pwd)/web/media:/media" \
+        --network=secsnow-network \
+        minio/mc:latest sh -c "
+            mc alias set secsnow http://minio:9000 ${MINIO_USER} '${MINIO_PASSWORD}';
+            mc cp --recursive /media/ secsnow/${MINIO_BUCKET}/;
+        " 2>&1 | grep -v "^$"
+    
+    if [ $? -eq 0 ]; then
+        show_success "文件迁移完成"
+        
+        # 验证迁移结果
+        MINIO_FILE_COUNT=$(docker run --rm \
+            --network=secsnow-network \
+            minio/mc:latest sh -c "
+                mc alias set secsnow http://minio:9000 ${MINIO_USER} '${MINIO_PASSWORD}';
+                mc ls --recursive secsnow/${MINIO_BUCKET}/ | wc -l
+            " 2>/dev/null)
+        
+        echo ""
+        echo -e "${GREEN}迁移结果:${NC}"
+        echo "  本地文件: $LOCAL_FILE_COUNT"
+        echo "  MinIO文件: $MINIO_FILE_COUNT"
+        
+        if [ "$MINIO_FILE_COUNT" -ge "$LOCAL_FILE_COUNT" ]; then
+            show_success "✓ 所有文件已成功迁移"
+            
+            # 询问是否备份本地文件
+            if [ "$SKIP_CONFIRM" = false ]; then
+                echo ""
+                read -p "是否将本地 media 目录重命名为 media.backup？(y/n): " -n 1 -r
+                echo
+                
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    mv web/media web/media.backup
+                    mkdir -p web/media
+                    show_success "本地目录已重命名为 media.backup"
+                fi
+            fi
+        else
+            show_warning "文件数量不匹配，请检查"
+        fi
+    else
+        show_error "文件迁移失败"
+    fi
 }
 
 # 清理废弃的简历表
@@ -600,11 +819,29 @@ show_completion() {
     echo "  5. 启动服务: $COMPOSE_CMD up -d"
     echo ""
     
+    # 检查 MinIO 状态并显示信息
+    MINIO_STATUS=""
+    if grep -q "^SNOW_USE_MINIO=True" .env 2>/dev/null; then
+        MINIO_STATUS="${GREEN}已启用${NC}"
+        MINIO_PORT=$(grep "^MINIO_CONSOLE_PORT=" .env | cut -d'=' -f2 || echo "7901")
+        echo -e "${BLUE}MinIO 对象存储:${NC}"
+        echo "  状态: 已启用"
+        echo "  控制台: http://服务器IP:${MINIO_PORT}"
+        echo "  密码: 查看 .env 中的 MINIO_ROOT_PASSWORD"
+        echo ""
+    fi
+    
     echo -e "${YELLOW}提示:${NC}"
     echo "  1. 如遇问题，可查看日志: docker logs secsnow-web"
     echo "  2. 备份文件保存在: ${BACKUP_DIR}"
     echo "  3. 建议测试主要功能是否正常"
     echo "  4. 数据库数据已保留，无需担心数据丢失"
+    if grep -q "^SNOW_USE_MINIO=True" .env 2>/dev/null; then
+        echo "  5. MinIO 已启用，新上传文件将保存到对象存储"
+        if [ -d "web/media.backup" ]; then
+            echo "  6. 旧 media 文件已备份到 web/media.backup"
+        fi
+    fi
     echo ""
     echo "========================================="
     echo -e "${CYAN}访问地址:${NC}"
@@ -638,6 +875,8 @@ show_help() {
     echo "  --no-migrate                      跳过数据库迁移"
     echo "  --cleanup                         更新后自动清理旧镜像"
     echo "  --clean-resume                    自动清理废弃的简历表（不询问）"
+    echo "  --enable-minio                    自动启用 MinIO（不询问）"
+    echo "  --migrate-media                   自动迁移 media 文件到 MinIO（不询问）"
     echo ""
     echo "更新方式:"
     echo ""
@@ -654,6 +893,9 @@ show_help() {
     echo "  # 从本地文件更新"
     echo "  $0 -y --cleanup"
     echo "  $0 -y --cleanup --clean-resume"
+    echo ""
+    echo "  # 老用户启用 MinIO"
+    echo "  $0 -y --enable-minio --migrate-media"
     echo ""
     echo "  # 从 Docker Hub 拉取"
     echo "  $0 -r secsnow/secsnow:v1.0.0"
@@ -686,6 +928,8 @@ main() {
     SKIP_MIGRATE=false
     AUTO_CLEANUP=false
     AUTO_CLEAN_RESUME=false
+    AUTO_ENABLE_MINIO=false
+    AUTO_MIGRATE_MEDIA=false
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -718,6 +962,14 @@ main() {
                 ;;
             --clean-resume)
                 AUTO_CLEAN_RESUME=true
+                shift
+                ;;
+            --enable-minio)
+                AUTO_ENABLE_MINIO=true
+                shift
+                ;;
+            --migrate-media)
+                AUTO_MIGRATE_MEDIA=true
                 shift
                 ;;
             *)
@@ -815,6 +1067,13 @@ main() {
     
     # 启动服务
     start_services
+    
+    echo ""
+    
+    # 检查并初始化 MinIO（老用户适配）
+    check_and_init_minio
+    
+    echo ""
     
     # 数据库迁移
     if [ "$SKIP_MIGRATE" = false ]; then
