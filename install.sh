@@ -828,10 +828,10 @@ TZ=Asia/Shanghai
 # ================================================
 # RustFS 对象存储配置
 # ================================================
-# 是否启用对象存储（True 启用，False 使用本地文件系统）
+# 是否启用本地对象存储（True 启用，False 使用本地文件系统）
 SNOW_USE_OBJECT_STORAGE=${ENABLE_OBJECT_STORAGE:-True}
 
-# RustFS 容器配置（Docker 服务层）
+# 本地文件系统存储RustFS 容器配置
 RUSTFS_ROOT_USER=rustfsadmin
 RUSTFS_ROOT_PASSWORD=${RUSTFS_PASSWORD}
 RUSTFS_BUCKET_NAME=secsnow
@@ -839,31 +839,37 @@ RUSTFS_DATA_DIR=./rustfs/data
 RUSTFS_LOG_DIR=./rustfs/logs
 RUSTFS_API_PORT=7900
 RUSTFS_CONSOLE_PORT=7901
+# CORS 设置，控制台与 S3 API 都放开来源
+RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
+RUSTFS_CORS_ALLOWED_ORIGINS=*
 
 # RustFS 镜像配置
 RUSTFS_IMAGE=rustfs/rustfs:latest
 MINIO_MC_IMAGE=minio/mc:latest
 
 # ================================================
-# Django 对象存储配置（应用层配置）
+# 对象存储节点配置
 # ================================================
-# Django 使用这些变量连接到 RustFS
-# 注意：可以与 RustFS root 用户不同，提高安全性
-# 可自定义其他类型存储，如阿里云OSS、腾讯云COS、或者本地其他节点存储
+# 本地文件系统存储使用这些变量连接到 RustFS
+# 可自定义其他类型存储节点，如阿里云OSS、腾讯云COS、或者本地其他节点存储等
 # 存储访问凭证
 SNOW_STORAGE_ACCESS_KEY=rustfsadmin
 # 存储访问密钥
 SNOW_STORAGE_SECRET_KEY=${RUSTFS_PASSWORD}
-# 存储桶名称
+
+# 存储桶名称，如果您使用用本地存储节点，需要去nginx配置文件中添加桶名称代理的配置，因为本地存储节点不会暴露桶名称做了层代理。
+# 默认桶的名称为secsnow，如果您换桶名，也需要将默认的存储文件上传至新桶。
+
 SNOW_STORAGE_BUCKET_NAME=secsnow
-# 存储节点地址，内部节点地址为 http://rustfs:9000
+# 存储节点地址，本地内部节点地址为 http://rustfs:9000
 SNOW_STORAGE_ENDPOINT_URL=http://rustfs:9000
 # 区域
 SNOW_STORAGE_REGION=us-east-1
 # 文件路径前缀
 SNOW_STORAGE_LOCATION=
 
-# SSL 配置（生产环境建议启用）
+
+# SSL 配置
 SNOW_STORAGE_USE_SSL=False
 SNOW_STORAGE_VERIFY_SSL=False
 
@@ -891,7 +897,7 @@ CONTAINER_EXPIRY_HOURS=2
 MAX_CONTAINERS_PER_USER=1
 
 # 每个题目最多同时运行的容器数
-MAX_CONTAINERS_PER_CHALLENGE=100
+MAX_CONTAINERS_PER_CHALLENGE=50
 
 # 每个队伍最多同时运行的容器数（团队赛）
 MAX_CONTAINERS_PER_TEAM=1
@@ -1063,10 +1069,15 @@ start_services() {
     mkdir -p web/whoosh_index
     mkdir -p nginx/ssl
     
-    # 创建对象存储相关目录（必需）
-    mkdir -p rustfs/data
-    mkdir -p rustfs/logs
-    chmod -R 755 rustfs 2>/dev/null || true
+    # 根据对象存储配置创建相关目录
+    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
+        show_info "对象存储已启用，创建 RustFS 数据目录..."
+        mkdir -p rustfs/data
+        mkdir -p rustfs/logs
+        chmod -R 755 rustfs 2>/dev/null || true
+    else
+        show_info "对象存储未启用，跳过 RustFS 目录创建"
+    fi
     
     show_success "数据目录创建完成"
     
@@ -1078,12 +1089,23 @@ start_services() {
     
     show_info "使用命令: $COMPOSE_CMD"
     
-    # 启动所有服务（包含 RustFS 对象存储）
-    show_info "启动所有服务（PostgreSQL + Redis + RustFS + Web + Nginx）..."
-    if $COMPOSE_CMD up -d; then
-        show_success "服务启动成功（包含 RustFS 对象存储）"
+    # 根据对象存储配置决定启动哪些服务
+    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
+        # 启动所有服务（包含 RustFS 对象存储）
+        show_info "启动所有服务（PostgreSQL + Redis + RustFS + Web + Nginx）..."
+        if $COMPOSE_CMD --profile storage up -d; then
+            show_success "服务启动成功（包含 RustFS 对象存储）"
+        else
+            show_error "服务启动失败，请检查日志"
+        fi
     else
-        show_error "服务启动失败，请检查日志"
+        # 启动核心服务（不包含 RustFS）
+        show_info "启动核心服务（PostgreSQL + Redis + Web + Nginx）..."
+        if $COMPOSE_CMD up -d; then
+            show_success "服务启动成功"
+        else
+            show_error "服务启动失败，请检查日志"
+        fi
     fi
     
     # 等待服务就绪
@@ -1171,6 +1193,12 @@ EOF
 
 # 初始化对象存储默认文件
 initialize_object_storage_defaults() {
+    # 检查是否启用了对象存储
+    if [ "${ENABLE_OBJECT_STORAGE}" != "True" ]; then
+        show_info "对象存储未启用，跳过默认文件同步"
+        return 0
+    fi
+    
     show_step "初始化对象存储默认文件..."
     
     # 等待 RustFS 完全启动
@@ -1220,11 +1248,21 @@ show_completion() {
     echo ""
     echo -e "${BLUE}服务访问:${NC}"
     echo "  Web服务: http://您的IP地址（默认端口 80）"
-    echo "  对象存储控制台: http://您的IP地址/storage-console/"
-    echo "  媒体文件: http://您的IP地址/media/（自动代理到 RustFS）"
-    echo ""
-    echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 RustFS"
-    echo "       RustFS 不对外暴露端口，仅在容器网络内部通信"
+    
+    # 根据对象存储状态显示不同信息
+    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
+        echo "  对象存储控制台: http://您的IP地址:7901/"
+        echo "  媒体文件: http://您的IP地址/media/（自动代理到 RustFS）"
+        echo ""
+        echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 RustFS"
+        echo "       RustFS API 端口仅在容器网络内部通信，不对外暴露"
+    else
+        echo "  媒体文件: http://您的IP地址/media/（本地文件系统）"
+        echo ""
+        echo -e "${YELLOW}注意：${NC}当前使用本地文件系统存储"
+        echo "       如需启用对象存储，请修改 .env 中的 SNOW_USE_OBJECT_STORAGE=True"
+        echo "       然后运行: docker-compose --profile storage up -d"
+    fi
     echo ""
     echo -e "${BLUE}管理命令:${NC}"
     echo "  查看服务状态:"
@@ -1233,11 +1271,21 @@ show_completion() {
     echo "  查看Web日志:"
     echo "    docker logs -f secsnow-web"
     echo ""
-    echo "  重启服务:"
-    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD restart"
-    echo ""
-    echo "  停止服务:"
-    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD down"
+    
+    # 根据对象存储状态显示不同命令
+    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
+        echo "  重启服务（包含对象存储）:"
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD --profile storage restart"
+        echo ""
+        echo "  停止服务:"
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD --profile storage down"
+    else
+        echo "  重启服务:"
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD restart"
+        echo ""
+        echo "  停止服务:"
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD down"
+    fi
     echo ""
     echo -e "${BLUE}重要文件:${NC}"
     echo "  配置文件: ${INSTALL_DIR}/.env"
@@ -1250,8 +1298,16 @@ show_completion() {
     echo "  4. 首次安装需要登录系统获取机器码，然后提供给开发者获取授权！"
     echo "  5. 网站首页内容，页脚内容，导航栏内容，请根据实际情况在后台管理对应模块进行修改！"
     echo "  6. 请遵守许可协议，不得用于非法用途！无商业授权情况不得用于商业用途！未经授权不得对软件进行破解、逆向工程、篡改、二次开发等行为！"
-    echo "  7. RustFS 对象存储已启用，所有上传文件将保存到对象存储"
-    echo "  8. RustFS 管理密码见 .credentials 文件中的 RUSTFS_ROOT_PASSWORD"
+    
+    # 根据对象存储状态显示不同提示
+    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
+        echo "  7. RustFS 对象存储已启用，所有上传文件将保存到对象存储"
+        echo "  8. RustFS 管理密码见 .credentials 文件（RUSTFS_ROOT_PASSWORD）"
+    else
+        echo "  7. 当前使用本地文件系统存储（web/media 目录）"
+        echo "  8. 如需启用对象存储，请修改 .env 中的 SNOW_USE_OBJECT_STORAGE=True"
+    fi
+    
     echo "========================================="
 }
 

@@ -1,25 +1,28 @@
 # 内部网络版本 - 不暴露数据库端口到主机（更安全）
 #
-# 🚀 启动说明：
+# 启动说明：
 # ────────────────────────────────────────────────────────────
-# 1. 启动所有核心服务（PostgreSQL + Redis + Django + Nginx + RustFS）:
+# 1. 启动核心服务（PostgreSQL + Redis + Django + Nginx）:
 #    docker-compose up -d
 #
-# 2. 启动全部服务（包含 Flower 监控）:
-#    docker-compose --profile Flower up -d
+# 2. 启动核心服务 + RustFS 对象存储:
+#    docker-compose --profile storage up -d
 #
-# 3. 查看所有服务状态:
+# 3. 启动全部服务（包含 RustFS + Flower 监控）:
+#    docker-compose --profile storage --profile Flower up -d
+#
+# 4. 查看所有服务状态:
 #    docker-compose ps -a
 #
-# 4. 停止并删除所有服务:
+# 5. 停止并删除所有服务:
 #    docker-compose down
 #
-# 📦 RustFS 对象存储（必需服务 - 默认启动）:
+#  RustFS 对象存储（可选服务 - 使用 --profile storage 启动）:
 #    - 管理控制台: http://服务器IP:7901（直接访问，不通过 Nginx 代理）
 #    - 文件访问: http://服务器IP/media/（通过 Nginx 代理，不暴露桶名称）
 #    - API 端口（9000）: 仅内部网络访问，不对外暴露，确保安全性
 #    - 默认账号密码: rustfsadmin / 查看 .env 文件中的 RUSTFS_ROOT_PASSWORD
-#    - 注意: 对象存储已默认启用
+#    - 注意: 启用对象存储需要在 .env 中设置 SNOW_USE_OBJECT_STORAGE=True
 # ────────────────────────────────────────────────────────────
 
 services:
@@ -94,8 +97,10 @@ services:
       timeout: 5s
       retries: 5
 
-  # RustFS 对象存储（必需服务 - 默认启动）
+  # RustFS 对象存储（可选服务 - 需要启用时使用 --profile storage 启动）
   rustfs:
+    profiles:
+      - storage  # 需要使用 --profile storage 参数才会启动此服务
     image: ${RUSTFS_IMAGE:-rustfs/rustfs:latest}
     container_name: ${CONTAINER_PREFIX:-secsnow}-rustfs
     restart: always
@@ -110,8 +115,8 @@ services:
       RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
       RUSTFS_CONSOLE_ENABLE: "true"
       # CORS 设置
-      RUSTFS_CORS_ALLOWED_ORIGINS: "*"
-      RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: "*"
+      RUSTFS_CORS_ALLOWED_ORIGINS: ${RUSTFS_CORS_ALLOWED_ORIGINS:-*}
+      RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: ${RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS:-*}
       # 访问密钥
       RUSTFS_ACCESS_KEY: ${RUSTFS_ROOT_USER:-rustfsadmin}
       RUSTFS_SECRET_KEY: ${RUSTFS_ROOT_PASSWORD:-rustfsadmin}
@@ -140,6 +145,8 @@ services:
 
   # RustFS 初始化（自动创建 bucket）
   rustfs-init:
+    profiles:
+      - storage  # 需要使用 --profile storage 参数才会启动此服务
     image: ${MINIO_MC_IMAGE:-minio/mc:latest}  # 使用 minio client，因为 RustFS 兼容 S3 API
     container_name: ${CONTAINER_PREFIX:-secsnow}-rustfs-init
     depends_on:
@@ -297,8 +304,22 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      #应用配置
+      SECSNOW_VERSION: ${SECSNOW_VERSION:-v1.0.0}
+      SNOW_ALLOWED_HOSTS: ${SNOW_ALLOWED_HOSTS:-*}
+      SNOW_CSRF_TRUSTED_ORIGINS: ${SNOW_CSRF_TRUSTED_ORIGINS:-}
+      SNOW_ACCOUNT_EMAIL_VERIFICATION: ${SNOW_ACCOUNT_EMAIL_VERIFICATION:-none}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-SecSnowEncryptKey2024567890AB}
+      SNOW_PROTOCOL_HTTPS: ${SNOW_PROTOCOL_HTTPS:-http}
+      SNOW_SIMPLEUI_HOME_TITLE: ${SNOW_SIMPLEUI_HOME_TITLE:-SECSNOW}
+      SNOW_SIMPLEUI_LOGO: ${SNOW_SIMPLEUI_LOGO:-https://www.secsnow.cn/static/blog/img/logo.svg}
+      #容器相关设置
+      CONTAINER_EXPIRY_HOURS: ${CONTAINER_EXPIRY_HOURS:-2}
+      MAX_CONTAINERS_PER_USER: ${MAX_CONTAINERS_PER_USER:-1}
+      MAX_CONTAINERS_PER_CHALLENGE: ${MAX_CONTAINERS_PER_CHALLENGE:-100}
+      MAX_CONTAINERS_PER_TEAM: ${MAX_CONTAINERS_PER_TEAM:-1}
       # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
-      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
+      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-True}
       SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
       SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
       SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
