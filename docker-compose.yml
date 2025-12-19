@@ -2,22 +2,24 @@
 #
 # 🚀 启动说明：
 # ────────────────────────────────────────────────────────────
-# 1. 启动核心服务（PostgreSQL + Redis + MinIO + Django + Nginx）:
+# 1. 启动所有核心服务（PostgreSQL + Redis + Django + Nginx + RustFS）:
 #    docker-compose up -d
 #
-# 2. 启动全部服务（包含 Celery 异步任务 + Flower 监控）:
+# 2. 启动全部服务（包含 Flower 监控）:
 #    docker-compose --profile Flower up -d
 #
 # 3. 查看所有服务状态:
 #    docker-compose ps -a
 #
 # 4. 停止并删除所有服务:
-#    docker-compose --profile celery down
+#    docker-compose down
 #
-# 📦 MinIO 对象存储（已默认启用）:
-#    - 管理控制台: http://服务器IP:7901
-#    - API 服务: http://服务器IP:7900
-#    - 密码: 查看 .env 文件中的 MINIO_ROOT_PASSWORD
+# 📦 RustFS 对象存储（必需服务 - 默认启动）:
+#    - 管理控制台: http://服务器IP:7901（直接访问，不通过 Nginx 代理）
+#    - 文件访问: http://服务器IP/media/（通过 Nginx 代理，不暴露桶名称）
+#    - API 端口（9000）: 仅内部网络访问，不对外暴露，确保安全性
+#    - 默认账号密码: rustfsadmin / 查看 .env 文件中的 RUSTFS_ROOT_PASSWORD
+#    - 注意: 对象存储已默认启用
 # ────────────────────────────────────────────────────────────
 
 services:
@@ -92,48 +94,68 @@ services:
       timeout: 5s
       retries: 5
 
-  # MinIO 对象存储
-  minio:
-    image: ${MINIO_IMAGE:-minio/minio:latest}
-    container_name: ${CONTAINER_PREFIX:-secsnow}-minio
+  # RustFS 对象存储（必需服务 - 默认启动）
+  rustfs:
+    image: ${RUSTFS_IMAGE:-rustfs/rustfs:latest}
+    container_name: ${CONTAINER_PREFIX:-secsnow}-rustfs
     restart: always
-    command: server /data --console-address ":9001"
+    user: "0:0"  # 以 root 用户运行，避免权限问题
+    security_opt:
+      - "no-new-privileges:true"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123456}
+      # 数据卷路径
+      RUSTFS_VOLUMES: /data/rustfs0
+      # API 和控制台监听地址
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      # CORS 设置
+      RUSTFS_CORS_ALLOWED_ORIGINS: "*"
+      RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: "*"
+      # 访问密钥
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ROOT_USER:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_ROOT_PASSWORD:-rustfsadmin}
+      # 禁用 KMS 加密服务（避免 KMS 未初始化错误）
+      MINIO_KMS_KES_ENDPOINT: ""
+      MINIO_KMS_AUTO_ENCRYPTION: "off"
+      # 日志级别
+      RUSTFS_OBS_LOGGER_LEVEL: info
+      # 时区配置
       TZ: Asia/Shanghai
     volumes:
-      - ${MINIO_DATA_DIR:-./minio/data}:/data
-    # 端口映射（使用不常用端口）
+      - ${RUSTFS_DATA_DIR:-./rustfs/data}:/data
+      - ${RUSTFS_LOG_DIR:-./rustfs/logs}:/app/logs
+    # 端口映射：只暴露 RustFS Console 管理界面到主机
+    # API 端口（9000）不暴露，所有文件访问通过 Nginx 代理
     ports:
-      - "${MINIO_API_PORT:-7900}:9000"      # API 端口
-      - "${MINIO_CONSOLE_PORT:-7901}:9001"  # 管理控制台端口
+      - "${RUSTFS_CONSOLE_PORT:-7901}:9001"  # 管理控制台端口 - 直接访问（http://服务器IP:7901）
     networks:
       - secsnow-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:9000/health && curl -f http://localhost:9001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
-  # MinIO 初始化（自动创建 bucket）
-  minio-init:
-    image: ${MINIO_MC_IMAGE:-minio/mc:latest}
-    container_name: ${CONTAINER_PREFIX:-secsnow}-minio-init
+  # RustFS 初始化（自动创建 bucket）
+  rustfs-init:
+    image: ${MINIO_MC_IMAGE:-minio/mc:latest}  # 使用 minio client，因为 RustFS 兼容 S3 API
+    container_name: ${CONTAINER_PREFIX:-secsnow}-rustfs-init
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      echo '等待 MinIO 启动...';
+      echo '等待 RustFS 启动...';
       sleep 5;
-      echo '配置 MinIO 别名...';
-      mc alias set secsnow http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123456};
-      echo '创建 bucket: ${MINIO_BUCKET_NAME:-secsnow}';
-      mc mb secsnow/${MINIO_BUCKET_NAME:-secsnow} --ignore-existing;
+      echo '配置 RustFS 别名...';
+      mc alias set secsnow http://rustfs:9000 ${RUSTFS_ROOT_USER:-rustfsadmin} ${RUSTFS_ROOT_PASSWORD:-rustfsadmin};
+      echo '创建 bucket: ${RUSTFS_BUCKET_NAME:-secsnow}';
+      mc mb secsnow/${RUSTFS_BUCKET_NAME:-secsnow} --ignore-existing;
       echo '设置 bucket 为公开访问...';
-      mc anonymous set public secsnow/${MINIO_BUCKET_NAME:-secsnow};
-      echo 'MinIO 初始化完成！';
+      mc anonymous set public secsnow/${RUSTFS_BUCKET_NAME:-secsnow};
+      echo 'RustFS 初始化完成！';
       "
     networks:
       - secsnow-network
@@ -158,16 +180,18 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      # MinIO 配置（使用 SNOW_ 前缀）
-      SNOW_USE_MINIO: ${SNOW_USE_MINIO:-False}
-      SNOW_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      SNOW_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123456}
-      SNOW_MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-secsnow}
-      SNOW_MINIO_ENDPOINT_URL: http://minio:9000
-      SNOW_MINIO_REGION: us-east-1
-      SNOW_MINIO_USE_SSL: ${SNOW_MINIO_USE_SSL:-False}
-      SNOW_MINIO_VERIFY_SSL: ${SNOW_MINIO_VERIFY_SSL:-False}
-      SNOW_MINIO_CUSTOM_DOMAIN: ${SNOW_MINIO_CUSTOM_DOMAIN:-}
+      # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
+      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
+      SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
+      SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
+      SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
+      SNOW_STORAGE_ENDPOINT_URL: ${SNOW_STORAGE_ENDPOINT_URL:-http://rustfs:9000}
+      SNOW_STORAGE_REGION: ${SNOW_STORAGE_REGION:-us-east-1}
+      SNOW_STORAGE_LOCATION: ${SNOW_STORAGE_LOCATION:-}
+      SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
+      SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
+      SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
+      SECSNOW_VERSION: ${SECSNOW_VERSION:-v1.0.0}
       # 时区配置
       TZ: Asia/Shanghai
         
@@ -187,8 +211,6 @@ services:
       pgbouncer:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     networks:
       - secsnow-network
@@ -218,16 +240,17 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      # MinIO 配置（使用 SNOW_ 前缀）
-      SNOW_USE_MINIO: ${SNOW_USE_MINIO:-False}
-      SNOW_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      SNOW_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123456}
-      SNOW_MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-secsnow}
-      SNOW_MINIO_ENDPOINT_URL: http://minio:9000
-      SNOW_MINIO_REGION: us-east-1
-      SNOW_MINIO_USE_SSL: ${SNOW_MINIO_USE_SSL:-False}
-      SNOW_MINIO_VERIFY_SSL: ${SNOW_MINIO_VERIFY_SSL:-False}
-      SNOW_MINIO_CUSTOM_DOMAIN: ${SNOW_MINIO_CUSTOM_DOMAIN:-}
+      # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
+      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
+      SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
+      SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
+      SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
+      SNOW_STORAGE_ENDPOINT_URL: ${SNOW_STORAGE_ENDPOINT_URL:-http://rustfs:9000}
+      SNOW_STORAGE_REGION: ${SNOW_STORAGE_REGION:-us-east-1}
+      SNOW_STORAGE_LOCATION: ${SNOW_STORAGE_LOCATION:-}
+      SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
+      SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
+      SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
       # 时区配置
       TZ: Asia/Shanghai
     volumes:
@@ -243,8 +266,6 @@ services:
       pgbouncer:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
       web:
         condition: service_started
@@ -276,16 +297,17 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      # MinIO 配置（使用 SNOW_ 前缀）
-      SNOW_USE_MINIO: ${SNOW_USE_MINIO:-False}
-      SNOW_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      SNOW_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123456}
-      SNOW_MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-secsnow}
-      SNOW_MINIO_ENDPOINT_URL: http://minio:9000
-      SNOW_MINIO_REGION: us-east-1
-      SNOW_MINIO_USE_SSL: ${SNOW_MINIO_USE_SSL:-False}
-      SNOW_MINIO_VERIFY_SSL: ${SNOW_MINIO_VERIFY_SSL:-False}
-      SNOW_MINIO_CUSTOM_DOMAIN: ${SNOW_MINIO_CUSTOM_DOMAIN:-}
+      # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
+      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
+      SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
+      SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
+      SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
+      SNOW_STORAGE_ENDPOINT_URL: ${SNOW_STORAGE_ENDPOINT_URL:-http://rustfs:9000}
+      SNOW_STORAGE_REGION: ${SNOW_STORAGE_REGION:-us-east-1}
+      SNOW_STORAGE_LOCATION: ${SNOW_STORAGE_LOCATION:-}
+      SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
+      SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
+      SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
       # 时区配置
       TZ: Asia/Shanghai
     volumes:
@@ -300,8 +322,6 @@ services:
       pgbouncer:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
       web:
         condition: service_started

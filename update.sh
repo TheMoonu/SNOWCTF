@@ -331,14 +331,18 @@ update_config() {
     cd "${INSTALL_DIR}" || show_error "无法进入安装目录"
     
     if [ -n "$NEW_IMAGE_NAME" ]; then
-        # 更新 .env 文件中的镜像版本
+        # 从镜像名称中提取版本号（tag）
+        NEW_VERSION=$(echo "${NEW_IMAGE_NAME}" | grep -oP ':[^:]+$' | sed 's/^://' || echo "unknown")
+        if [ -z "$NEW_VERSION" ] || [ "$NEW_VERSION" = "unknown" ]; then
+            NEW_VERSION="latest"
+        fi
+        
+        # 备份当前配置
+        cp .env .env.pre_update
+        
+        # 更新镜像配置
         if grep -q "SECSNOW_IMAGE=" .env; then
-            # 备份当前配置
-            cp .env .env.pre_update
-            
-            # 更新镜像配置
             sed -i "s|^SECSNOW_IMAGE=.*|SECSNOW_IMAGE=${NEW_IMAGE_NAME}|" .env
-            
             show_success "已更新 SECSNOW_IMAGE 为: ${NEW_IMAGE_NAME}"
         else
             # 如果没有该配置项，添加它
@@ -346,6 +350,20 @@ update_config() {
             echo "# 更新于 ${UPDATE_DATE}" >> .env
             echo "SECSNOW_IMAGE=${NEW_IMAGE_NAME}" >> .env
             show_info "已添加 SECSNOW_IMAGE 配置"
+        fi
+        
+        # 更新版本号
+        if grep -q "SECSNOW_VERSION=" .env; then
+            sed -i "s|^SECSNOW_VERSION=.*|SECSNOW_VERSION=${NEW_VERSION}|" .env
+            show_success "已更新 SECSNOW_VERSION 为: ${NEW_VERSION}"
+        else
+            # 如果没有该配置项，添加它（在 SECSNOW_IMAGE 之前）
+            sed -i "/^# SecSnow 平台版本/a SECSNOW_VERSION=${NEW_VERSION}" .env
+            if [ $? -ne 0 ]; then
+                # 如果没找到注释行，添加到 Docker 镜像版本配置区域
+                sed -i "/^# 🐳 Docker 镜像版本配置/a # SecSnow 平台版本（从镜像 tag 提取）\nSECSNOW_VERSION=${NEW_VERSION}\n" .env
+            fi
+            show_info "已添加 SECSNOW_VERSION 配置"
         fi
     fi
     
@@ -362,7 +380,6 @@ start_services() {
     show_info "检查数据目录..."
     mkdir -p db/postgres 2>/dev/null || true
     mkdir -p redis/data 2>/dev/null || true
-    mkdir -p minio/data 2>/dev/null || true
     mkdir -p web/media 2>/dev/null || true
     mkdir -p web/static 2>/dev/null || true
     mkdir -p web/log 2>/dev/null || true
@@ -370,13 +387,15 @@ start_services() {
     mkdir -p web/whoosh_index 2>/dev/null || true
     mkdir -p nginx/ssl 2>/dev/null || true
     
-    # 设置 MinIO 目录权限
-    chmod -R 755 minio 2>/dev/null || true
+    # 创建对象存储相关目录（必需）
+    mkdir -p rustfs/data 2>/dev/null || true
+    mkdir -p rustfs/logs 2>/dev/null || true
+    chmod -R 755 rustfs 2>/dev/null || true
     
     COMPOSE_CMD=$(get_compose_command)
     
-    # 拉起所有服务
-    show_info "启动所有服务..."
+    # 启动所有服务（包含 RustFS 对象存储）
+    show_info "启动所有服务（包含 RustFS 对象存储）..."
     if $COMPOSE_CMD up -d; then
         show_success "服务启动成功"
     else
@@ -392,208 +411,522 @@ start_services() {
     $COMPOSE_CMD ps
 }
 
-# 检查并初始化 MinIO（老用户适配）
-check_and_init_minio() {
-    show_step "检查 MinIO 配置..."
-    
-    # 检查 .env 中是否有 MinIO 配置
-    if ! grep -q "SNOW_USE_MINIO" .env 2>/dev/null; then
-        show_info "检测到旧版本配置，添加 MinIO 配置..."
+# 检查存储配置选择记录
+check_storage_config_record() {
+    # 检查是否有配置记录文件
+    if [ -f "${INSTALL_DIR}/.storage_config" ]; then
+        # 读取配置
+        source "${INSTALL_DIR}/.storage_config"
         
-        # 添加 MinIO 配置到 .env
-        cat >> .env << 'EOF'
-
-# ================================================
-# 📦 MinIO 对象存储配置（新增）
-# ================================================
-SNOW_USE_MINIO=False
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=minioadmin123456
-MINIO_BUCKET_NAME=secsnow
-MINIO_DATA_DIR=./minio/data
-MINIO_API_PORT=7900
-MINIO_CONSOLE_PORT=7901
-SNOW_MINIO_USE_SSL=False
-SNOW_MINIO_VERIFY_SSL=False
-SNOW_MINIO_CUSTOM_DOMAIN=
-MINIO_IMAGE=minio/minio:latest
-MINIO_MC_IMAGE=minio/mc:latest
-EOF
-        show_success "MinIO 配置已添加"
-        show_info "MinIO 默认为禁用状态，可稍后启用"
+        if [ "$ASKED_USER" = "true" ]; then
+            show_info "检测到已有存储配置记录"
+            show_info "存储类型: ${STORAGE_TYPE}"
+            return 0  # 已询问过用户
+        fi
     fi
     
-    # 检查是否启用了 MinIO
-    MINIO_ENABLED=$(grep "^SNOW_USE_MINIO=" .env | cut -d'=' -f2)
+    return 1  # 未询问过用户
+}
+
+# 保存存储配置选择
+save_storage_config() {
+    local storage_type="$1"
+    local enabled="$2"
     
-    if [ "$MINIO_ENABLED" = "True" ]; then
-        show_info "MinIO 已启用"
+    cat > "${INSTALL_DIR}/.storage_config" << EOF
+# 对象存储配置选择
+# 由更新脚本自动生成
+STORAGE_TYPE=${storage_type}
+ENABLE_OBJECT_STORAGE=${enabled}
+CONFIG_DATE=$(date '+%Y-%m-%d %H:%M:%S')
+ASKED_USER=true
+EOF
+    
+    show_success "存储配置选择已保存"
+}
+
+# 检查并初始化对象存储（老用户适配）
+check_and_init_object_storage() {
+    show_step "检查对象存储配置..."
+    
+    # 检查是否有旧的 MinIO 配置
+    if grep -q "SNOW_USE_MINIO=" .env 2>/dev/null; then
+        show_info "检测到旧的 MinIO 配置，迁移到新配置..."
         
-        # 检查 MinIO 服务是否在运行
-        if ! docker ps | grep -q secsnow-minio; then
-            show_warning "MinIO 服务未运行，将在启动服务时自动启动"
-        else
-            show_success "MinIO 服务运行正常"
+        # 读取旧配置
+        OLD_MINIO_ENABLED=$(grep "^SNOW_USE_MINIO=" .env | cut -d'=' -f2)
+        
+        # 迁移配置
+        if ! grep -q "SNOW_USE_OBJECT_STORAGE=" .env; then
+            # 将 MinIO 配置迁移为通用对象存储配置
+            sed -i "s/^SNOW_USE_MINIO=/SNOW_USE_OBJECT_STORAGE=/" .env
+            show_success "已迁移为通用对象存储配置"
         fi
         
-        # 检查是否需要迁移 media 文件
-        if [ -d "web/media" ] && [ "$(find web/media -type f | wc -l)" -gt 0 ]; then
-            check_media_migration
+        # 保存配置记录
+        if [ "$OLD_MINIO_ENABLED" = "True" ]; then
+            save_storage_config "rustfs" "True"
+        else
+            save_storage_config "local" "False"
+        fi
+    fi
+    
+    # 检查 .env 中是否有对象存储配置
+    if ! grep -q "SNOW_USE_OBJECT_STORAGE=" .env 2>/dev/null; then
+        show_info "检测到旧版本配置，添加对象存储配置..."
+        
+        echo ""
+        echo "========================================="
+        echo -e "${CYAN}📦 对象存储升级${NC}"
+        echo "========================================="
+        echo ""
+        echo -e "${BLUE}新版本必须使用对象存储（RustFS）${NC}"
+        echo ""
+        echo -e "${GREEN}RustFS 对象存储优势：${NC}"
+        echo "  • 高性能：专为对象存储优化"
+        echo "  • 可扩展：支持大规模文件存储"
+        echo "  • 高可用：支持分布式部署"
+        echo "  • 兼容性：兼容 S3 API"
+        echo ""
+        show_success "正在启用 RustFS 对象存储..."
+        
+        # 默认启用对象存储
+        USE_STORAGE="True"
+        save_storage_config "rustfs" "True"
+        
+        # 添加对象存储配置到 .env
+        RUSTFS_PASSWORD=$(openssl rand -base64 16 | tr -d '+/=' | head -c 20 2>/dev/null || echo "rustfsadmin")
+        
+        cat >> .env << EOF
+
+# ================================================
+# 📦 RustFS 对象存储配置（新增）
+# ================================================
+SNOW_USE_OBJECT_STORAGE=${USE_STORAGE}
+
+# RustFS 容器配置（Docker 服务层）
+RUSTFS_ROOT_USER=rustfsadmin
+RUSTFS_ROOT_PASSWORD=${RUSTFS_PASSWORD}
+RUSTFS_BUCKET_NAME=secsnow
+RUSTFS_DATA_DIR=./rustfs/data
+RUSTFS_LOG_DIR=./rustfs/logs
+RUSTFS_API_PORT=7900
+RUSTFS_CONSOLE_PORT=7901
+
+# RustFS 镜像配置
+RUSTFS_IMAGE=rustfs/rustfs:latest
+MINIO_MC_IMAGE=minio/mc:latest
+
+# ================================================
+# 📦 Django 对象存储配置（应用层配置）
+# ================================================
+# Django 使用这些变量连接到 RustFS
+SNOW_STORAGE_ACCESS_KEY=rustfsadmin
+SNOW_STORAGE_SECRET_KEY=${RUSTFS_PASSWORD}
+SNOW_STORAGE_BUCKET_NAME=secsnow
+SNOW_STORAGE_ENDPOINT_URL=http://rustfs:9000
+SNOW_STORAGE_REGION=us-east-1
+SNOW_STORAGE_LOCATION=
+
+# SSL 配置
+SNOW_STORAGE_USE_SSL=False
+SNOW_STORAGE_VERIFY_SSL=False
+
+# 公开访问配置
+SNOW_STORAGE_PUBLIC_URL=
+EOF
+        show_success "对象存储配置已添加"
+        
+        show_info "对象存储已启用，将在服务重启后生效"
+        
+        # 拉取 RustFS 镜像
+        show_info "拉取 RustFS 相关镜像..."
+        docker pull rustfs/rustfs:latest 2>/dev/null || show_warning "RustFS 镜像拉取失败，将在启动时自动拉取"
+        docker pull minio/mc:latest 2>/dev/null || show_warning "MinIO Client 镜像拉取失败"
+        
+        # 提示需要重启服务
+        echo ""
+        echo -e "${YELLOW}重要提示：${NC}"
+        echo "  对象存储配置已添加，需要重启服务以启动 RustFS"
+        echo "  服务将在更新流程中自动重启"
+        echo ""
+        
+        # 检查是否有本地文件需要迁移
+        if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+            LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
+            echo ""
+            echo -e "${YELLOW}📁 检测到本地文件${NC}"
+            echo "  web/media 目录中有 $LOCAL_FILES 个文件"
+            echo ""
+            
+            if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
+                show_info "自动迁移模式已启用，稍后将迁移文件"
+            elif [ "$SKIP_CONFIRM" = false ]; then
+                echo -e "${BLUE}是否现在迁移这些文件到 RustFS？${NC}"
+                echo "  • 选择 'y': 立即迁移文件到对象存储"
+                echo "  • 选择 'n': 稍后手动迁移"
+                echo ""
+                read -p "现在迁移文件？(y/n): " -n 1 -r
+                echo
+                
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    # 标记需要在服务启动后迁移
+                    NEED_MIGRATE_FILES=true
+                else
+                    show_info "已跳过文件迁移"
+                    echo ""
+                    echo -e "${YELLOW}提示：${NC}您可以稍后手动迁移文件"
+                    echo ""
+                fi
+            fi
         fi
     else
-        show_info "MinIO 未启用（使用本地存储）"
+        # 已有配置，检查状态并确保启用
+        STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2)
         
-        # 询问是否要启用 MinIO
-        if [ "$AUTO_ENABLE_MINIO" != true ] && [ "$SKIP_CONFIRM" = false ]; then
-            echo ""
-            echo -e "${YELLOW}MinIO 是什么？${NC}"
-            echo "  MinIO 是高性能的对象存储服务，用于存储上传的文件"
-            echo "  优势：高可用、可扩展、支持分布式部署"
-            echo ""
-            read -p "是否启用 MinIO 对象存储？(y/n): " -n 1 -r
-            echo
+        if [ "$STORAGE_ENABLED" = "True" ]; then
+            show_success "对象存储已启用"
             
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                enable_minio_storage
+            # 检查 RustFS 服务是否在运行
+            if docker ps | grep -q secsnow-rustfs; then
+                show_success "RustFS 服务运行正常"
             else
-                show_info "保持使用本地存储"
+                show_warning "RustFS 服务未运行，将在启动服务时自动启动"
+            fi
+            
+            # 检查是否需要迁移 media 文件
+            if [ -d "web/media" ] && [ "$(find web/media -type f | wc -l)" -gt 0 ]; then
+                check_media_migration
+            fi
+        else
+            # 如果配置为 False，强制启用
+            show_warning "检测到对象存储未启用，正在强制启用..."
+            sed -i.bak 's/^SNOW_USE_OBJECT_STORAGE=.*/SNOW_USE_OBJECT_STORAGE=True/' .env
+            show_success "对象存储已强制启用"
+            save_storage_config "rustfs" "True"
+            
+            # 检查是否需要迁移文件
+            if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+                LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
+                echo ""
+                echo -e "${YELLOW}📁 检测到本地文件${NC}"
+                echo "  web/media 目录中有 $LOCAL_FILES 个文件"
+                echo ""
+                
+                if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
+                    NEED_MIGRATE_FILES=true
+                elif [ "$SKIP_CONFIRM" = false ]; then
+                    read -p "是否迁移本地文件到 RustFS？(y/n): " -n 1 -r
+                    echo
+                    if [[ $REPLY =~ ^[Yy]$ ]]; then
+                        NEED_MIGRATE_FILES=true
+                    fi
+                fi
             fi
         fi
     fi
 }
 
-# 检查是否需要迁移 media 文件到 MinIO
+# 检查是否需要迁移 media 文件到对象存储
 check_media_migration() {
     show_info "检查 media 文件迁移状态..."
     
-    # 检查 MinIO 中是否已有文件
-    MINIO_USER=$(grep "^MINIO_ROOT_USER=" .env | cut -d'=' -f2)
-    MINIO_PASSWORD=$(grep "^MINIO_ROOT_PASSWORD=" .env | cut -d'=' -f2)
-    MINIO_BUCKET=$(grep "^MINIO_BUCKET_NAME=" .env | cut -d'=' -f2)
+    # 检查对象存储中是否已有文件
+    STORAGE_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2)
+    STORAGE_PASSWORD=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2)
+    STORAGE_BUCKET=$(grep "^RUSTFS_BUCKET_NAME=" .env | cut -d'=' -f2)
     
-    # 检查 MinIO 中的文件数量
-    MINIO_FILE_COUNT=$(docker run --rm \
+    # 检查对象存储中的文件数量
+    STORAGE_FILE_COUNT=$(docker run --rm \
         --network=secsnow-network \
-        minio/mc:latest sh -c "
-            mc alias set secsnow http://minio:9000 ${MINIO_USER} '${MINIO_PASSWORD}' >/dev/null 2>&1;
-            mc ls --recursive secsnow/${MINIO_BUCKET}/ 2>/dev/null | wc -l
+        --entrypoint /bin/sh \
+        minio/mc:latest -c "
+            mc alias set secsnow http://rustfs:9000 ${STORAGE_USER} '${STORAGE_PASSWORD}' >/dev/null 2>&1
+            mc ls --recursive secsnow/${STORAGE_BUCKET}/ 2>/dev/null | wc -l
         " 2>/dev/null || echo "0")
     
-    LOCAL_FILE_COUNT=$(find web/media -type f | wc -l)
+    LOCAL_FILE_COUNT=$(find web/media -type f 2>/dev/null | wc -l)
     
     echo ""
     echo -e "${YELLOW}文件迁移状态:${NC}"
     echo "  本地文件数: $LOCAL_FILE_COUNT"
-    echo "  MinIO文件数: $MINIO_FILE_COUNT"
+    echo "  对象存储文件数: $STORAGE_FILE_COUNT"
     
-    # 如果 MinIO 中文件明显少于本地，提示迁移
-    if [ "$MINIO_FILE_COUNT" -lt "$((LOCAL_FILE_COUNT / 2))" ]; then
-        show_warning "MinIO 中文件数量较少，可能需要迁移"
+    # 如果对象存储中文件明显少于本地，提示迁移
+    if [ "$STORAGE_FILE_COUNT" -lt "$((LOCAL_FILE_COUNT / 2))" ] && [ "$LOCAL_FILE_COUNT" -gt 0 ]; then
+        show_warning "对象存储中文件数量较少，可能需要迁移"
         
         if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-            migrate_media_to_minio
+            migrate_media_to_storage
         elif [ "$SKIP_CONFIRM" = false ]; then
             echo ""
-            read -p "是否现在迁移本地文件到 MinIO？(y/n): " -n 1 -r
+            read -p "是否现在迁移本地文件到对象存储？(y/n): " -n 1 -r
             echo
             
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                migrate_media_to_minio
+                migrate_media_to_storage
             else
                 show_info "跳过文件迁移"
                 show_warning "可稍后运行: ./migrate_media_to_minio.sh"
             fi
         fi
     else
-        show_success "文件已同步到 MinIO"
+        show_success "文件已同步到对象存储"
     fi
 }
 
-# 启用 MinIO 存储
-enable_minio_storage() {
-    show_step "启用 MinIO 对象存储..."
+# 启用对象存储
+enable_object_storage() {
+    show_step "启用 RustFS 对象存储..."
     
     # 修改 .env 配置
-    sed -i.bak 's/^SNOW_USE_MINIO=.*/SNOW_USE_MINIO=True/' .env
+    sed -i.bak 's/^SNOW_USE_OBJECT_STORAGE=.*/SNOW_USE_OBJECT_STORAGE=True/' .env
     
     # 生成随机密码（如果是默认密码）
-    CURRENT_PASSWORD=$(grep "^MINIO_ROOT_PASSWORD=" .env | cut -d'=' -f2)
-    if [ "$CURRENT_PASSWORD" = "minioadmin123456" ]; then
-        NEW_PASSWORD=$(openssl rand -base64 16 | tr -d '+/=' | head -c 20)
-        sed -i "s/^MINIO_ROOT_PASSWORD=.*/MINIO_ROOT_PASSWORD=${NEW_PASSWORD}/" .env
-        show_info "已生成随机 MinIO 密码"
+    CURRENT_PASSWORD=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
+    if [ "$CURRENT_PASSWORD" = "rustfsadmin" ]; then
+        NEW_PASSWORD=$(openssl rand -base64 16 | tr -d '+/=' | head -c 20 2>/dev/null || echo "rustfsadmin123")
+        sed -i "s/^RUSTFS_ROOT_PASSWORD=.*/RUSTFS_ROOT_PASSWORD=${NEW_PASSWORD}/" .env
+        # 同时更新 Django 应用层密码
+        if grep -q "^SNOW_STORAGE_SECRET_KEY=" .env; then
+            sed -i "s/^SNOW_STORAGE_SECRET_KEY=.*/SNOW_STORAGE_SECRET_KEY=${NEW_PASSWORD}/" .env
+        fi
+        show_info "已生成随机 RustFS 密码"
     fi
     
-    show_success "MinIO 已启用"
-    show_info "MinIO 将在服务启动时自动运行"
+    # 创建必要的目录
+    mkdir -p "${INSTALL_DIR}/rustfs/data" 2>/dev/null || true
+    mkdir -p "${INSTALL_DIR}/rustfs/logs" 2>/dev/null || true
+    chmod -R 755 "${INSTALL_DIR}/rustfs" 2>/dev/null || true
+    
+    # 拉取 RustFS 镜像
+    show_info "拉取 RustFS 相关镜像..."
+    docker pull rustfs/rustfs:latest 2>/dev/null || show_warning "RustFS 镜像拉取失败，将在启动时自动拉取"
+    docker pull minio/mc:latest 2>/dev/null || show_warning "MinIO Client 镜像拉取失败"
+    
+    show_success "RustFS 对象存储已启用"
+    show_info "RustFS 将在服务重启后自动运行"
+    
+    # 检查是否有本地文件需要迁移
+    if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+        LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
+        echo ""
+        echo -e "${YELLOW}📁 检测到本地文件${NC}"
+        echo "  web/media 目录中有 $LOCAL_FILES 个文件"
+        echo ""
+        
+        if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
+            show_info "自动迁移模式已启用，稍后将迁移文件"
+            NEED_MIGRATE_FILES=true
+        elif [ "$SKIP_CONFIRM" = false ]; then
+            echo -e "${BLUE}是否现在迁移这些文件到 RustFS？${NC}"
+            echo "  • 选择 'y': 稍后在服务启动后自动迁移"
+            echo "  • 选择 'n': 手动迁移（运行 ./migrate_to_rustfs.sh）"
+            echo ""
+            read -p "现在迁移文件？(y/n): " -n 1 -r
+            echo
+            
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                NEED_MIGRATE_FILES=true
+            else
+                show_info "已跳过文件迁移"
+                echo ""
+                echo -e "${YELLOW}提示：${NC}您可以稍后运行以下命令迁移文件："
+                echo "  cd ${INSTALL_DIR} && ./migrate_to_rustfs.sh"
+                echo ""
+            fi
+        fi
+    fi
 }
 
-# 迁移 media 文件到 MinIO
-migrate_media_to_minio() {
-    show_step "迁移 media 文件到 MinIO..."
+# 迁移 media 文件到对象存储（增强版 - 从 migrate_to_rustfs.sh 整合）
+migrate_media_to_storage() {
+    show_step "迁移 media 文件到对象存储..."
     
-    # 确保 MinIO 服务运行
-    if ! docker ps | grep -q secsnow-minio; then
-        show_warning "MinIO 未运行，先启动 MinIO..."
-        docker-compose up -d minio 2>/dev/null || true
-        sleep 5
+    echo ""
+    echo "========================================="
+    echo -e "${CYAN}  RustFS 文件迁移工具${NC}"
+    echo "========================================="
+    echo ""
+    
+    # 检查目录
+    if [ ! -d "web/media" ]; then
+        show_error "web/media 目录不存在"
+        return 1
     fi
     
     # 从 .env 读取配置
-    MINIO_USER=$(grep "^MINIO_ROOT_USER=" .env | cut -d'=' -f2)
-    MINIO_PASSWORD=$(grep "^MINIO_ROOT_PASSWORD=" .env | cut -d'=' -f2)
-    MINIO_BUCKET=$(grep "^MINIO_BUCKET_NAME=" .env | cut -d'=' -f2)
+    STORAGE_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
+    STORAGE_PASSWORD=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
+    STORAGE_BUCKET=$(grep "^RUSTFS_BUCKET_NAME=" .env | cut -d'=' -f2 2>/dev/null || echo "secsnow")
+    
+    show_info "配置信息："
+    echo "  用户: $STORAGE_USER"
+    echo "  Bucket: $STORAGE_BUCKET"
+    echo ""
     
     # 统计本地文件
-    LOCAL_FILE_COUNT=$(find web/media -type f | wc -l)
-    show_info "准备迁移 $LOCAL_FILE_COUNT 个文件..."
+    LOCAL_FILE_COUNT=$(find web/media -type f 2>/dev/null | wc -l)
+    show_info "本地文件数: $LOCAL_FILE_COUNT"
     
-    # 使用 mc 客户端同步文件
+    if [ "$LOCAL_FILE_COUNT" -eq 0 ]; then
+        show_warning "没有文件需要迁移"
+        return 0
+    fi
+    
+    # 确保 RustFS 服务运行
+    if ! docker ps | grep -q secsnow-rustfs; then
+        show_warning "RustFS 未运行，先启动 RustFS..."
+        
+        # 获取 compose 命令
+        COMPOSE_CMD=$(get_compose_command)
+        $COMPOSE_CMD --profile storage up -d rustfs rustfs-init 2>/dev/null || true
+        
+        show_info "等待 RustFS 启动..."
+        sleep 20
+        
+        # 再次检查
+        if ! docker ps | grep -q secsnow-rustfs; then
+            show_error "RustFS 启动失败，请检查日志: docker logs secsnow-rustfs"
+            return 1
+        fi
+    fi
+    
+    show_success "RustFS 运行正常"
+    echo ""
+    
+    # 确认迁移
+    if [ "$AUTO_MIGRATE_MEDIA" != true ] && [ "$SKIP_CONFIRM" = false ]; then
+        read -p "开始迁移 $LOCAL_FILE_COUNT 个文件？(y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            show_info "已取消迁移"
+            return 0
+        fi
+    fi
+    
+    echo ""
+    show_info "开始迁移..."
+    echo ""
+    
+    # 步骤 1/4: 配置 mc 客户端
+    show_info "步骤 1/4: 配置 mc 客户端..."
+    docker run --rm \
+        --network=secsnow-network \
+        --entrypoint /bin/sh \
+        minio/mc:latest -c \
+        "mc alias set secsnow http://rustfs:9000 $STORAGE_USER '$STORAGE_PASSWORD'" \
+        >/dev/null 2>&1
+    
+    if [ $? -ne 0 ]; then
+        show_error "mc 客户端配置失败"
+        return 1
+    fi
+    show_success "✓ mc 客户端配置完成"
+    
+    # 步骤 2/4: 检查/创建 bucket
+    show_info "步骤 2/4: 检查/创建 bucket..."
+    docker run --rm \
+        --network=secsnow-network \
+        --entrypoint /bin/sh \
+        minio/mc:latest -c \
+        "mc alias set secsnow http://rustfs:9000 $STORAGE_USER '$STORAGE_PASSWORD' >/dev/null 2>&1 && \
+         mc mb secsnow/$STORAGE_BUCKET --ignore-existing >/dev/null 2>&1 && \
+         mc anonymous set public secsnow/$STORAGE_BUCKET >/dev/null 2>&1" \
+        >/dev/null 2>&1
+    
+    if [ $? -ne 0 ]; then
+        show_error "Bucket 创建失败"
+        return 1
+    fi
+    show_success "✓ Bucket 已就绪"
+    
+    # 步骤 3/4: 上传文件
+    show_info "步骤 3/4: 上传文件（可能需要几分钟）..."
+    echo ""
+    
     docker run --rm \
         -v "$(pwd)/web/media:/media" \
         --network=secsnow-network \
-        minio/mc:latest sh -c "
-            mc alias set secsnow http://minio:9000 ${MINIO_USER} '${MINIO_PASSWORD}';
-            mc cp --recursive /media/ secsnow/${MINIO_BUCKET}/;
-        " 2>&1 | grep -v "^$"
+        --entrypoint /bin/sh \
+        minio/mc:latest -c \
+        "mc alias set secsnow http://rustfs:9000 $STORAGE_USER '$STORAGE_PASSWORD' >/dev/null 2>&1 && \
+         mc cp --recursive /media/ secsnow/$STORAGE_BUCKET/" 2>&1
     
-    if [ $? -eq 0 ]; then
-        show_success "文件迁移完成"
-        
-        # 验证迁移结果
-        MINIO_FILE_COUNT=$(docker run --rm \
-            --network=secsnow-network \
-            minio/mc:latest sh -c "
-                mc alias set secsnow http://minio:9000 ${MINIO_USER} '${MINIO_PASSWORD}';
-                mc ls --recursive secsnow/${MINIO_BUCKET}/ | wc -l
-            " 2>/dev/null)
-        
+    UPLOAD_STATUS=$?
+    echo ""
+    
+    if [ $UPLOAD_STATUS -ne 0 ]; then
+        show_error "文件上传失败"
+        return 1
+    fi
+    show_success "✓ 文件上传完成"
+    
+    # 步骤 4/4: 验证结果
+    show_info "步骤 4/4: 验证结果..."
+    STORAGE_FILE_COUNT=$(docker run --rm \
+        --network=secsnow-network \
+        --entrypoint /bin/sh \
+        minio/mc:latest -c \
+        "mc alias set secsnow http://rustfs:9000 $STORAGE_USER '$STORAGE_PASSWORD' >/dev/null 2>&1 && \
+         mc ls --recursive secsnow/$STORAGE_BUCKET/ 2>/dev/null | wc -l" 2>/dev/null || echo "0")
+    
+    # 确保是纯数字
+    STORAGE_FILE_COUNT=$(echo "$STORAGE_FILE_COUNT" | grep -o '[0-9]*' | tail -1)
+    
+    echo ""
+    echo "========================================="
+    echo -e "${CYAN}  迁移结果${NC}"
+    echo "========================================="
+    echo "  本地文件: $LOCAL_FILE_COUNT"
+    echo "  RustFS 文件: $STORAGE_FILE_COUNT"
+    echo "========================================="
+    echo ""
+    
+    if [ "$STORAGE_FILE_COUNT" -ge "$LOCAL_FILE_COUNT" ]; then
+        show_success "✅ 迁移成功！"
         echo ""
-        echo -e "${GREEN}迁移结果:${NC}"
-        echo "  本地文件: $LOCAL_FILE_COUNT"
-        echo "  MinIO文件: $MINIO_FILE_COUNT"
         
-        if [ "$MINIO_FILE_COUNT" -ge "$LOCAL_FILE_COUNT" ]; then
-            show_success "✓ 所有文件已成功迁移"
+        # 询问是否备份本地文件
+        if [ "$SKIP_CONFIRM" = false ]; then
+            echo ""
+            read -p "是否将本地 media 目录重命名为 media.backup？(y/n): " -n 1 -r
+            echo
             
-            # 询问是否备份本地文件
-            if [ "$SKIP_CONFIRM" = false ]; then
-                echo ""
-                read -p "是否将本地 media 目录重命名为 media.backup？(y/n): " -n 1 -r
-                echo
-                
-                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                    mv web/media web/media.backup
-                    mkdir -p web/media
-                    show_success "本地目录已重命名为 media.backup"
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                if [ -d "web/media.backup" ]; then
+                    show_warning "web/media.backup 已存在，将覆盖"
+                    rm -rf web/media.backup
                 fi
+                mv web/media web/media.backup
+                mkdir -p web/media
+                show_success "本地目录已重命名为 media.backup"
+                echo ""
+                show_info "后续步骤："
+                echo "  1. 测试文件访问: http://你的域名/media/文件路径"
+                echo "  2. 确认无误后可删除备份: rm -rf web/media.backup"
+                echo "  3. 访问控制台: http://你的IP:7901/"
             fi
         else
-            show_warning "文件数量不匹配，请检查"
+            # 自动模式：直接备份
+            if [ -d "web/media.backup" ]; then
+                rm -rf web/media.backup
+            fi
+            mv web/media web/media.backup
+            mkdir -p web/media
+            show_success "本地目录已重命名为 media.backup"
         fi
     else
-        show_error "文件迁移失败"
+        show_error "❌ 文件数量不匹配"
+        echo ""
+        echo "排查步骤："
+        echo "  1. 查看 RustFS 日志: docker logs secsnow-rustfs"
+        echo "  2. 检查网络: docker network inspect secsnow-network"
+        echo "  3. 手动验证: docker run --rm --network=secsnow-network alpine/curl curl http://rustfs:9000/health"
+        return 1
     fi
+    
+    echo ""
 }
 
 # 清理废弃的简历表
@@ -778,6 +1111,11 @@ show_completion() {
         echo "  镜像标识: ${REGISTRY_IMAGE:-未知}"
     fi
     echo "  新镜像: ${NEW_IMAGE_NAME:-未知}"
+    
+    # 显示版本号
+    CURRENT_VERSION=$(grep "^SECSNOW_VERSION=" .env | cut -d'=' -f2 2>/dev/null || echo "未知")
+    echo "  当前版本: ${CURRENT_VERSION}"
+    
     echo "  备份目录: ${CURRENT_BACKUP_DIR:-未备份}"
     echo ""
     
@@ -819,27 +1157,31 @@ show_completion() {
     echo "  5. 启动服务: $COMPOSE_CMD up -d"
     echo ""
     
-    # 检查 MinIO 状态并显示信息
-    MINIO_STATUS=""
-    if grep -q "^SNOW_USE_MINIO=True" .env 2>/dev/null; then
-        MINIO_STATUS="${GREEN}已启用${NC}"
-        MINIO_PORT=$(grep "^MINIO_CONSOLE_PORT=" .env | cut -d'=' -f2 || echo "7901")
-        echo -e "${BLUE}MinIO 对象存储:${NC}"
-        echo "  状态: 已启用"
-        echo "  控制台: http://服务器IP:${MINIO_PORT}"
-        echo "  密码: 查看 .env 中的 MINIO_ROOT_PASSWORD"
-        echo ""
-    fi
+    # 显示对象存储信息（必需服务）
+    echo -e "${BLUE}对象存储 (RustFS):${NC}"
+    echo "  状态: 已启用（必需服务）"
+    echo "  控制台: http://服务器IP/storage-console/"
+    echo "  密码: 查看 .env 中的 RUSTFS_ROOT_PASSWORD"
+    echo "  文件访问: http://服务器IP/media/（Nginx 自动代理）"
+    echo ""
     
     echo -e "${YELLOW}提示:${NC}"
     echo "  1. 如遇问题，可查看日志: docker logs secsnow-web"
     echo "  2. 备份文件保存在: ${BACKUP_DIR}"
     echo "  3. 建议测试主要功能是否正常"
     echo "  4. 数据库数据已保留，无需担心数据丢失"
-    if grep -q "^SNOW_USE_MINIO=True" .env 2>/dev/null; then
-        echo "  5. MinIO 已启用，新上传文件将保存到对象存储"
-        if [ -d "web/media.backup" ]; then
-            echo "  6. 旧 media 文件已备份到 web/media.backup"
+    echo "  5. 对象存储已启用，新上传文件将保存到 RustFS"
+    if [ -d "web/media.backup" ]; then
+        echo "  6. 旧 media 文件已备份到 web/media.backup"
+        echo "  7. 确认无误后可删除备份: rm -rf web/media.backup"
+    fi
+    # 检查是否还有本地文件未迁移
+    if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+        LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
+        if [ "$LOCAL_FILES" -gt 10 ]; then
+            echo ""
+            echo -e "${YELLOW}⚠️  注意: web/media 中还有 $LOCAL_FILES 个文件未迁移${NC}"
+            echo "  建议迁移到 RustFS 以获得更好的性能和可扩展性"
         fi
     fi
     echo ""
@@ -875,8 +1217,8 @@ show_help() {
     echo "  --no-migrate                      跳过数据库迁移"
     echo "  --cleanup                         更新后自动清理旧镜像"
     echo "  --clean-resume                    自动清理废弃的简历表（不询问）"
-    echo "  --enable-minio                    自动启用 MinIO（不询问）"
-    echo "  --migrate-media                   自动迁移 media 文件到 MinIO（不询问）"
+    echo "  --enable-storage                  自动启用对象存储（不询问）"
+    echo "  --migrate-media                   自动迁移 media 文件到对象存储（不询问）"
     echo ""
     echo "更新方式:"
     echo ""
@@ -894,8 +1236,11 @@ show_help() {
     echo "  $0 -y --cleanup"
     echo "  $0 -y --cleanup --clean-resume"
     echo ""
-    echo "  # 老用户启用 MinIO"
-    echo "  $0 -y --enable-minio --migrate-media"
+    echo "  # 老用户首次启用对象存储（自动迁移本地文件）"
+    echo "  $0 -y --enable-storage --migrate-media"
+    echo ""
+    echo "  # 交互式更新（会询问是否启用对象存储和迁移文件）"
+    echo "  $0"
     echo ""
     echo "  # 从 Docker Hub 拉取"
     echo "  $0 -r secsnow/secsnow:v1.0.0"
@@ -928,8 +1273,9 @@ main() {
     SKIP_MIGRATE=false
     AUTO_CLEANUP=false
     AUTO_CLEAN_RESUME=false
-    AUTO_ENABLE_MINIO=false
+    AUTO_ENABLE_STORAGE=false
     AUTO_MIGRATE_MEDIA=false
+    NEED_MIGRATE_FILES=false
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -964,8 +1310,8 @@ main() {
                 AUTO_CLEAN_RESUME=true
                 shift
                 ;;
-            --enable-minio)
-                AUTO_ENABLE_MINIO=true
+            --enable-storage)
+                AUTO_ENABLE_STORAGE=true
                 shift
                 ;;
             --migrate-media)
@@ -1070,8 +1416,22 @@ main() {
     
     echo ""
     
-    # 检查并初始化 MinIO（老用户适配）
-    check_and_init_minio
+    # 检查并初始化对象存储（老用户适配）
+    check_and_init_object_storage
+    
+    echo ""
+    
+    # 如果需要迁移文件，在服务启动后执行
+    if [ "$NEED_MIGRATE_FILES" = true ] || [ "$AUTO_MIGRATE_MEDIA" = true ]; then
+        # 检查是否启用了对象存储且有本地文件
+        STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
+        if [ "$STORAGE_ENABLED" = "True" ] && [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+            echo ""
+            show_info "准备迁移本地文件到对象存储..."
+            sleep 3
+            migrate_media_to_storage
+        fi
+    fi
     
     echo ""
     

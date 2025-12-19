@@ -255,6 +255,41 @@ generate_redis_password() {
     cat /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 24
 }
 
+# 设置对象存储（默认启用）
+set_object_storage() {
+    echo ""
+    echo "========================================="
+    echo -e "${CYAN}📦 对象存储配置${NC}"
+    echo "========================================="
+    echo ""
+    echo -e "${BLUE}RustFS 对象存储${NC}"
+    echo "  SecSnow 平台使用 RustFS 对象存储服务来存储用户上传的文件。"
+    echo ""
+    echo -e "${GREEN}优势：${NC}"
+    echo "  • 高性能：专为对象存储优化"
+    echo "  • 可扩展：支持大规模文件存储"
+    echo "  • 高可用：支持分布式部署"
+    echo "  • 兼容性：兼容 S3 API"
+    echo ""
+    
+    # 默认启用对象存储
+    ENABLE_OBJECT_STORAGE="True"
+    show_success "RustFS 对象存储已启用（必需服务）"
+    
+    # 保存配置记录
+    mkdir -p "${INSTALL_DIR}"
+    cat > "${INSTALL_DIR}/.storage_config" << EOF
+# 对象存储配置
+# 由安装脚本自动生成
+STORAGE_TYPE=rustfs
+ENABLE_OBJECT_STORAGE=True
+CONFIG_DATE=$(date '+%Y-%m-%d %H:%M:%S')
+ASKED_USER=true
+EOF
+    
+    export ENABLE_OBJECT_STORAGE
+}
+
 # 显示Docker安装指引
 show_docker_install_guide() {
     echo ""
@@ -639,10 +674,16 @@ generate_env() {
     REDIS_PASSWORD=$(generate_redis_password)  # Redis使用纯字母数字密码
     SECRET_KEY=$(generate_password)$(generate_password)$(generate_password)
     FLOWER_PASSWORD=$(generate_password)
-    MINIO_PASSWORD=$(generate_password)  # MinIO密码
+    RUSTFS_PASSWORD=$(generate_password)  # RustFS密码
     
     # 获取当前时间戳
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    # 从镜像名称中提取版本号（tag）
+    SECSNOW_VERSION=$(echo "${LOADED_SECSNOW_IMAGE}" | grep -oP ':[^:]+$' | sed 's/^://' || echo "unknown")
+    if [ -z "$SECSNOW_VERSION" ] || [ "$SECSNOW_VERSION" = "unknown" ]; then
+        SECSNOW_VERSION="v1.0.0"
+    fi
     
     # 创建完整的.env文件（直接使用变量替换，不使用占位符）
     cat > .env << ENV_EOF
@@ -657,8 +698,11 @@ generate_env() {
 # ================================================
 
 # ================================================
-# 🐳 Docker 镜像版本配置
+# Docker 镜像版本配置
 # ================================================
+# SecSnow 平台版本（从镜像 tag 提取）
+SECSNOW_VERSION=${SECSNOW_VERSION}
+
 # PostgreSQL 数据库镜像（从tar文件加载）
 POSTGRES_IMAGE=${LOADED_POSTGRES_IMAGE:-postgres:17-bookworm}
 
@@ -671,24 +715,20 @@ NGINX_IMAGE=${LOADED_NGINX_IMAGE:-nginx:stable}
 # SecSnow 应用镜像（从tar文件加载）
 SECSNOW_IMAGE=${LOADED_SECSNOW_IMAGE:-secsnow_cty_sy_sp1:1.0}
 
-# MinIO 对象存储镜像（如果启用 MinIO 才需要）
-MINIO_IMAGE=minio/minio:latest
-MINIO_MC_IMAGE=minio/mc:latest
-
 # ================================================
-# 🗄️ PostgreSQL 数据库配置
+# PostgreSQL 数据库配置
 # ================================================
 POSTGRES_DB=secsnow
 POSTGRES_USER=secsnow
 POSTGRES_PASSWORD=${DB_PASSWORD}
 
 # ================================================
-# 🔴 Redis 配置
+# Redis 配置
 # ================================================
 REDIS_PASSWORD=${REDIS_PASSWORD}
 
 # ================================================
-# 🌐 Django 应用配置
+# Django 应用配置
 # ================================================
 # Django Secret Key（生产环境务必修改为随机字符串）
 SNOW_SECRET_KEY=${SECRET_KEY}
@@ -699,7 +739,8 @@ SNOW_DEBUG=False
 # 允许访问的主机（多个用逗号分隔，* 表示允许所有）
 SNOW_ALLOWED_HOSTS=*
 
-# CSRF信任来源（多个用逗号分隔，* 表示允许所有）
+# CSRF信任来源（多个用逗号分隔，这里需要配置为实际的域名或者IP，协议域名端口都需要配置）
+# 如你如果通过某个域名代理了SECSNOW平台服务，但是平台不会信任您的域名请求的流量就需要配置白名单规则
 #SNOW_CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 
 # 协议配置（http 或 https）
@@ -719,7 +760,7 @@ ENCRYPTION_KEY=SecSnowEncryptKey20251211
 
 
 # ================================================
-# 🌸 Flower 监控配置（可选）
+# Flower 监控配置（可选）
 # ================================================
 # Flower 访问用户名
 FLOWER_USER=admin
@@ -728,7 +769,7 @@ FLOWER_USER=admin
 FLOWER_PASSWORD=${FLOWER_PASSWORD}
 
 # ================================================
-# 🚪 端口配置
+# 端口配置
 # ================================================
 # Nginx HTTP 端口
 NGINX_HTTP_PORT=80
@@ -744,7 +785,7 @@ MINIO_CONSOLE_PORT=7901
 FLOWER_PORT=5555
 
 # ================================================
-# 📁 数据持久化目录配置
+# 数据持久化目录配置
 # ================================================
 # PostgreSQL 数据目录
 POSTGRES_DATA_DIR=./db/postgres
@@ -774,48 +815,65 @@ NGINX_SSL_DIR=./nginx/ssl
 NGINX_LOG_DIR=./web/log/nginx
 
 # ================================================
-# ⚙️ Celery 配置
+# Celery 配置
 # ================================================
 # Worker 并发数（根据 CPU 核心数调整，建议为 CPU 核心数）
 CELERY_WORKER_CONCURRENCY=4
 
 # ================================================
-# 🕐 时区配置
+# 时区配置
 # ================================================
 TZ=Asia/Shanghai
 
 # ================================================
-# 📦 MinIO 对象存储配置
+# RustFS 对象存储配置
 # ================================================
-# 是否启用 MinIO 对象存储（True 启用，False 使用本地文件系统）
-SNOW_USE_MINIO=True
+# 是否启用对象存储（True 启用，False 使用本地文件系统）
+SNOW_USE_OBJECT_STORAGE=${ENABLE_OBJECT_STORAGE:-True}
 
-# MinIO 容器配置（Docker 服务）
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
-MINIO_BUCKET_NAME=secsnow
-MINIO_DATA_DIR=./minio/data
-MINIO_API_PORT=7900
-MINIO_CONSOLE_PORT=7901
+# RustFS 容器配置（Docker 服务层）
+RUSTFS_ROOT_USER=rustfsadmin
+RUSTFS_ROOT_PASSWORD=${RUSTFS_PASSWORD}
+RUSTFS_BUCKET_NAME=secsnow
+RUSTFS_DATA_DIR=./rustfs/data
+RUSTFS_LOG_DIR=./rustfs/logs
+RUSTFS_API_PORT=7900
+RUSTFS_CONSOLE_PORT=7901
 
-# Django 应用访问 MinIO 配置（内部连接）
-SNOW_MINIO_ACCESS_KEY=minioadmin
-SNOW_MINIO_SECRET_KEY=${MINIO_PASSWORD}
-SNOW_MINIO_BUCKET_NAME=secsnow
-SNOW_MINIO_ENDPOINT_URL=http://minio:9000
-SNOW_MINIO_REGION=us-east-1
+# RustFS 镜像配置
+RUSTFS_IMAGE=rustfs/rustfs:latest
+MINIO_MC_IMAGE=minio/mc:latest
+
+# ================================================
+# Django 对象存储配置（应用层配置）
+# ================================================
+# Django 使用这些变量连接到 RustFS
+# 注意：可以与 RustFS root 用户不同，提高安全性
+# 可自定义其他类型存储，如阿里云OSS、腾讯云COS、或者本地其他节点存储
+# 存储访问凭证
+SNOW_STORAGE_ACCESS_KEY=rustfsadmin
+# 存储访问密钥
+SNOW_STORAGE_SECRET_KEY=${RUSTFS_PASSWORD}
+# 存储桶名称
+SNOW_STORAGE_BUCKET_NAME=secsnow
+# 存储节点地址，内部节点地址为 http://rustfs:9000
+SNOW_STORAGE_ENDPOINT_URL=http://rustfs:9000
+# 区域
+SNOW_STORAGE_REGION=us-east-1
+# 文件路径前缀
+SNOW_STORAGE_LOCATION=
 
 # SSL 配置（生产环境建议启用）
-SNOW_MINIO_USE_SSL=False
-SNOW_MINIO_VERIFY_SSL=False
+SNOW_STORAGE_USE_SSL=False
+SNOW_STORAGE_VERIFY_SSL=False
 
 # 公开访问配置（浏览器访问文件的地址）
-# 留空则使用相对路径 /minio/ （推荐，通过 Nginx 代理）
+# 留空则使用相对路径 /media/ （推荐，通过 Nginx 代理）
 # 或填写完整域名（如 http://your-ip:port 或 https://yourdomain.com）
-SNOW_MINIO_PUBLIC_URL=
+SNOW_STORAGE_PUBLIC_URL=
 
 # ================================================
-# 🔧 高级配置（一般不需要修改）
+# 高级配置（一般不需要修改）
 # ================================================
 # Docker 网络名称（用于多实例部署时区分网络）
 NETWORK_NAME=secsnow-network
@@ -824,7 +882,7 @@ NETWORK_NAME=secsnow-network
 CONTAINER_PREFIX=secsnow
 
 # ================================================
-# 🐋 容器相关设置
+# 容器相关设置
 # ================================================
 # 容器运行时间（小时）
 CONTAINER_EXPIRY_HOURS=2
@@ -839,7 +897,7 @@ MAX_CONTAINERS_PER_CHALLENGE=100
 MAX_CONTAINERS_PER_TEAM=1
 
 # ================================================
-# 📝 备注
+# 备注
 # ================================================
 # 修改配置后请重启服务:
 #   docker compose down      (Docker Compose V2)
@@ -851,23 +909,34 @@ MAX_CONTAINERS_PER_TEAM=1
 #   docker compose restart web
 #
 # ================================================
-# 📦 MinIO 对象存储说明
+# 对象存储说明
 # ================================================
-# MinIO 已默认启用作为对象存储服务
+# 对象存储状态：$([ "${ENABLE_OBJECT_STORAGE}" = "True" ] && echo "已启用 RustFS" || echo "使用本地文件系统")
 # 
-# 管理控制台：http://服务器IP/minio-console/
-# 用户名：minioadmin
-# 密码：已自动生成随机密码（见上方 MINIO_ROOT_PASSWORD）
-#
-# 文件访问地址：http://服务器IP/media/文件路径
-# （与本地存储保持一致，Nginx 自动代理到 MinIO）
-#
-# 配置说明：
-# - SNOW_MINIO_ENDPOINT_URL：Django 内部连接地址（不要改）
-# - SNOW_MINIO_PUBLIC_URL：留空即可（使用 /media/ 路径）
-# - 如使用 CDN，填写 CDN 域名（如 https://cdn.yourdomain.com）
-# 
-# 如需禁用：将 SNOW_USE_MINIO 改为 False
+$(if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
+echo "# RustFS 管理控制台：http://服务器IP/:7901"
+echo "# 用户名：rustfsadmin"
+echo "# 密码：已自动生成随机密码（见上方 RUSTFS_ROOT_PASSWORD）"
+echo "#"
+echo "# 文件访问地址：http://服务器IP/media/文件路径"
+echo "# （与本地存储保持一致，Nginx 自动代理到 RustFS）"
+echo "#"
+echo "# 配置说明："
+echo "# - SNOW_STORAGE_ENDPOINT_URL：Django 内部连接地址"
+echo "# - SNOW_STORAGE_PUBLIC_URL：留空即可（使用 /media/ 路径）"
+echo "# - 如使用 CDN，填写 CDN 域名（如 https://cdn.yourdomain.com）"
+echo "#"
+echo "# 如需禁用：将 SNOW_USE_OBJECT_STORAGE 改为 False"
+else
+echo "# 当前使用本地文件系统存储上传的文件"
+echo "# 文件保存位置：./web/media/"
+echo "#"
+echo "# 如需启用对象存储："
+echo "# 1. 将 SNOW_USE_OBJECT_STORAGE 改为 True"
+echo "# 2. 配置 RustFS 相关参数"
+echo "# 3. 启动服务：docker-compose --profile storage up -d"
+echo "# 4. 重启应用：docker-compose restart web celery-worker celery-beat"
+fi)
 # ================================================
 ENV_EOF
 
@@ -880,6 +949,9 @@ ENV_EOF
 # ================================================
 # 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
 # ================================================
+
+平台版本:
+  SecSnow:    ${SECSNOW_VERSION}
 
 Docker镜像:
   PostgreSQL: ${LOADED_POSTGRES_IMAGE:-postgres:17-bookworm}
@@ -903,11 +975,14 @@ Flower监控:
   密码:     ${FLOWER_PASSWORD}
   访问地址: http://YOUR_IP:5555
 
-MinIO对象存储:
-  用户名:   minioadmin
-  密码:     ${MINIO_PASSWORD}
-  控制台:   http://YOUR_IP/minio-console/
-  文件访问: http://YOUR_IP/media/
+对象存储:
+  状态:     $([ "${ENABLE_OBJECT_STORAGE}" = "True" ] && echo "已启用 RustFS" || echo "使用本地存储")
+$(if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
+echo "  用户名:   rustfsadmin"
+echo "  密码:     ${RUSTFS_PASSWORD}"
+echo "  控制台:   http://YOUR_IP/storage-console/"
+echo "  文件访问: http://YOUR_IP/media/"
+fi)
 
 # ================================================
 # 重要提示
@@ -981,7 +1056,6 @@ start_services() {
     show_info "创建数据目录..."
     mkdir -p db/postgres
     mkdir -p redis/data
-    mkdir -p minio/data
     mkdir -p web/media
     mkdir -p web/static
     mkdir -p web/log
@@ -989,8 +1063,10 @@ start_services() {
     mkdir -p web/whoosh_index
     mkdir -p nginx/ssl
     
-    # 设置目录权限
-    chmod -R 755 minio 2>/dev/null || true
+    # 创建对象存储相关目录（必需）
+    mkdir -p rustfs/data
+    mkdir -p rustfs/logs
+    chmod -R 755 rustfs 2>/dev/null || true
     
     show_success "数据目录创建完成"
     
@@ -1002,12 +1078,12 @@ start_services() {
     
     show_info "使用命令: $COMPOSE_CMD"
     
-    # 启动核心服务
-    show_info "启动核心服务（PostgreSQL + Redis + Web）..."
+    # 启动所有服务（包含 RustFS 对象存储）
+    show_info "启动所有服务（PostgreSQL + Redis + RustFS + Web + Nginx）..."
     if $COMPOSE_CMD up -d; then
-        show_success "服务启动成功"
+        show_success "服务启动成功（包含 RustFS 对象存储）"
     else
-        show_error "服务启动失败"
+        show_error "服务启动失败，请检查日志"
     fi
     
     # 等待服务就绪
@@ -1093,38 +1169,35 @@ EOF
     fi
 }
 
-# 初始化 MinIO 默认文件
-initialize_minio_defaults() {
-    show_step "初始化 MinIO 默认文件..."
+# 初始化对象存储默认文件
+initialize_object_storage_defaults() {
+    show_step "初始化对象存储默认文件..."
     
-    # 检查是否启用了 MinIO
-    MINIO_ENABLED=$(grep "^SNOW_USE_MINIO=" .env | cut -d'=' -f2)
-    
-    if [ "$MINIO_ENABLED" != "True" ]; then
-        show_info "MinIO 未启用，跳过默认文件初始化"
-        return 0
-    fi
+    # 等待 RustFS 完全启动
+    show_info "等待 RustFS 服务就绪..."
+    sleep 10
     
     # 检查是否有默认 media 文件
     if [ -d "web/media" ] && [ "$(ls -A web/media 2>/dev/null)" ]; then
-        show_info "检测到默认 media 文件，正在同步到 MinIO..."
+        show_info "检测到默认 media 文件，正在同步到 RustFS..."
         
-        # 从 .env 读取 MinIO 配置
-        MINIO_USER=$(grep "^MINIO_ROOT_USER=" .env | cut -d'=' -f2)
-        MINIO_PASSWORD=$(grep "^MINIO_ROOT_PASSWORD=" .env | cut -d'=' -f2)
-        MINIO_BUCKET=$(grep "^MINIO_BUCKET_NAME=" .env | cut -d'=' -f2)
+        # 从 .env 读取 RustFS 配置
+        RUSTFS_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2)
+        RUSTFS_PASSWORD=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2)
+        RUSTFS_BUCKET=$(grep "^RUSTFS_BUCKET_NAME=" .env | cut -d'=' -f2)
         
-        # 同步默认文件到 MinIO
+        # 同步默认文件到 RustFS
         docker run --rm \
             -v "$(pwd)/web/media:/media" \
             --network=secsnow-network \
-            minio/mc:latest sh -c "
-                mc alias set secsnow http://minio:9000 ${MINIO_USER} '${MINIO_PASSWORD}' >/dev/null 2>&1;
-                mc cp --recursive --quiet /media/ secsnow/${MINIO_BUCKET}/ 2>/dev/null;
+            --entrypoint /bin/sh \
+            minio/mc:latest -c "
+                mc alias set secsnow http://rustfs:9000 ${RUSTFS_USER} '${RUSTFS_PASSWORD}' >/dev/null 2>&1
+                mc cp --recursive --quiet /media/ secsnow/${RUSTFS_BUCKET}/ 2>/dev/null
             " >/dev/null 2>&1
         
         if [ $? -eq 0 ]; then
-            show_success "默认文件已同步到 MinIO"
+            show_success "默认文件已同步到 RustFS"
         else
             show_warning "默认文件同步失败（可能已存在）"
         fi
@@ -1147,11 +1220,11 @@ show_completion() {
     echo ""
     echo -e "${BLUE}服务访问:${NC}"
     echo "  Web服务: http://您的IP地址（默认端口 80）"
-    echo "  MinIO控制台: http://您的IP地址/minio-console/"
-    echo "  媒体文件: http://您的IP地址/media/（自动代理到MinIO）"
+    echo "  对象存储控制台: http://您的IP地址/storage-console/"
+    echo "  媒体文件: http://您的IP地址/media/（自动代理到 RustFS）"
     echo ""
-    echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 MinIO"
-    echo "       MinIO 端口（7900/7901）仅用于容器间内部通信"
+    echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 RustFS"
+    echo "       RustFS 不对外暴露端口，仅在容器网络内部通信"
     echo ""
     echo -e "${BLUE}管理命令:${NC}"
     echo "  查看服务状态:"
@@ -1175,9 +1248,10 @@ show_completion() {
     echo "  2. 建议修改默认管理员密码"
     echo "  3. 生产环境请配置防火墙规则"
     echo "  4. 首次安装需要登录系统获取机器码，然后提供给开发者获取授权！"
-    echo "  5. 网站首页内容，页脚内容，导航栏内容，请根据实际情况再后台管理对应模块进行修改！"
-    echo "  6. MinIO 对象存储已默认启用，所有文件将自动保存到 MinIO"
-    echo "  7. MinIO 管理密码见 .credentials 文件中的 MINIO_ROOT_PASSWORD"
+    echo "  5. 网站首页内容，页脚内容，导航栏内容，请根据实际情况在后台管理对应模块进行修改！"
+    echo "  6. 请遵守许可协议，不得用于非法用途！无商业授权情况不得用于商业用途！未经授权不得对软件进行破解、逆向工程、篡改、二次开发等行为！"
+    echo "  7. RustFS 对象存储已启用，所有上传文件将保存到对象存储"
+    echo "  8. RustFS 管理密码见 .credentials 文件中的 RUSTFS_ROOT_PASSWORD"
     echo "========================================="
 }
 
@@ -1520,12 +1594,15 @@ main() {
         load_images
     fi
     
+    # 设置对象存储（默认启用）
+    set_object_storage
+    
     generate_env
     optimize_redis_system
     start_services
     run_migrations
     create_admin_user
-    initialize_minio_defaults
+    initialize_object_storage_defaults
     
     # 创建安装标志文件
     echo "安装时间: $(date '+%Y-%m-%d %H:%M:%S')" > "${INSTALL_DIR}/.installed"
