@@ -901,7 +901,12 @@ MAX_CONTAINERS_PER_CHALLENGE=50
 
 # 每个队伍最多同时运行的容器数（团队赛）
 MAX_CONTAINERS_PER_TEAM=1
+DOCKER_POOL_MIN_SIZE
+# 容器连接池最小连接数
+DOCKER_POOL_MIN_SIZE=5
 
+# 容器连接池最大连接数
+DOCKER_POOL_MAX_SIZE=20
 # ================================================
 # 备注
 # ================================================
