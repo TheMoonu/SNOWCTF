@@ -257,24 +257,10 @@ generate_redis_password() {
 
 # 设置对象存储（默认启用）
 set_object_storage() {
-    echo ""
-    echo "========================================="
-    echo -e "${CYAN}📦 对象存储配置${NC}"
-    echo "========================================="
-    echo ""
-    echo -e "${BLUE}RustFS 对象存储${NC}"
-    echo "  SecSnow 平台使用 RustFS 对象存储服务来存储用户上传的文件。"
-    echo ""
-    echo -e "${GREEN}优势：${NC}"
-    echo "  • 高性能：专为对象存储优化"
-    echo "  • 可扩展：支持大规模文件存储"
-    echo "  • 高可用：支持分布式部署"
-    echo "  • 兼容性：兼容 S3 API"
-    echo ""
     
     # 默认启用对象存储
     ENABLE_OBJECT_STORAGE="True"
-    show_success "RustFS 对象存储已启用（必需服务）"
+    show_success "RustFS 对象存储已启用"
     
     # 保存配置记录
     mkdir -p "${INSTALL_DIR}"
@@ -991,7 +977,7 @@ Flower监控:
 $(if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
 echo "  用户名:   rustfsadmin"
 echo "  密码:     ${RUSTFS_PASSWORD}"
-echo "  控制台:   http://YOUR_IP/storage-console/"
+echo "  控制台:   http://YOUR_IP:7901/"
 echo "  文件访问: http://YOUR_IP/media/"
 fi)
 
