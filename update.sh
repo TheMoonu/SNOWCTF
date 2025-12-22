@@ -604,8 +604,8 @@ check_and_init_object_storage() {
         USE_STORAGE="True"
         save_storage_config "rustfs" "True"
         
-        # 生成随机密码
-        RUSTFS_PASSWORD=$(openssl rand -base64 16 | tr -d '+/=' | head -c 20 2>/dev/null || echo "rustfsadmin123")
+        # 生成随机密码（仅使用字母和数字）
+        RUSTFS_PASSWORD=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 20 2>/dev/null || echo "rustfsadmin123")
         
         # 添加对象存储配置到 .env
         # 注意：此函数在容器启动前执行，配置添加后容器启动时会直接使用正确的密码
@@ -681,34 +681,17 @@ EOF
         echo "  服务将在更新流程中自动重启"
         echo ""
         
-        # 检查是否有本地文件需要迁移
+        # 检测本地文件（仅提示，不询问）
         if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
             LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
             echo ""
-            echo -e "${YELLOW}📁 检测到本地文件${NC}"
-            echo "  web/media 目录中有 $LOCAL_FILES 个文件"
-            echo ""
-            
+            show_info "检测到本地文件: $LOCAL_FILES 个文件在 web/media 目录"
             if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-                show_info "自动迁移模式已启用，稍后将迁移文件"
-            elif [ "$SKIP_CONFIRM" = false ]; then
-                echo -e "${BLUE}是否现在迁移这些文件到 RustFS？${NC}"
-                echo "  • 选择 'y': 立即迁移文件到对象存储"
-                echo "  • 选择 'n': 稍后手动迁移"
-                echo ""
-                read -p "现在迁移文件？(y/n): " -n 1 -r
-                echo
-                
-                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                    # 标记需要在服务启动后迁移
-                    NEED_MIGRATE_FILES=true
-                else
-                    show_info "已跳过文件迁移"
-                    echo ""
-                    echo -e "${YELLOW}提示：${NC}您可以稍后手动迁移文件"
-                    echo ""
-                fi
+                show_success "已设置自动迁移参数，将在更新完成后迁移文件"
+            else
+                show_info "如需迁移文件到对象存储，请使用参数: --migrate-media"
             fi
+            echo ""
         fi
     else
         # 已有配置，检查状态
@@ -722,11 +705,6 @@ EOF
                 show_success "RustFS 服务运行正常"
             else
                 show_warning "RustFS 服务未运行，将在启动服务时自动启动"
-            fi
-            
-            # 检查是否需要迁移 media 文件
-            if [ -d "web/media" ] && [ "$(find web/media -type f | wc -l)" -gt 0 ]; then
-                check_media_migration
             fi
         else
             # 如果配置为 False，说明用户禁用了对象存储，跳过相关操作
@@ -765,24 +743,10 @@ check_media_migration() {
     echo "  本地文件数: $LOCAL_FILE_COUNT"
     echo "  对象存储文件数: $STORAGE_FILE_COUNT"
     
-    # 如果对象存储中文件明显少于本地，提示迁移
+    # 如果对象存储中文件明显少于本地，提示需要迁移
     if [ "$STORAGE_FILE_COUNT" -lt "$((LOCAL_FILE_COUNT / 2))" ] && [ "$LOCAL_FILE_COUNT" -gt 0 ]; then
         show_warning "对象存储中文件数量较少，可能需要迁移"
-        
-        if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-            migrate_media_to_storage
-        elif [ "$SKIP_CONFIRM" = false ]; then
-            echo ""
-            read -p "是否现在迁移本地文件到对象存储？(y/n): " -n 1 -r
-            echo
-            
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                migrate_media_to_storage
-            else
-                show_info "跳过文件迁移"
-                show_warning "可稍后运行: ./migrate_media_to_minio.sh"
-            fi
-        fi
+        show_info "如需迁移文件，请使用参数: --migrate-media"
     else
         show_success "文件已同步到对象存储"
     fi
@@ -801,7 +765,7 @@ enable_object_storage() {
     NEW_PASSWORD=""
     
     if [ "$CURRENT_PASSWORD" = "rustfsadmin" ]; then
-        NEW_PASSWORD=$(openssl rand -base64 16 | tr -d '+/=' | head -c 20 2>/dev/null || echo "rustfsadmin123")
+        NEW_PASSWORD=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 20 2>/dev/null || echo "rustfsadmin123")
         sed -i "s/^RUSTFS_ROOT_PASSWORD=.*/RUSTFS_ROOT_PASSWORD=${NEW_PASSWORD}/" .env
         # 同时更新 Django 应用层密码
         if grep -q "^SNOW_STORAGE_SECRET_KEY=" .env; then
@@ -844,35 +808,17 @@ enable_object_storage() {
     show_success "RustFS 对象存储已启用"
     show_info "RustFS 将在服务重启后自动运行"
     
-    # 检查是否有本地文件需要迁移
+    # 检测本地文件（仅提示，不询问）
     if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
         LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
         echo ""
-        echo -e "${YELLOW}📁 检测到本地文件${NC}"
-        echo "  web/media 目录中有 $LOCAL_FILES 个文件"
-        echo ""
-        
+        show_info "检测到本地文件: $LOCAL_FILES 个文件在 web/media 目录"
         if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-            show_info "自动迁移模式已启用，稍后将迁移文件"
-            NEED_MIGRATE_FILES=true
-        elif [ "$SKIP_CONFIRM" = false ]; then
-            echo -e "${BLUE}是否现在迁移这些文件到 RustFS？${NC}"
-            echo "  • 选择 'y': 稍后在服务启动后自动迁移"
-            echo "  • 选择 'n': 手动迁移（运行 ./migrate_to_rustfs.sh）"
-            echo ""
-            read -p "现在迁移文件？(y/n): " -n 1 -r
-            echo
-            
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                NEED_MIGRATE_FILES=true
-            else
-                show_info "已跳过文件迁移"
-                echo ""
-                echo -e "${YELLOW}提示：${NC}您可以稍后运行以下命令迁移文件："
-                echo "  cd ${INSTALL_DIR} && ./migrate_to_rustfs.sh"
-                echo ""
-            fi
+            show_success "已设置自动迁移参数，将在更新完成后迁移文件"
+        else
+            show_info "如需迁移文件到对象存储，请使用参数: --migrate-media"
         fi
+        echo ""
     fi
 }
 
@@ -932,18 +878,7 @@ migrate_media_to_storage() {
     show_success "RustFS 运行正常"
     echo ""
     
-    # 确认迁移
-    if [ "$AUTO_MIGRATE_MEDIA" != true ] && [ "$SKIP_CONFIRM" = false ]; then
-        read -p "开始迁移 $LOCAL_FILE_COUNT 个文件？(y/n): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            show_info "已取消迁移"
-            return 0
-        fi
-    fi
-    
-    echo ""
-    show_info "开始迁移..."
+    show_info "开始迁移 $LOCAL_FILE_COUNT 个文件..."
     echo ""
     
     # 步骤 1/4: 配置 mc 客户端
@@ -1052,35 +987,19 @@ migrate_media_to_storage() {
         show_success "✅ 迁移成功！"
         echo ""
         
-        # 询问是否备份本地文件
-        if [ "$SKIP_CONFIRM" = false ]; then
-            echo ""
-            read -p "是否将本地 media 目录重命名为 media.backup？(y/n): " -n 1 -r
-            echo
-            
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                if [ -d "web/media.backup" ]; then
-                    show_warning "web/media.backup 已存在，将覆盖"
-                    rm -rf web/media.backup
-                fi
-                mv web/media web/media.backup
-                mkdir -p web/media
-                show_success "本地目录已重命名为 media.backup"
-                echo ""
-                show_info "后续步骤："
-                echo "  1. 测试文件访问: http://你的域名/media/文件路径"
-                echo "  2. 确认无误后可删除备份: rm -rf web/media.backup"
-                echo "  3. 访问控制台: http://你的IP:7901/"
-            fi
-        else
-            # 自动模式：直接备份
-            if [ -d "web/media.backup" ]; then
-                rm -rf web/media.backup
-            fi
-            mv web/media web/media.backup
-            mkdir -p web/media
-            show_success "本地目录已重命名为 media.backup"
+        # 自动备份本地文件
+        if [ -d "web/media.backup" ]; then
+            show_warning "web/media.backup 已存在，将覆盖"
+            rm -rf web/media.backup
         fi
+        mv web/media web/media.backup
+        mkdir -p web/media
+        show_success "本地目录已重命名为 media.backup"
+        echo ""
+        show_info "后续步骤："
+        echo "  1. 测试文件访问: http://你的域名/media/文件路径"
+        echo "  2. 确认无误后可删除备份: rm -rf web/media.backup"
+        echo "  3. 访问 RustFS 控制台: http://你的IP:7901/"
     else
         show_error "❌ 文件数量不匹配"
         echo ""
@@ -1461,7 +1380,6 @@ main() {
     AUTO_CLEAN_RESUME=false
     AUTO_ENABLE_STORAGE=false
     AUTO_MIGRATE_MEDIA=false
-    NEED_MIGRATE_FILES=false
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -1616,20 +1534,6 @@ main() {
     
     echo ""
     
-    # 如果需要迁移文件，在服务启动后执行
-    if [ "$NEED_MIGRATE_FILES" = true ] || [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-        # 检查是否启用了对象存储且有本地文件
-        STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
-        if [ "$STORAGE_ENABLED" = "True" ] && [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
-            echo ""
-            show_info "准备迁移本地文件到对象存储..."
-            sleep 3
-            migrate_media_to_storage
-        fi
-    fi
-    
-    echo ""
-    
     # 数据库迁移
     if [ "$SKIP_MIGRATE" = false ]; then
         run_migrations
@@ -1639,6 +1543,26 @@ main() {
     
     # 验证更新
     verify_update
+    
+    echo ""
+    
+    # 文件迁移到对象存储（如果设置了参数）
+    if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
+        # 检查是否启用了对象存储且有本地文件
+        STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
+        if [ "$STORAGE_ENABLED" = "True" ]; then
+            if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+                show_step "执行文件迁移到对象存储..."
+                sleep 3
+                migrate_media_to_storage
+            else
+                show_info "web/media 目录为空，无需迁移"
+            fi
+        else
+            show_warning "对象存储未启用，跳过文件迁移"
+        fi
+        echo ""
+    fi
     
     # 清理旧镜像
     if [ "$AUTO_CLEANUP" = true ]; then

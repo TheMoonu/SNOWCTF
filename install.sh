@@ -245,8 +245,8 @@ install_docker_compose() {
 
 # 生成随机密码（避免使用bash特殊字符）
 generate_password() {
-    # 不使用 $ ` \ " ' 等bash特殊字符
-    cat /dev/urandom | tr -dc 'A-Za-z0-9@#%+=_-' | head -c 20
+    # 仅使用字母和数字，避免特殊字符导致的问题
+    cat /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 20
 }
 
 # 生成Redis密码（仅使用字母和数字，避免URL编码问题）
