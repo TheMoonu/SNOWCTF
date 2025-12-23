@@ -42,6 +42,227 @@ show_info() {
     echo -e "${BLUE}[信息] $1${NC}"
 }
 
+# 检查端口是否被占用
+check_port() {
+    local port=$1
+    if command -v ss &> /dev/null; then
+        # 优先使用 ss 命令（更快）
+        ss -tuln | grep -q ":${port} "
+    elif command -v netstat &> /dev/null; then
+        # 备用 netstat 命令
+        netstat -tuln | grep -q ":${port} "
+    elif command -v lsof &> /dev/null; then
+        # 备用 lsof 命令
+        lsof -i ":${port}" -sTCP:LISTEN >/dev/null 2>&1
+    else
+        # 如果都没有，尝试用 nc 测试（最后的手段）
+        if command -v nc &> /dev/null; then
+            nc -z 127.0.0.1 ${port} >/dev/null 2>&1
+        else
+            # 无法检测，假设端口未被占用
+            return 1
+        fi
+    fi
+    return $?
+}
+
+# 获取端口占用进程信息
+get_port_process() {
+    local port=$1
+    local process_info=""
+    
+    if command -v lsof &> /dev/null; then
+        process_info=$(lsof -i ":${port}" -sTCP:LISTEN 2>/dev/null | grep LISTEN | awk '{print $1" (PID: "$2")"}' | head -n 1)
+    elif command -v ss &> /dev/null; then
+        process_info=$(ss -tlnp | grep ":${port} " | grep -oP 'pid=\d+' | head -n 1)
+    elif command -v netstat &> /dev/null; then
+        process_info=$(netstat -tlnp 2>/dev/null | grep ":${port} " | awk '{print $7}' | head -n 1)
+    fi
+    
+    if [ -n "$process_info" ]; then
+        echo "$process_info"
+    else
+        echo "未知进程"
+    fi
+}
+
+# 检查必需端口
+check_required_ports() {
+    show_step "检查端口占用情况..."
+    
+    # 默认端口配置
+    DEFAULT_HTTP_PORT=80
+    DEFAULT_HTTPS_PORT=443
+    DEFAULT_STORAGE_CONSOLE_PORT=7901
+    
+    # 检查结果标志
+    PORTS_OK=true
+    
+    # 检查 HTTP 端口 (80)
+    if check_port ${DEFAULT_HTTP_PORT}; then
+        show_warning "端口 ${DEFAULT_HTTP_PORT} (HTTP) 已被占用"
+        PROCESS_INFO=$(get_port_process ${DEFAULT_HTTP_PORT})
+        show_info "占用进程: ${PROCESS_INFO}"
+        PORTS_OK=false
+    else
+        show_success "端口 ${DEFAULT_HTTP_PORT} (HTTP) 可用"
+    fi
+    
+    # 检查 HTTPS 端口 (443)
+    if check_port ${DEFAULT_HTTPS_PORT}; then
+        show_warning "端口 ${DEFAULT_HTTPS_PORT} (HTTPS) 已被占用"
+        PROCESS_INFO=$(get_port_process ${DEFAULT_HTTPS_PORT})
+        show_info "占用进程: ${PROCESS_INFO}"
+        PORTS_OK=false
+    else
+        show_success "端口 ${DEFAULT_HTTPS_PORT} (HTTPS) 可用"
+    fi
+    
+    # 检查对象存储控制台端口 (7901)
+    if check_port ${DEFAULT_STORAGE_CONSOLE_PORT}; then
+        show_warning "端口 ${DEFAULT_STORAGE_CONSOLE_PORT} (对象存储控制台) 已被占用"
+        PROCESS_INFO=$(get_port_process ${DEFAULT_STORAGE_CONSOLE_PORT})
+        show_info "占用进程: ${PROCESS_INFO}"
+        PORTS_OK=false
+    else
+        show_success "端口 ${DEFAULT_STORAGE_CONSOLE_PORT} (对象存储控制台) 可用"
+    fi
+    
+    # 如果有端口被占用，询问用户
+    if [ "$PORTS_OK" = false ]; then
+        echo ""
+        show_warning "检测到端口占用！"
+        echo ""
+        echo -e "${YELLOW}您有以下选择：${NC}"
+        echo "  1. 停止占用端口的服务，然后使用默认端口继续安装"
+        echo "  2. 使用自定义端口继续安装"
+        echo "  3. 取消安装"
+        echo ""
+        
+        read -p "请选择 (1/2/3): " -n 1 -r
+        echo
+        echo ""
+        
+        case $REPLY in
+            1)
+                show_info "请手动停止占用端口的服务，然后重新运行安装脚本"
+                echo ""
+                show_info "常见端口释放方法："
+                echo "  查看占用进程: sudo lsof -i :80"
+                echo "  停止 Nginx: sudo systemctl stop nginx"
+                echo "  停止 Apache: sudo systemctl stop apache2 或 httpd"
+                echo ""
+                exit 0
+                ;;
+            2)
+                configure_custom_ports
+                ;;
+            3)
+                show_warning "安装已取消"
+                exit 0
+                ;;
+            *)
+                show_error "无效选择，安装已取消"
+                ;;
+        esac
+    else
+        show_success "所有端口检查通过"
+        # 使用默认端口
+        export CUSTOM_HTTP_PORT=${DEFAULT_HTTP_PORT}
+        export CUSTOM_HTTPS_PORT=${DEFAULT_HTTPS_PORT}
+        export CUSTOM_STORAGE_CONSOLE_PORT=${DEFAULT_STORAGE_CONSOLE_PORT}
+    fi
+    
+    echo ""
+}
+
+# 配置自定义端口
+configure_custom_ports() {
+    show_step "配置自定义端口..."
+    echo ""
+    
+    # HTTP 端口
+    while true; do
+        read -p "请输入 HTTP 端口 [默认 80, 推荐 8080]: " HTTP_PORT
+        HTTP_PORT=${HTTP_PORT:-8080}
+        
+        if ! [[ "$HTTP_PORT" =~ ^[0-9]+$ ]] || [ "$HTTP_PORT" -lt 1 ] || [ "$HTTP_PORT" -gt 65535 ]; then
+            show_error "无效的端口号，请输入 1-65535 之间的数字"
+            continue
+        fi
+        
+        if check_port ${HTTP_PORT}; then
+            show_warning "端口 ${HTTP_PORT} 已被占用，请选择其他端口"
+            continue
+        fi
+        
+        show_success "HTTP 端口设置为: ${HTTP_PORT}"
+        break
+    done
+    
+    # HTTPS 端口
+    while true; do
+        read -p "请输入 HTTPS 端口 [默认 443, 推荐 8443]: " HTTPS_PORT
+        HTTPS_PORT=${HTTPS_PORT:-8443}
+        
+        if ! [[ "$HTTPS_PORT" =~ ^[0-9]+$ ]] || [ "$HTTPS_PORT" -lt 1 ] || [ "$HTTPS_PORT" -gt 65535 ]; then
+            show_error "无效的端口号，请输入 1-65535 之间的数字"
+            continue
+        fi
+        
+        if [ "$HTTPS_PORT" -eq "$HTTP_PORT" ]; then
+            show_warning "HTTPS 端口不能与 HTTP 端口相同"
+            continue
+        fi
+        
+        if check_port ${HTTPS_PORT}; then
+            show_warning "端口 ${HTTPS_PORT} 已被占用，请选择其他端口"
+            continue
+        fi
+        
+        show_success "HTTPS 端口设置为: ${HTTPS_PORT}"
+        break
+    done
+    
+    # 对象存储控制台端口
+    while true; do
+        read -p "请输入对象存储控制台端口 [默认 7901, 推荐 9901]: " STORAGE_PORT
+        STORAGE_PORT=${STORAGE_PORT:-9901}
+        
+        if ! [[ "$STORAGE_PORT" =~ ^[0-9]+$ ]] || [ "$STORAGE_PORT" -lt 1 ] || [ "$STORAGE_PORT" -gt 65535 ]; then
+            show_error "无效的端口号，请输入 1-65535 之间的数字"
+            continue
+        fi
+        
+        if [ "$STORAGE_PORT" -eq "$HTTP_PORT" ] || [ "$STORAGE_PORT" -eq "$HTTPS_PORT" ]; then
+            show_warning "对象存储端口不能与 HTTP/HTTPS 端口相同"
+            continue
+        fi
+        
+        if check_port ${STORAGE_PORT}; then
+            show_warning "端口 ${STORAGE_PORT} 已被占用，请选择其他端口"
+            continue
+        fi
+        
+        show_success "对象存储控制台端口设置为: ${STORAGE_PORT}"
+        break
+    done
+    
+    echo ""
+    show_success "端口配置完成"
+    echo ""
+    echo -e "${BLUE}端口配置摘要：${NC}"
+    echo "  HTTP 端口:              ${HTTP_PORT}"
+    echo "  HTTPS 端口:             ${HTTPS_PORT}"
+    echo "  对象存储控制台端口:      ${STORAGE_PORT}"
+    echo ""
+    
+    # 导出变量供后续使用
+    export CUSTOM_HTTP_PORT=${HTTP_PORT}
+    export CUSTOM_HTTPS_PORT=${HTTPS_PORT}
+    export CUSTOM_STORAGE_CONSOLE_PORT=${STORAGE_PORT}
+}
+
 # 检测操作系统类型
 detect_os() {
     if [ -f /etc/os-release ]; then
@@ -758,14 +979,14 @@ FLOWER_PASSWORD=${FLOWER_PASSWORD}
 # 端口配置
 # ================================================
 # Nginx HTTP 端口
-NGINX_HTTP_PORT=80
+NGINX_HTTP_PORT=${CUSTOM_HTTP_PORT:-80}
 
 # Nginx HTTPS 端口
-NGINX_HTTPS_PORT=443
+NGINX_HTTPS_PORT=${CUSTOM_HTTPS_PORT:-443}
 
 # MinIO 端口配置
 MINIO_API_PORT=7900
-MINIO_CONSOLE_PORT=7901
+MINIO_CONSOLE_PORT=${CUSTOM_STORAGE_CONSOLE_PORT:-7901}
 
 # Flower 监控端口
 FLOWER_PORT=5555
@@ -824,7 +1045,7 @@ RUSTFS_BUCKET_NAME=secsnow
 RUSTFS_DATA_DIR=./rustfs/data
 RUSTFS_LOG_DIR=./rustfs/logs
 RUSTFS_API_PORT=7900
-RUSTFS_CONSOLE_PORT=7901
+RUSTFS_CONSOLE_PORT=${CUSTOM_STORAGE_CONSOLE_PORT:-7901}
 # CORS 设置，控制台与 S3 API 都放开来源
 RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
 RUSTFS_CORS_ALLOWED_ORIGINS=*
@@ -972,13 +1193,22 @@ Flower监控:
   密码:     ${FLOWER_PASSWORD}
   访问地址: http://YOUR_IP:5555
 
+端口配置:
+  HTTP端口:           ${CUSTOM_HTTP_PORT:-80}
+  HTTPS端口:          ${CUSTOM_HTTPS_PORT:-443}
+  对象存储控制台:      ${CUSTOM_STORAGE_CONSOLE_PORT:-7901}
+
 对象存储:
   状态:     $([ "${ENABLE_OBJECT_STORAGE}" = "True" ] && echo "已启用 RustFS" || echo "使用本地存储")
 $(if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
 echo "  用户名:   rustfsadmin"
 echo "  密码:     ${RUSTFS_PASSWORD}"
-echo "  控制台:   http://YOUR_IP:7901/"
-echo "  文件访问: http://YOUR_IP/media/"
+echo "  控制台:   http://YOUR_IP:${CUSTOM_STORAGE_CONSOLE_PORT:-7901}/"
+if [ "${CUSTOM_HTTP_PORT:-80}" = "80" ]; then
+  echo "  文件访问: http://YOUR_IP/media/"
+else
+  echo "  文件访问: http://YOUR_IP:${CUSTOM_HTTP_PORT}/media/"
+fi
 fi)
 
 # ================================================
@@ -1238,11 +1468,16 @@ show_completion() {
     echo "========================================="
     echo ""
     echo -e "${BLUE}服务访问:${NC}"
-    echo "  Web服务: http://您的IP地址（默认端口 80）"
+    # 根据实际端口显示访问地址
+    if [ "${CUSTOM_HTTP_PORT:-80}" = "80" ]; then
+        echo "  Web服务: http://您的IP地址"
+    else
+        echo "  Web服务: http://您的IP地址:${CUSTOM_HTTP_PORT}"
+    fi
     
     # 根据对象存储状态显示不同信息
     if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-        echo "  对象存储控制台: http://您的IP地址:7901/"
+        echo "  对象存储控制台: http://您的IP地址:${CUSTOM_STORAGE_CONSOLE_PORT:-7901}/"
         echo "  媒体文件: http://您的IP地址/media/（自动代理到 RustFS）"
         echo ""
         echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 RustFS"
@@ -1630,6 +1865,9 @@ main() {
     
     # 执行安装步骤
     check_docker
+    
+    # 检查端口占用
+    check_required_ports
     
     # 根据模式选择镜像获取方式
     if [ "$USE_REGISTRY" = true ]; then
