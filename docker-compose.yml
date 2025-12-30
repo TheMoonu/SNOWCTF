@@ -246,7 +246,7 @@ services:
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-celery-worker
     restart: always
-    command: celery -A secsnow worker -l info --concurrency=${CELERY_WORKER_CONCURRENCY:-4}
+    command: celery -A secsnow worker -l info --pool=gevent --concurrency=${CELERY_WORKER_CONCURRENCY:-20}
     environment:
       # Django 配置（使用 SNOW_ 前缀）
       SNOW_SECRET_KEY: ${SNOW_SECRET_KEY:-change-this-to-random-string}
@@ -261,6 +261,13 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      #容器相关设置
+      CONTAINER_EXPIRY_HOURS: ${CONTAINER_EXPIRY_HOURS:-2}
+      MAX_CONTAINERS_PER_USER: ${MAX_CONTAINERS_PER_USER:-1}
+      MAX_CONTAINERS_PER_CHALLENGE: ${MAX_CONTAINERS_PER_CHALLENGE:-100}
+      MAX_CONTAINERS_PER_TEAM: ${MAX_CONTAINERS_PER_TEAM:-1}
+      DOCKER_POOL_MIN_SIZE: ${DOCKER_POOL_MIN_SIZE:-5}
+      DOCKER_POOL_MAX_SIZE: ${DOCKER_POOL_MAX_SIZE:-20}
       # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
       SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
       SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
@@ -318,7 +325,13 @@ services:
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-
+      #容器相关设置
+      CONTAINER_EXPIRY_HOURS: ${CONTAINER_EXPIRY_HOURS:-2}
+      MAX_CONTAINERS_PER_USER: ${MAX_CONTAINERS_PER_USER:-1}
+      MAX_CONTAINERS_PER_CHALLENGE: ${MAX_CONTAINERS_PER_CHALLENGE:-100}
+      MAX_CONTAINERS_PER_TEAM: ${MAX_CONTAINERS_PER_TEAM:-1}
+      DOCKER_POOL_MIN_SIZE: ${DOCKER_POOL_MIN_SIZE:-5}
+      DOCKER_POOL_MAX_SIZE: ${DOCKER_POOL_MAX_SIZE:-20}
       # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
       SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-True}
       SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}

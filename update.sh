@@ -1104,6 +1104,15 @@ run_migrations() {
     else
         show_warning "静态文件收集可能有问题"
     fi
+
+    show_info "初始化功能模块..."
+    docker exec secsnow-web python manage.py init_license_modules
+
+    if [ $? -eq 0 ]; then
+        show_success "功能模块初始化完成"
+    else
+        show_warning "功能模块初始化可能有问题"
+    fi
 }
 
 # 验证更新
