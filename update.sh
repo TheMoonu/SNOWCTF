@@ -63,6 +63,38 @@ get_compose_command() {
     fi
 }
 
+# 读取安装配置信息
+read_installation_info() {
+    show_step "读取安装配置信息..."
+    
+    # 检查安装标志文件
+    if [ ! -f "${INSTALL_DIR}/.installed" ]; then
+        show_warning "未找到安装标志文件 (.installed)，将使用默认配置"
+        export INSTALLED_PERFORMANCE_MODE="default"
+        export INSTALLED_STORAGE_ENABLED="False"
+        return
+    fi
+    
+    # 读取安装信息
+    INSTALL_TIME=$(grep "^安装时间:" "${INSTALL_DIR}/.installed" | cut -d':' -f2- | xargs 2>/dev/null || echo "未知")
+    INSTALL_MODE=$(grep "^安装模式:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo "未知")
+    INSTALLED_PERFORMANCE_MODE=$(grep "^性能模式:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo "default")
+    INSTALLED_STORAGE_ENABLED=$(grep "^对象存储:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo "False")
+    
+    # 显示当前配置
+    echo ""
+    echo -e "${BLUE}当前安装配置：${NC}"
+    echo "  安装时间: ${INSTALL_TIME}"
+    echo "  安装方式: ${INSTALL_MODE}"
+    echo "  性能模式: ${INSTALLED_PERFORMANCE_MODE}"
+    echo "  对象存储: ${INSTALLED_STORAGE_ENABLED}"
+    echo ""
+    
+    # 导出变量供后续使用
+    export INSTALLED_PERFORMANCE_MODE
+    export INSTALLED_STORAGE_ENABLED
+}
+
 # 检查环境
 check_environment() {
     show_step "检查更新环境..."
@@ -205,9 +237,29 @@ stop_services() {
     
     COMPOSE_CMD=$(get_compose_command)
     
-    # 停止 web 相关服务，保留数据库
-    show_info "停止 Web 服务..."
-    $COMPOSE_CMD stop web celery-worker celery-beat 2>/dev/null || true
+    # 根据当前安装的性能模式停止服务
+    PROFILE_PARAMS=""
+    
+    # 添加性能模式参数
+    if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
+        PROFILE_PARAMS="--profile high-performance"
+        show_info "检测到高性能模式，使用对应参数停止服务"
+    fi
+    
+    # 添加对象存储参数
+    if [ "${INSTALLED_STORAGE_ENABLED}" = "True" ] || docker ps | grep -q secsnow-rustfs; then
+        PROFILE_PARAMS="${PROFILE_PARAMS} --profile storage"
+        show_info "检测到对象存储已启用"
+    fi
+    
+    # 停止服务
+    if [ -n "$PROFILE_PARAMS" ]; then
+        show_info "停止服务（使用参数: ${PROFILE_PARAMS}）..."
+        $COMPOSE_CMD $PROFILE_PARAMS stop web celery-worker celery-worker-container celery-worker-general celery-beat 2>/dev/null || true
+    else
+        show_info "停止 Web 服务..."
+        $COMPOSE_CMD stop web celery-worker celery-beat 2>/dev/null || true
+    fi
     
     # 检查是否需要停止 RustFS（如果之前启用了对象存储）
     if docker ps | grep -q secsnow-rustfs; then
@@ -217,7 +269,11 @@ stop_services() {
     
     # 移除旧容器（保留数据卷）
     show_info "移除旧容器..."
-    $COMPOSE_CMD rm -f web celery-worker celery-beat 2>/dev/null || true
+    if [ -n "$PROFILE_PARAMS" ]; then
+        $COMPOSE_CMD $PROFILE_PARAMS rm -f web celery-worker celery-worker-container celery-worker-general celery-beat 2>/dev/null || true
+    else
+        $COMPOSE_CMD rm -f web celery-worker celery-beat 2>/dev/null || true
+    fi
     
     # 移除 RustFS 容器（如果存在）
     if docker ps -a | grep -q secsnow-rustfs; then
@@ -429,18 +485,33 @@ start_services() {
     
     COMPOSE_CMD=$(get_compose_command)
     
-    # 根据对象存储配置决定启动哪些服务
+    # 根据安装配置决定启动参数
+    PROFILE_PARAMS=""
+    
+    # 添加性能模式参数
+    if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
+        PROFILE_PARAMS="--profile high-performance"
+        show_info "使用高性能模式启动"
+    else
+        show_info "使用默认模式启动"
+    fi
+    
+    # 添加对象存储参数
     if [ "$STORAGE_ENABLED" = "True" ]; then
-        # 启动所有服务（包含 RustFS 对象存储）
-        show_info "启动所有服务（包含 RustFS 对象存储）..."
-        if $COMPOSE_CMD --profile storage up -d; then
+        PROFILE_PARAMS="${PROFILE_PARAMS} --profile storage"
+        show_info "将启动 RustFS 对象存储服务"
+    fi
+    
+    # 启动服务
+    if [ -n "$PROFILE_PARAMS" ]; then
+        show_info "启动服务（参数: ${PROFILE_PARAMS}）..."
+        if $COMPOSE_CMD $PROFILE_PARAMS up -d; then
             show_success "服务启动成功"
         else
             show_error "服务启动失败，请检查日志"
         fi
     else
-        # 启动核心服务（不使用 storage profile，自动跳过 RustFS）
-        show_info "启动核心服务（不包含 RustFS）..."
+        show_info "启动核心服务..."
         if $COMPOSE_CMD up -d; then
             show_success "服务启动成功"
         else
@@ -1201,20 +1272,40 @@ show_completion() {
     CURRENT_VERSION=$(grep "^SECSNOW_VERSION=" .env | cut -d'=' -f2 2>/dev/null || echo "未知")
     echo "  当前版本: ${CURRENT_VERSION}"
     
+    # 显示性能模式
+    echo "  性能模式: ${INSTALLED_PERFORMANCE_MODE}"
+    
     echo "  备份目录: ${CURRENT_BACKUP_DIR:-未备份}"
     echo ""
     
     COMPOSE_CMD=$(get_compose_command)
     
+    # 构建 profile 参数
+    PROFILE_PARAMS=""
+    if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
+        PROFILE_PARAMS="--profile high-performance"
+    fi
+    if [ "$STORAGE_ENABLED" = "True" ]; then
+        PROFILE_PARAMS="${PROFILE_PARAMS} --profile storage"
+    fi
+    
     echo -e "${BLUE}常用命令:${NC}"
     echo "  查看服务状态:"
-    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ps"
+    if [ -n "$PROFILE_PARAMS" ]; then
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} ps"
+    else
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ps"
+    fi
     echo ""
     echo "  查看 Web 日志:"
     echo "    docker logs -f secsnow-web"
     echo ""
     echo "  查看所有服务日志:"
-    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD logs -f"
+    if [ -n "$PROFILE_PARAMS" ]; then
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} logs -f"
+    else
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD logs -f"
+    fi
     echo ""
     
     if [ "$UPDATE_MODE" = "local" ]; then
@@ -1233,7 +1324,11 @@ show_completion() {
     STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
     
     echo -e "${BLUE}回滚步骤（如果需要）:${NC}"
-    echo "  1. 停止服务: cd ${INSTALL_DIR} && $COMPOSE_CMD down"
+    if [ -n "$PROFILE_PARAMS" ]; then
+        echo "  1. 停止服务: cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} down"
+    else
+        echo "  1. 停止服务: cd ${INSTALL_DIR} && $COMPOSE_CMD down"
+    fi
     echo "  2. 恢复配置: cp ${CURRENT_BACKUP_DIR}/.env.backup .env"
     if [ "$UPDATE_MODE" = "registry" ]; then
         local image_base=$(echo "$REGISTRY_IMAGE" | cut -d':' -f1)
@@ -1242,8 +1337,8 @@ show_completion() {
     else
         echo "  3. 重新加载旧镜像"
     fi
-    if [ "$STORAGE_ENABLED" = "True" ]; then
-        echo "  5. 启动服务: $COMPOSE_CMD --profile storage up -d"
+    if [ -n "$PROFILE_PARAMS" ]; then
+        echo "  5. 启动服务: $COMPOSE_CMD ${PROFILE_PARAMS} up -d"
     else
         echo "  5. 启动服务: $COMPOSE_CMD up -d"
     fi
@@ -1474,6 +1569,9 @@ main() {
     
     # 执行更新步骤
     check_environment
+    
+    # 读取安装配置信息（性能模式等）
+    read_installation_info
     
     # 自动选择更新模式
     auto_select_update_mode

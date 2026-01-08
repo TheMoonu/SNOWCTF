@@ -497,6 +497,74 @@ EOF
     export ENABLE_OBJECT_STORAGE
 }
 
+# 选择性能模式
+select_performance_mode() {
+    show_step "选择性能模式..."
+    echo ""
+    
+    # 检测系统资源
+    CPU_CORES=$(nproc 2>/dev/null || echo "unknown")
+    TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}')
+    TOTAL_MEM_GB=$(echo "scale=1; $TOTAL_MEM_KB/1024/1024" | bc 2>/dev/null || echo "unknown")
+    
+    echo -e "${BLUE}系统资源信息：${NC}"
+    echo "  CPU 核心数: ${CPU_CORES}"
+    echo "  内存大小:   ${TOTAL_MEM_GB} GB"
+    echo ""
+    
+    echo -e "${BLUE}性能模式说明：${NC}"
+    echo ""
+    echo -e "${GREEN}1. 默认模式（推荐用于中低性能服务器）${NC}"
+    echo "   - 适用于: 2-4核CPU，4-8G内存"
+    echo "   - Celery Worker: 1个通用Worker，并发50"
+    echo "   - Gunicorn Worker: 4个进程，最大300连接"
+    echo "   - 资源占用: 较低"
+    echo "   - 适合场景: 小规模练习平台，用户数<100"
+    echo ""
+    echo -e "${YELLOW}2. 高性能模式（推荐用于高性能服务器）${NC}"
+    echo "   - 适用于: 4核+CPU，8G+内存"
+    echo "   - Celery Worker: 2个专用Worker（容器150并发 + 通用6并发）"
+    echo "   - Gunicorn Worker: 9个进程，最大500连接"
+    echo "   - 资源占用: 较高"
+    echo "   - 适合场景: 大规模比赛，高并发，用户数>100"
+    echo ""
+    
+    # 根据系统资源给出建议
+    if [ "$CPU_CORES" != "unknown" ] && [ "$TOTAL_MEM_GB" != "unknown" ]; then
+        if [ "$CPU_CORES" -ge 4 ] && [ "$(echo "$TOTAL_MEM_GB >= 7" | bc)" -eq 1 ]; then
+            echo -e "${GREEN}💡 建议：您的服务器配置较高，推荐使用【高性能模式】${NC}"
+        else
+            echo -e "${BLUE}💡 建议：您的服务器配置适中，推荐使用【默认模式】${NC}"
+        fi
+        echo ""
+    fi
+    
+    # 用户选择
+    while true; do
+        read -p "请选择性能模式 [1=默认模式, 2=高性能模式] (默认: 1): " PERF_MODE
+        PERF_MODE=${PERF_MODE:-1}
+        
+        case $PERF_MODE in
+            1)
+                PERFORMANCE_MODE="default"
+                show_success "已选择：默认模式（单Worker，适合中低性能服务器）"
+                break
+                ;;
+            2)
+                PERFORMANCE_MODE="high-performance"
+                show_success "已选择：高性能模式（双Worker优化，适合高性能服务器）"
+                break
+                ;;
+            *)
+                show_warning "无效选择，请输入 1 或 2"
+                ;;
+        esac
+    done
+    
+    echo ""
+    export PERFORMANCE_MODE
+}
+
 # 显示Docker安装指引
 show_docker_install_guide() {
     echo ""
@@ -1022,15 +1090,49 @@ NGINX_SSL_DIR=./nginx/ssl
 NGINX_LOG_DIR=./web/log/nginx
 
 # ================================================
+# 性能模式配置
+# ================================================
+# 性能模式: default（默认）或 high-performance（高性能）
+PERFORMANCE_MODE=${PERFORMANCE_MODE:-default}
+
+# ================================================
 # Celery 配置
 # ================================================
-# Worker 并发数 已调整为协程模式所以这里改为20
-CELERY_WORKER_CONCURRENCY=20
+# 默认模式 Worker 并发数（单Worker处理所有任务）
+CELERY_WORKER_CONCURRENCY=50
+
+# 高性能模式 Worker 并发数
+CELERY_CONTAINER_WORKER_CONCURRENCY=150
+CELERY_GENERAL_WORKER_CONCURRENCY=6
 
 # ================================================
 # 时区配置
 # ================================================
 TZ=Asia/Shanghai
+
+# ================================================
+# Gunicorn 配置（根据性能模式自动调整）
+# ================================================
+# 公式: workers = 2 × CPU核数 + 1
+# 
+# 默认模式（2-4核服务器）:
+#   - Workers: 4（适合 2核服务器: 2×2-1=3，取整为4）
+#   - Connections: 300（每个 worker 处理 75 个连接）
+#
+# 高性能模式（4核+服务器）:
+#   - Workers: 9（适合 4核服务器: 2×4+1=9）
+#   - Connections: 500（每个 worker 处理 55 个连接）
+#
+$(if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
+echo "GUNICORN_WORKERS=8"
+echo "GUNICORN_WORKER_CONNECTIONS=400"
+else
+echo "GUNICORN_WORKERS=4"
+echo "GUNICORN_WORKER_CONNECTIONS=250"
+fi)
+# Gunicorn 超时时间（秒）
+GUNICORN_TIMEOUT=300
+
 
 # ================================================
 # RustFS 对象存储配置
@@ -1094,37 +1196,6 @@ NETWORK_NAME=secsnow-network
 # 容器名称前缀（统一修改所有容器名称）
 CONTAINER_PREFIX=secsnow
 
-# ================================================
-# 容器相关设置
-# ================================================
-# 容器运行时间（小时）
-CONTAINER_EXPIRY_HOURS=2
-
-# 用户最多启动容器数量
-MAX_CONTAINERS_PER_USER=1
-
-# 每个题目最多同时运行的容器数
-MAX_CONTAINERS_PER_CHALLENGE=50
-
-# 每个队伍最多同时运行的容器数（团队赛）
-MAX_CONTAINERS_PER_TEAM=1
-DOCKER_POOL_MIN_SIZE
-# 容器连接池最小连接数
-DOCKER_POOL_MIN_SIZE=5
-
-# 容器连接池最大连接数
-DOCKER_POOL_MAX_SIZE=20
-# ================================================
-# 备注
-# ================================================
-# 修改配置后请重启服务:
-#   docker compose down      (Docker Compose V2)
-#   docker compose up -d     (Docker Compose V2)
-# 或者:
-#   docker-compose down      (docker-compose V1)
-#   docker-compose up -d     (docker-compose V1)
-# 单独重启某个服务:
-#   docker compose restart web
 #
 # ================================================
 # 对象存储说明
@@ -1312,20 +1383,38 @@ start_services() {
     
     # 根据对象存储配置决定启动哪些服务
     if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-        # 启动所有服务（包含 RustFS 对象存储）
-        show_info "启动所有服务（PostgreSQL + Redis + RustFS + Web + Nginx）..."
-        if $COMPOSE_CMD --profile storage up -d; then
-            show_success "服务启动成功（包含 RustFS 对象存储）"
+        # 根据性能模式决定启动命令
+        if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
+            show_info "启动所有服务（高性能模式 + RustFS 对象存储）..."
+            if $COMPOSE_CMD --profile high-performance --profile storage up -d; then
+                show_success "服务启动成功（高性能模式 + RustFS 对象存储）"
+            else
+                show_error "服务启动失败，请检查日志"
+            fi
         else
-            show_error "服务启动失败，请检查日志"
+            show_info "启动所有服务（默认模式 + RustFS 对象存储）..."
+            if $COMPOSE_CMD --profile storage up -d; then
+                show_success "服务启动成功（默认模式 + RustFS 对象存储）"
+            else
+                show_error "服务启动失败，请检查日志"
+            fi
         fi
     else
-        # 启动核心服务（不包含 RustFS）
-        show_info "启动核心服务（PostgreSQL + Redis + Web + Nginx）..."
-        if $COMPOSE_CMD up -d; then
-            show_success "服务启动成功"
+        # 根据性能模式决定启动命令
+        if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
+            show_info "启动核心服务（高性能模式）..."
+            if $COMPOSE_CMD --profile high-performance up -d; then
+                show_success "服务启动成功（高性能模式）"
+            else
+                show_error "服务启动失败，请检查日志"
+            fi
         else
-            show_error "服务启动失败，请检查日志"
+            show_info "启动核心服务（默认模式）..."
+            if $COMPOSE_CMD up -d; then
+                show_success "服务启动成功（默认模式）"
+            else
+                show_error "服务启动失败，请检查日志"
+            fi
         fi
     fi
     
@@ -1475,14 +1564,33 @@ show_completion() {
         echo "  Web服务: http://您的IP地址:${CUSTOM_HTTP_PORT}"
     fi
     
+    # 显示性能模式信息
+    echo ""
+    echo -e "${BLUE}性能模式:${NC}"
+    if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
+        echo "  当前模式: 高性能模式"
+        echo "  Celery Worker: 容器Worker(150并发) + 通用Worker(6并发)"
+        echo "  Gunicorn Worker: 9个进程，最大500连接"
+        echo "  适用场景: 大规模比赛，高并发"
+    else
+        echo "  当前模式: 默认模式"
+        echo "  Celery Worker: 单个通用Worker(50并发)"
+        echo "  Gunicorn Worker: 4个进程，最大300连接"
+        echo "  适用场景: 中小规模练习平台"
+    fi
+    
     # 根据对象存储状态显示不同信息
     if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
+        echo ""
+        echo -e "${BLUE}对象存储:${NC}"
         echo "  对象存储控制台: http://您的IP地址:${CUSTOM_STORAGE_CONSOLE_PORT:-7901}/"
         echo "  媒体文件: http://您的IP地址/media/（自动代理到 RustFS）"
         echo ""
         echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 RustFS"
         echo "       RustFS API 端口仅在容器网络内部通信，不对外暴露"
     else
+        echo ""
+        echo -e "${BLUE}文件存储:${NC}"
         echo "  媒体文件: http://您的IP地址/media/（本地文件系统）"
         echo ""
         echo -e "${YELLOW}注意：${NC}当前使用本地文件系统存储"
@@ -1498,13 +1606,21 @@ show_completion() {
     echo "    docker logs -f secsnow-web"
     echo ""
     
-    # 根据对象存储状态显示不同命令
+    # 根据性能模式和对象存储状态显示不同命令
+    PROFILE_PARAMS=""
+    if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
+        PROFILE_PARAMS="--profile high-performance"
+    fi
     if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-        echo "  重启服务（包含对象存储）:"
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD --profile storage restart"
+        PROFILE_PARAMS="${PROFILE_PARAMS} --profile storage"
+    fi
+    
+    if [ -n "$PROFILE_PARAMS" ]; then
+        echo "  重启服务:"
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} restart"
         echo ""
         echo "  停止服务:"
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD --profile storage down"
+        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} down"
     else
         echo "  重启服务:"
         echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD restart"
@@ -1659,17 +1775,21 @@ show_help() {
     echo "  --nginx-image <镜像>     指定 Nginx 镜像（配合 --pull 使用）"
     echo "                          默认: nginx:stable"
     echo "  --secsnow-image <镜像>   指定 SecSnow 镜像（配合 --pull 使用，必需）"
+    echo "  --performance <模式>     指定性能模式: default（默认）或 high-performance（高性能）"
     echo "  yes/no                  是否创建管理员账户（默认: yes）"
     echo ""
     echo "示例:"
     echo "  $0                      交互式安装（使用本地 tar 文件）"
     echo "  $0 no                   安装但不创建管理员账户"
+    echo "  $0 --performance high-performance"
+    echo "                          使用高性能模式安装（非交互）"
     echo "  $0 --pull --secsnow-image registry.example.com/secsnow:v1.0.0"
     echo "                          从仓库拉取镜像进行安装"
     echo "  $0 --pull --secsnow-image myregistry/secsnow:latest \\"
     echo "     --postgres-image postgres:16 \\"
-    echo "     --redis-image redis:7"
-    echo "                          从仓库拉取指定版本的镜像"
+    echo "     --redis-image redis:7 \\"
+    echo "     --performance high-performance"
+    echo "                          从仓库拉取指定版本镜像并使用高性能模式"
     echo ""
     echo "安装模式:"
     echo "  1. 本地模式（默认）: 从 ${BASE_DIR} 目录加载 tar 文件"
@@ -1688,10 +1808,19 @@ check_existing_installation() {
     
     # 检查标志文件
     if [ -f "${INSTALL_DIR}/.installed" ]; then
+        # 读取安装信息
+        INSTALL_TIME=$(grep "^安装时间:" "${INSTALL_DIR}/.installed" | cut -d':' -f2- | xargs 2>/dev/null || echo '未知')
+        INSTALL_MODE=$(grep "^安装模式:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo '未知')
+        PERFORMANCE_MODE=$(grep "^性能模式:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo '未知')
+        STORAGE_STATUS=$(grep "^对象存储:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo '未知')
+        
         show_error "检测到系统已经安装过！
 
 安装标志文件: ${INSTALL_DIR}/.installed
-安装时间: $(cat ${INSTALL_DIR}/.installed 2>/dev/null || echo '未知')
+安装时间: ${INSTALL_TIME}
+安装方式: ${INSTALL_MODE}
+性能模式: ${PERFORMANCE_MODE}
+对象存储: ${STORAGE_STATUS}
 
 ⚠️  重复安装可能导致数据丢失！
 
@@ -1700,7 +1829,8 @@ check_existing_installation() {
   - 重新安装: 先运行以下命令清理:
     cd ${INSTALL_DIR}
     docker compose down -v
-    rm -f .installed .env .credentials /db/postgres /redis/data
+    rm -f .installed .env .credentials
+    rm -rf db/postgres redis/data web/media web/log
     或者将安装目录下的所有文件和目录删除，然后重新拉取配置文件
     然后再运行安装脚本
 
@@ -1752,6 +1882,7 @@ main() {
     REGISTRY_NGINX_IMAGE=""
     REGISTRY_SECSNOW_IMAGE=""
     CREATE_ADMIN=""
+    PERFORMANCE_MODE=""
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -1799,6 +1930,18 @@ main() {
                     show_error "--secsnow-image 参数需要指定镜像名称"
                 fi
                 ;;
+            --performance)
+                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+                    if [ "$2" = "default" ] || [ "$2" = "high-performance" ]; then
+                        PERFORMANCE_MODE="$2"
+                        shift 2
+                    else
+                        show_error "--performance 参数只能是 default 或 high-performance"
+                    fi
+                else
+                    show_error "--performance 参数需要指定模式（default 或 high-performance）"
+                fi
+                ;;
             yes|no)
                 CREATE_ADMIN="$1"
                 shift
@@ -1821,6 +1964,7 @@ main() {
     export REGISTRY_REDIS_IMAGE
     export REGISTRY_NGINX_IMAGE
     export REGISTRY_SECSNOW_IMAGE
+    export PERFORMANCE_MODE
     
     echo ""
     echo "========================================="
@@ -1841,6 +1985,15 @@ main() {
         echo "  镜像目录: ${BASE_DIR}"
     fi
     echo "  创建管理员: ${CREATE_ADMIN}"
+    if [ -n "$PERFORMANCE_MODE" ]; then
+        if [ "$PERFORMANCE_MODE" = "high-performance" ]; then
+            echo "  性能模式: 高性能模式（命令行指定）"
+        else
+            echo "  性能模式: 默认模式（命令行指定）"
+        fi
+    else
+        echo "  性能模式: 将交互式选择"
+    fi
     echo ""
     
     # 确认继续
@@ -1882,6 +2035,14 @@ main() {
     # 设置对象存储（默认启用）
     set_object_storage
     
+    # 选择性能模式（如果命令行未指定）
+    if [ -z "$PERFORMANCE_MODE" ]; then
+        select_performance_mode
+    else
+        show_step "使用指定的性能模式: ${PERFORMANCE_MODE}"
+        export PERFORMANCE_MODE
+    fi
+    
     generate_env
     optimize_redis_system
     start_services
@@ -1892,6 +2053,8 @@ main() {
     # 创建安装标志文件
     echo "安装时间: $(date '+%Y-%m-%d %H:%M:%S')" > "${INSTALL_DIR}/.installed"
     echo "安装模式: $([ "$USE_REGISTRY" = true ] && echo '仓库拉取' || echo '本地加载')" >> "${INSTALL_DIR}/.installed"
+    echo "性能模式: ${PERFORMANCE_MODE}" >> "${INSTALL_DIR}/.installed"
+    echo "对象存储: ${ENABLE_OBJECT_STORAGE}" >> "${INSTALL_DIR}/.installed"
     
     echo ""
     show_completion
