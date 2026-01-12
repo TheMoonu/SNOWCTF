@@ -90,9 +90,19 @@
 - [izone](https://github.com/Hopetree/izone) - 博客系统架构参考
 - [simpleui](https://github.com/newpanjing/simpleui) - Django 后台 UI 框架
 
-## 📄 开源协议
+## 📄 许可与声明
 
-本项目采用开源协议发布，具体协议请查看 [LICENSE](LICENSE) 文件。
+### 软件许可协议
+本软件的自有代码部分采用 SecSnow 自定义许可协议，详见 [LICENSE](LICENSE) 文件。
+
+### 第三方组件
+本项目使用了多个优秀的开源组件，这些组件受其各自的开源许可证保护。
+详细的第三方组件列表和许可证信息请查看 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES) 文件。
+
+**重要提示**：
+- 使用本软件前，请仔细阅读 LICENSE 和 THIRD-PARTY-NOTICES
+- 第三方组件保持其原有许可证不变
+- 商业使用需要单独获取授权
 
 ---
 
