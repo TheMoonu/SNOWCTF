@@ -476,12 +476,12 @@ generate_redis_password() {
     cat /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 24
 }
 
-# 设置对象存储（默认启用）
+# 设置对象存储（必须启用）
 set_object_storage() {
     
-    # 默认启用对象存储
+    # 强制启用对象存储（必需服务）
     ENABLE_OBJECT_STORAGE="True"
-    show_success "RustFS 对象存储已启用"
+    show_success "RustFS 对象存储已启用（必需服务）"
     
     # 保存配置记录
     mkdir -p "${INSTALL_DIR}"
@@ -491,7 +491,7 @@ set_object_storage() {
 STORAGE_TYPE=rustfs
 ENABLE_OBJECT_STORAGE=True
 CONFIG_DATE=$(date '+%Y-%m-%d %H:%M:%S')
-ASKED_USER=true
+REQUIRED=true
 EOF
     
     export ENABLE_OBJECT_STORAGE
@@ -1048,7 +1048,7 @@ NGINX_HTTP_PORT=${CUSTOM_HTTP_PORT:-80}
 # Nginx HTTPS 端口
 NGINX_HTTPS_PORT=${CUSTOM_HTTPS_PORT:-443}
 
-# MinIO 端口配置
+#对象存储端口配置
 MINIO_API_PORT=7900
 MINIO_CONSOLE_PORT=${CUSTOM_STORAGE_CONSOLE_PORT:-7901}
 
@@ -1198,30 +1198,19 @@ CONTAINER_PREFIX=secsnow
 # ================================================
 # 对象存储状态：$([ "${ENABLE_OBJECT_STORAGE}" = "True" ] && echo "已启用 RustFS" || echo "使用本地文件系统")
 # 
-$(if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-echo "# RustFS 管理控制台：http://服务器IP/:7901"
-echo "# 用户名：rustfsadmin"
-echo "# 密码：已自动生成随机密码（见上方 RUSTFS_ROOT_PASSWORD）"
-echo "#"
-echo "# 文件访问地址：http://服务器IP/media/文件路径"
-echo "# （与本地存储保持一致，Nginx 自动代理到 RustFS）"
-echo "#"
-echo "# 配置说明："
-echo "# - SNOW_STORAGE_ENDPOINT_URL：Django 内部连接地址"
-echo "# - SNOW_STORAGE_PUBLIC_URL：留空即可（使用 /media/ 路径）"
-echo "# - 如使用 CDN，填写 CDN 域名（如 https://cdn.yourdomain.com）"
-echo "#"
-echo "# 如需禁用：将 SNOW_USE_OBJECT_STORAGE 改为 False"
-else
-echo "# 当前使用本地文件系统存储上传的文件"
-echo "# 文件保存位置：./web/media/"
-echo "#"
-echo "# 如需启用对象存储："
-echo "# 1. 将 SNOW_USE_OBJECT_STORAGE 改为 True"
-echo "# 2. 配置 RustFS 相关参数"
-echo "# 3. 启动服务：docker-compose --profile storage up -d"
-echo "# 4. 重启应用：docker-compose restart web celery-worker celery-beat"
-fi)
+# RustFS 管理控制台：http://服务器IP/:7901
+# 用户名：rustfsadmin
+# 密码：已自动生成随机密码（见上方 RUSTFS_ROOT_PASSWORD）
+#
+# 文件访问地址：http://服务器IP/media/文件路径
+# （与本地存储保持一致，Nginx 自动代理到 RustFS）
+#
+# 配置说明：
+# - SNOW_STORAGE_ENDPOINT_URL：Django 内部连接地址
+# - SNOW_STORAGE_PUBLIC_URL：留空即可（使用 /media/ 路径）
+# - 如使用 CDN，填写 CDN 域名（如 https://cdn.yourdomain.com）
+#
+# 如需禁用：将 SNOW_USE_OBJECT_STORAGE 改为 False
 # ================================================
 ENV_EOF
 
@@ -1357,15 +1346,11 @@ start_services() {
     mkdir -p web/whoosh_index
     mkdir -p nginx/ssl
     
-    # 根据对象存储配置创建相关目录
-    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-        show_info "对象存储已启用，创建 RustFS 数据目录..."
-        mkdir -p rustfs/data
-        mkdir -p rustfs/logs
-        chmod -R 755 rustfs 2>/dev/null || true
-    else
-        show_info "对象存储未启用，跳过 RustFS 目录创建"
-    fi
+    # 创建 RustFS 对象存储数据目录（必需服务）
+    show_info "创建 RustFS 数据目录（必需服务）..."
+    mkdir -p rustfs/data
+    mkdir -p rustfs/logs
+    chmod -R 755 rustfs 2>/dev/null || true
     
     show_success "数据目录创建完成"
     
@@ -1377,40 +1362,20 @@ start_services() {
     
     show_info "使用命令: $COMPOSE_CMD"
     
-    # 根据对象存储配置决定启动哪些服务
-    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-        # 根据性能模式决定启动命令
-        if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-            show_info "启动所有服务（高性能模式 + RustFS 对象存储）..."
-            if $COMPOSE_CMD --profile high-performance --profile storage up -d; then
-                show_success "服务启动成功（高性能模式 + RustFS 对象存储）"
-            else
-                show_error "服务启动失败，请检查日志"
-            fi
+    # 启动所有服务（包含必需的 RustFS 对象存储）
+    if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
+        show_info "启动所有服务（高性能模式）..."
+        if $COMPOSE_CMD --profile high-performance up -d; then
+            show_success "服务启动成功（高性能模式 ）"
         else
-            show_info "启动所有服务（默认模式 + RustFS 对象存储）..."
-            if $COMPOSE_CMD --profile storage up -d; then
-                show_success "服务启动成功（默认模式 + RustFS 对象存储）"
-            else
-                show_error "服务启动失败，请检查日志"
-            fi
+            show_error "服务启动失败，请检查日志"
         fi
     else
-        # 根据性能模式决定启动命令
-        if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-            show_info "启动核心服务（高性能模式）..."
-            if $COMPOSE_CMD --profile high-performance up -d; then
-                show_success "服务启动成功（高性能模式）"
-            else
-                show_error "服务启动失败，请检查日志"
-            fi
+        show_info "启动所有服务（默认模式）..."
+        if $COMPOSE_CMD up -d; then
+            show_success "服务启动成功（默认模式 ）"
         else
-            show_info "启动核心服务（默认模式）..."
-            if $COMPOSE_CMD up -d; then
-                show_success "服务启动成功（默认模式）"
-            else
-                show_error "服务启动失败，请检查日志"
-            fi
+            show_error "服务启动失败，请检查日志"
         fi
     fi
     
@@ -1499,12 +1464,6 @@ EOF
 
 # 初始化对象存储默认文件
 initialize_object_storage_defaults() {
-    # 检查是否启用了对象存储
-    if [ "${ENABLE_OBJECT_STORAGE}" != "True" ]; then
-        show_info "对象存储未启用，跳过默认文件同步"
-        return 0
-    fi
-    
     show_step "初始化对象存储默认文件..."
     
     # 等待 RustFS 完全启动
@@ -1576,23 +1535,13 @@ show_completion() {
     fi
     
     # 根据对象存储状态显示不同信息
-    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-        echo ""
-        echo -e "${BLUE}对象存储:${NC}"
-        echo "  对象存储控制台: http://您的IP地址:${CUSTOM_STORAGE_CONSOLE_PORT:-7901}/"
-        echo "  媒体文件: http://您的IP地址/media/（自动代理到 RustFS）"
-        echo ""
-        echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 RustFS"
-        echo "       RustFS API 端口仅在容器网络内部通信，不对外暴露"
-    else
-        echo ""
-        echo -e "${BLUE}文件存储:${NC}"
-        echo "  媒体文件: http://您的IP地址/media/（本地文件系统）"
-        echo ""
-        echo -e "${YELLOW}注意：${NC}当前使用本地文件系统存储"
-        echo "       如需启用对象存储，请修改 .env 中的 SNOW_USE_OBJECT_STORAGE=True"
-        echo "       然后运行: docker-compose --profile storage up -d"
-    fi
+    echo ""
+    echo -e "${BLUE}对象存储（必需服务）:${NC}"
+    echo "  对象存储控制台: http://您的IP地址:${CUSTOM_STORAGE_CONSOLE_PORT:-7901}/"
+    echo "  媒体文件: http://您的IP地址/media/（自动代理到 RustFS）"
+    echo ""
+    echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 RustFS"
+    echo "       RustFS API 端口仅在容器网络内部通信，不对外暴露"
     echo ""
     echo -e "${BLUE}管理命令:${NC}"
     echo "  查看服务状态:"
@@ -1602,13 +1551,10 @@ show_completion() {
     echo "    docker logs -f secsnow-web"
     echo ""
     
-    # 根据性能模式和对象存储状态显示不同命令
+    # 根据性能模式显示不同命令
     PROFILE_PARAMS=""
     if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
         PROFILE_PARAMS="--profile high-performance"
-    fi
-    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-        PROFILE_PARAMS="${PROFILE_PARAMS} --profile storage"
     fi
     
     if [ -n "$PROFILE_PARAMS" ]; then
@@ -1636,15 +1582,6 @@ show_completion() {
     echo "  4. 首次安装需要登录系统获取机器码，然后提供给开发者获取授权！"
     echo "  5. 网站首页内容，页脚内容，导航栏内容，请根据实际情况在后台管理对应模块进行修改！"
     echo "  6. 请遵守许可协议，不得用于非法用途！无商业授权情况不得用于商业用途！未经授权不得对软件进行破解、逆向工程、篡改、二次开发等行为！"
-    
-    # 根据对象存储状态显示不同提示
-    if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-        echo "  7. RustFS 对象存储已启用，所有上传文件将保存到对象存储"
-        echo "  8. RustFS 管理密码见 .credentials 文件（RUSTFS_ROOT_PASSWORD）"
-    else
-        echo "  7. 当前使用本地文件系统存储（web/media 目录）"
-        echo "  8. 如需启用对象存储，请修改 .env 中的 SNOW_USE_OBJECT_STORAGE=True"
-    fi
     
     echo "========================================="
 }

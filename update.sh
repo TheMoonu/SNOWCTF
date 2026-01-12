@@ -246,11 +246,6 @@ stop_services() {
         show_info "检测到高性能模式，使用对应参数停止服务"
     fi
     
-    # 添加对象存储参数
-    if [ "${INSTALLED_STORAGE_ENABLED}" = "True" ] || docker ps | grep -q secsnow-rustfs; then
-        PROFILE_PARAMS="${PROFILE_PARAMS} --profile storage"
-        show_info "检测到对象存储已启用"
-    fi
     
     # 停止服务
     if [ -n "$PROFILE_PARAMS" ]; then
@@ -261,10 +256,10 @@ stop_services() {
         $COMPOSE_CMD stop web celery-worker celery-beat 2>/dev/null || true
     fi
     
-    # 检查是否需要停止 RustFS（如果之前启用了对象存储）
+    # 检查是否需要停止 RustFS
     if docker ps | grep -q secsnow-rustfs; then
         show_info "停止 RustFS 服务..."
-        $COMPOSE_CMD --profile storage stop rustfs rustfs-init 2>/dev/null || true
+        $COMPOSE_CMD stop rustfs rustfs-init 2>/dev/null || true
     fi
     
     # 移除旧容器（保留数据卷）
@@ -275,9 +270,10 @@ stop_services() {
         $COMPOSE_CMD rm -f web celery-worker celery-beat 2>/dev/null || true
     fi
     
-    # 移除 RustFS 容器（如果存在）
+    # 移除 RustFS 容器（如果存在，将重新创建）
     if docker ps -a | grep -q secsnow-rustfs; then
-        $COMPOSE_CMD --profile storage rm -f rustfs rustfs-init 2>/dev/null || true
+        show_info "准备重启 RustFS 服务（必需服务）..."
+        $COMPOSE_CMD rm -f rustfs rustfs-init 2>/dev/null || true
     fi
     
     show_success "服务已停止"
@@ -470,22 +466,17 @@ start_services() {
     mkdir -p web/whoosh_index 2>/dev/null || true
     mkdir -p nginx/ssl 2>/dev/null || true
     
-    # 检查是否启用对象存储
-    STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
-    
-    if [ "$STORAGE_ENABLED" = "True" ]; then
-        # 创建对象存储相关目录
-        show_info "对象存储已启用，创建 RustFS 数据目录..."
+    # 根据用户配置创建对象存储相关目录
+    if [ "$ENABLE_OBJECT_STORAGE" = "True" ]; then
+        show_info "创建 RustFS 数据目录..."
         mkdir -p rustfs/data 2>/dev/null || true
         mkdir -p rustfs/logs 2>/dev/null || true
         chmod -R 755 rustfs 2>/dev/null || true
-    else
-        show_info "对象存储未启用，将跳过 RustFS 服务"
     fi
     
     COMPOSE_CMD=$(get_compose_command)
     
-    # 根据安装配置决定启动参数
+    # 根据性能模式决定启动参数
     PROFILE_PARAMS=""
     
     # 添加性能模式参数
@@ -494,12 +485,6 @@ start_services() {
         show_info "使用高性能模式启动"
     else
         show_info "使用默认模式启动"
-    fi
-    
-    # 添加对象存储参数
-    if [ "$STORAGE_ENABLED" = "True" ]; then
-        PROFILE_PARAMS="${PROFILE_PARAMS} --profile storage"
-        show_info "将启动 RustFS 对象存储服务"
     fi
     
     # 启动服务
@@ -511,7 +496,7 @@ start_services() {
             show_error "服务启动失败，请检查日志"
         fi
     else
-        show_info "启动核心服务..."
+        show_info "启动服务..."
         if $COMPOSE_CMD up -d; then
             show_success "服务启动成功"
         else
@@ -530,18 +515,17 @@ start_services() {
 
 # 验证 RustFS 密码配置
 verify_rustfs_password() {
-    show_step "验证 RustFS 密码配置..."
-    
-    # 检查是否启用了对象存储
-    if ! grep -q "^SNOW_USE_OBJECT_STORAGE=True" .env 2>/dev/null; then
-        show_info "内置对象存储服务未启用，跳过密码验证"
+    # 如果对象存储未启用，跳过验证
+    if [ "$ENABLE_OBJECT_STORAGE" != "True" ]; then
         return 0
     fi
     
+    show_step "验证 RustFS 密码配置..."
+    
     # 检查 RustFS 是否在运行
     if ! docker ps | grep -q secsnow-rustfs; then
-        show_info "RustFS 服务未运行，跳过密码验证"
-        return 0
+        show_warning "RustFS 服务未运行，请检查启动日志"
+        return 1
     fi
     
     # 等待 RustFS 完全启动
@@ -584,10 +568,10 @@ verify_rustfs_password() {
         echo "  2. 重置 RustFS:"
         COMPOSE_CMD=$(get_compose_command)
         echo "     cd ${INSTALL_DIR}"
-        echo "     $COMPOSE_CMD --profile storage stop rustfs rustfs-init"
-        echo "     $COMPOSE_CMD --profile storage rm -f rustfs rustfs-init"
+        echo "     $COMPOSE_CMD stop rustfs rustfs-init"
+        echo "     $COMPOSE_CMD rm -f rustfs rustfs-init"
         echo "     rm -rf rustfs/data"
-        echo "     $COMPOSE_CMD --profile storage up -d"
+        echo "     $COMPOSE_CMD up -d"
         return 1
     fi
 }
@@ -626,16 +610,13 @@ EOF
     show_success "存储配置选择已保存"
 }
 
-# 检查并初始化对象存储（老用户适配）
+# 检查并初始化对象存储（老用户适配 - 强制启用）
 check_and_init_object_storage() {
-    show_step "检查对象存储配置..."
+    show_step "检查对象存储配置（必需服务）..."
     
     # 检查是否有旧的 MinIO 配置
     if grep -q "SNOW_USE_MINIO=" .env 2>/dev/null; then
         show_info "检测到旧的 MinIO 配置，迁移到新配置..."
-        
-        # 读取旧配置
-        OLD_MINIO_ENABLED=$(grep "^SNOW_USE_MINIO=" .env | cut -d'=' -f2)
         
         # 迁移配置
         if ! grep -q "SNOW_USE_OBJECT_STORAGE=" .env; then
@@ -644,21 +625,18 @@ check_and_init_object_storage() {
             show_success "已迁移为通用对象存储配置"
         fi
         
-        # 保存配置记录
-        if [ "$OLD_MINIO_ENABLED" = "True" ]; then
-            save_storage_config "rustfs" "True"
-        else
-            save_storage_config "local" "False"
-        fi
+        # 强制启用对象存储
+        sed -i 's/^SNOW_USE_OBJECT_STORAGE=.*/SNOW_USE_OBJECT_STORAGE=True/' .env
+        save_storage_config "rustfs" "True"
     fi
     
     # 检查 .env 中是否有对象存储配置
     if ! grep -q "SNOW_USE_OBJECT_STORAGE=" .env 2>/dev/null; then
-        show_info "检测到旧版本配置，添加对象存储配置..."
+        show_info "检测到旧版本配置，添加对象存储配置（必需服务）..."
         
         echo ""
         echo "========================================="
-        echo -e "${CYAN}📦 对象存储升级${NC}"
+        echo -e "${CYAN}对象存储升级（必需服务）${NC}"
         echo "========================================="
         echo ""
         echo -e "${BLUE}新版本必须使用对象存储（RustFS）${NC}"
@@ -669,9 +647,9 @@ check_and_init_object_storage() {
         echo "  • 高可用：支持分布式部署"
         echo "  • 兼容性：兼容 S3 API"
         echo ""
-        show_success "正在启用 RustFS 对象存储..."
+        show_success "正在启用 RustFS 对象存储（必需服务）..."
         
-        # 默认启用对象存储
+        # 强制启用对象存储
         USE_STORAGE="True"
         save_storage_config "rustfs" "True"
         
@@ -734,7 +712,7 @@ SNOW_STORAGE_VERIFY_SSL=False
 # 公开访问配置
 SNOW_STORAGE_PUBLIC_URL=
 EOF
-        show_success "对象存储配置已添加到 .env 文件"
+        show_success "对象存储配置已添加到 .env 文件（必需服务）"
         show_info "生成的 RustFS 密码: ${RUSTFS_PASSWORD}"
         show_info "容器启动时将自动使用此密码初始化 RustFS"
         
@@ -765,11 +743,12 @@ EOF
             echo ""
         fi
     else
-        # 已有配置，检查状态
+        # 已有配置，检查用户设置
         STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2)
         
         if [ "$STORAGE_ENABLED" = "True" ]; then
             show_success "对象存储已启用"
+            ENABLE_OBJECT_STORAGE="True"
             
             # 检查 RustFS 服务是否在运行
             if docker ps | grep -q secsnow-rustfs; then
@@ -778,10 +757,8 @@ EOF
                 show_warning "RustFS 服务未运行，将在启动服务时自动启动"
             fi
         else
-            # 如果配置为 False，说明用户禁用了对象存储，跳过相关操作
-            show_info "对象存储未启用（SNOW_USE_OBJECT_STORAGE=False）"
-            show_info "如需启用对象存储，请修改 .env 文件中的 SNOW_USE_OBJECT_STORAGE=True"
-            show_info "跳过对象存储相关操作"
+            show_info "对象存储未启用（用户配置为 False）"
+            ENABLE_OBJECT_STORAGE="False"
         fi
     fi
 }
@@ -823,11 +800,11 @@ check_media_migration() {
     fi
 }
 
-# 启用对象存储
+# 启用对象存储（必需服务 - 确保启用）
 enable_object_storage() {
-    show_step "启用 RustFS 对象存储..."
+    show_step "确保 RustFS 对象存储已启用（必需服务）..."
     
-    # 修改 .env 配置
+    # 强制修改 .env 配置
     sed -i.bak 's/^SNOW_USE_OBJECT_STORAGE=.*/SNOW_USE_OBJECT_STORAGE=True/' .env
     
     # 生成随机密码（如果是默认密码）
@@ -854,8 +831,8 @@ enable_object_storage() {
         
         # 停止并删除容器
         COMPOSE_CMD=$(get_compose_command)
-        $COMPOSE_CMD --profile storage stop rustfs rustfs-init 2>/dev/null || true
-        $COMPOSE_CMD --profile storage rm -f rustfs rustfs-init 2>/dev/null || true
+        $COMPOSE_CMD stop rustfs rustfs-init 2>/dev/null || true
+        $COMPOSE_CMD rm -f rustfs rustfs-init 2>/dev/null || true
         
         # 删除数据目录（强制重新初始化）
         if [ -d "rustfs/data" ]; then
@@ -876,7 +853,7 @@ enable_object_storage() {
     docker pull rustfs/rustfs:latest 2>/dev/null || show_warning "RustFS 镜像拉取失败，将在启动时自动拉取"
     docker pull minio/mc:latest 2>/dev/null || show_warning "MinIO Client 镜像拉取失败"
     
-    show_success "RustFS 对象存储已启用"
+    show_success "RustFS 对象存储已确保启用（必需服务）"
     show_info "RustFS 将在服务重启后自动运行"
     
     # 检测本地文件（仅提示，不询问）
@@ -893,9 +870,9 @@ enable_object_storage() {
     fi
 }
 
-# 迁移 media 文件到对象存储（增强版 - 从 migrate_to_rustfs.sh 整合）
+# 迁移 media 文件到对象存储（必需操作）
 migrate_media_to_storage() {
-    show_step "迁移 media 文件到对象存储..."
+    show_step "迁移 media 文件到对象存储（必需服务）..."
     
     echo ""
     echo "========================================="
@@ -934,7 +911,7 @@ migrate_media_to_storage() {
         
         # 获取 compose 命令
         COMPOSE_CMD=$(get_compose_command)
-        $COMPOSE_CMD --profile storage up -d 2>/dev/null || true
+        $COMPOSE_CMD up -d 2>/dev/null || true
         
         show_info "等待 RustFS 启动..."
         sleep 20
@@ -1280,13 +1257,13 @@ show_completion() {
     
     COMPOSE_CMD=$(get_compose_command)
     
-    # 构建 profile 参数
+    # 检查对象存储配置
+    STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
+    
+    # 构建 profile 参数（根据性能模式）
     PROFILE_PARAMS=""
     if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
         PROFILE_PARAMS="--profile high-performance"
-    fi
-    if [ "$STORAGE_ENABLED" = "True" ]; then
-        PROFILE_PARAMS="${PROFILE_PARAMS} --profile storage"
     fi
     
     echo -e "${BLUE}常用命令:${NC}"
@@ -1303,8 +1280,6 @@ show_completion() {
     echo "  查看所有服务日志:"
     if [ -n "$PROFILE_PARAMS" ]; then
         echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} logs -f"
-    else
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD logs -f"
     fi
     echo ""
     
@@ -1320,9 +1295,6 @@ show_completion() {
     fi
     echo ""
     
-    # 检查是否启用了对象存储（用于后续显示）
-    STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
-    
     echo -e "${BLUE}回滚步骤（如果需要）:${NC}"
     if [ -n "$PROFILE_PARAMS" ]; then
         echo "  1. 停止服务: cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} down"
@@ -1334,63 +1306,48 @@ show_completion() {
         local image_base=$(echo "$REGISTRY_IMAGE" | cut -d':' -f1)
         echo "  3. 拉取旧版本: docker pull ${image_base}:<旧版本号>"
         echo "  4. 更新 .env 文件中的 SECSNOW_IMAGE"
-    else
-        echo "  3. 重新加载旧镜像"
-    fi
-    if [ -n "$PROFILE_PARAMS" ]; then
         echo "  5. 启动服务: $COMPOSE_CMD ${PROFILE_PARAMS} up -d"
     else
-        echo "  5. 启动服务: $COMPOSE_CMD up -d"
+        echo "  3. 重新加载旧镜像"
+        echo "  4. 启动服务: $COMPOSE_CMD ${PROFILE_PARAMS} up -d"
     fi
     echo ""
     
-    if [ "$STORAGE_ENABLED" = "True" ]; then
-        # 显示对象存储信息
-        echo -e "${BLUE}对象存储 (RustFS):${NC}"
-        echo "  状态: 已启用"
-        echo "  控制台: http://服务器IP:7901/"
-        
-        # 从 .env 读取并显示密码
-        RUSTFS_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
-        RUSTFS_PASS=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2 2>/dev/null || echo "未找到")
-        echo "  用户名: ${RUSTFS_USER}"
-        echo "  密码: ${RUSTFS_PASS}"
-        
-        echo "  文件访问: http://服务器IP/media/（Nginx 自动代理）"
-        echo ""
-    else
-        # 对象存储未启用
-        echo -e "${BLUE}对象存储:${NC}"
-        echo "  状态: 未启用"
-        echo "  文件存储: 本地文件系统 (web/media)"
-        echo ""
-    fi
+    # 获取对象存储状态（必需服务）
+    STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "True")
+    
+    # 显示对象存储信息（必需服务）
+    echo -e "${BLUE}对象存储 (RustFS - 必需服务):${NC}"
+    echo "  状态: 已启用（必需服务）"
+    echo "  控制台: http://服务器IP:7901/"
+    
+    # 从 .env 读取并显示密码
+    RUSTFS_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
+    RUSTFS_PASS=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2 2>/dev/null || echo "未找到")
+    echo "  用户名: ${RUSTFS_USER}"
+    echo "  密码: ${RUSTFS_PASS}"
+    
+    echo "  文件访问: http://服务器IP/media/（Nginx 自动代理）"
+    echo ""
     
     echo -e "${YELLOW}提示:${NC}"
     echo "  1. 如遇问题，可查看日志: docker logs secsnow-web"
     echo "  2. 备份文件保存在: ${BACKUP_DIR}"
     echo "  3. 建议测试主要功能是否正常"
     echo "  4. 数据库数据已保留，无需担心数据丢失"
-    
-    # 根据对象存储状态显示不同提示
-    if [ "$STORAGE_ENABLED" = "True" ]; then
-        echo "  5. 对象存储已启用，新上传文件将保存到 RustFS"
-        if [ -d "web/media.backup" ]; then
-            echo "  6. 旧 media 文件已备份到 web/media.backup"
-            echo "  7. 确认无误后可删除备份: rm -rf web/media.backup"
+    echo "  5. RustFS 对象存储是必需服务，所有上传文件将保存到对象存储"
+    if [ -d "web/media.backup" ]; then
+        echo "  6. 旧 media 文件已备份到 web/media.backup"
+        echo "  7. 确认无误后可删除备份: rm -rf web/media.backup"
+    fi
+    # 检查是否还有本地文件未迁移
+    if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+        LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
+        if [ "$LOCAL_FILES" -gt 10 ]; then
+            echo ""
+            echo -e "${YELLOW}⚠️  注意: web/media 中还有 $LOCAL_FILES 个文件未迁移${NC}"
+            echo "  建议迁移到 RustFS 以获得更好的性能和可扩展性"
         fi
-        # 检查是否还有本地文件未迁移
-        if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
-            LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
-            if [ "$LOCAL_FILES" -gt 10 ]; then
-                echo ""
-                echo -e "${YELLOW}⚠️  注意: web/media 中还有 $LOCAL_FILES 个文件未迁移${NC}"
-                echo "  建议迁移到 RustFS 以获得更好的性能和可扩展性"
-            fi
-        fi
-    else
-        echo "  5. 对象存储未启用，文件将保存到本地 web/media 目录"
-        echo "  6. 如需启用对象存储，请修改 .env 中的 SNOW_USE_OBJECT_STORAGE=True"
     fi
     echo ""
     echo "========================================="
@@ -1424,7 +1381,6 @@ show_help() {
     echo "  --no-backup                       跳过备份步骤"
     echo "  --no-migrate                      跳过数据库迁移"
     echo "  --cleanup                         更新后自动清理旧镜像"
-    echo "  --enable-storage                  自动启用对象存储（不询问）"
     echo "  --migrate-media                   自动迁移 media 文件到对象存储（不询问）"
     echo ""
     echo "注意:"
@@ -1445,10 +1401,10 @@ show_help() {
     echo "  # 从本地文件更新"
     echo "  $0 -y --cleanup"
     echo ""
-    echo "  # 老用户首次启用对象存储（自动迁移本地文件）"
-    echo "  $0 -y --enable-storage --migrate-media"
+    echo "  # 老用户首次更新（自动迁移本地文件到对象存储）"
+    echo "  $0 -y --migrate-media"
     echo ""
-    echo "  # 交互式更新（会询问是否启用对象存储和迁移文件）"
+    echo "  # 交互式更新（会检查用户对象存储配置）"
     echo "  $0"
     echo ""
     echo "  # 从 Docker Hub 拉取"
@@ -1520,7 +1476,8 @@ main() {
                 shift
                 ;;
             --enable-storage)
-                AUTO_ENABLE_STORAGE=true
+                # 参数已废弃：对象存储现在是必需服务
+                show_warning "参数 --enable-storage 已废弃，对象存储是必需服务（自动启用）"
                 shift
                 ;;
             --migrate-media)
@@ -1655,18 +1612,13 @@ main() {
     
     # 文件迁移到对象存储（如果设置了参数）
     if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-        # 检查是否启用了对象存储且有本地文件
-        STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
-        if [ "$STORAGE_ENABLED" = "True" ]; then
-            if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
-                show_step "执行文件迁移到对象存储..."
-                sleep 3
-                migrate_media_to_storage
-            else
-                show_info "web/media 目录为空，无需迁移"
-            fi
+        # 检查是否有本地文件
+        if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+            show_step "执行文件迁移到对象存储（必需服务）..."
+            sleep 3
+            migrate_media_to_storage
         else
-            show_warning "对象存储未启用，跳过文件迁移"
+            show_info "web/media 目录为空，无需迁移"
         fi
         echo ""
     fi

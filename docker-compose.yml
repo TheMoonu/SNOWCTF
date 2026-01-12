@@ -2,7 +2,7 @@
 #
 # 启动说明：
 # ────────────────────────────────────────────────────────────
-# 1. 启动核心服务（PostgreSQL + Redis + Django + Nginx + 单Worker）:
+# 1. 启动默认模式（PostgreSQL + Redis + Django + Nginx + RustFS + 单Worker）:
 #    docker-compose up -d
 #    适用于：中低性能服务器（2-4核，4-8G内存）
 #
@@ -10,16 +10,13 @@
 #    docker-compose --profile high-performance up -d
 #    适用于：高性能服务器（4核+，8G+内存）
 #
-# 3. 启动核心服务 + RustFS 对象存储:
-#    docker-compose --profile storage up -d
+# 3. 启动高性能版 + Flower 监控（全功能）:
+#    docker-compose --profile high-performance --profile Flower up -d
 #
-# 4. 启动高性能版 + RustFS + Flower 监控（全功能）:
-#    docker-compose --profile high-performance --profile storage --profile Flower up -d
-#
-# 5. 查看所有服务状态:
+# 4. 查看所有服务状态:
 #    docker-compose ps -a
 #
-# 6. 停止并删除所有服务:
+# 5. 停止并删除所有服务:
 #    docker-compose down
 #
 #
@@ -32,12 +29,12 @@
 #     适用于: 4核+CPU，8G+内存
 #     启动命令: docker-compose --profile high-performance up -d
 #
-#  RustFS 对象存储（可选服务 - 使用 --profile storage 启动）:
+#  RustFS 对象存储（必需服务 - 默认启动）:
 #    - 管理控制台: http://服务器IP:7901（直接访问，不通过 Nginx 代理）
 #    - 文件访问: http://服务器IP/media/（通过 Nginx 代理，不暴露桶名称）
 #    - API 端口（9000）: 仅内部网络访问，不对外暴露，确保安全性
 #    - 默认账号密码: rustfsadmin / 查看 .env 文件中的 RUSTFS_ROOT_PASSWORD
-#    - 注意: 启用对象存储需要在 .env 中设置 SNOW_USE_OBJECT_STORAGE=True
+#    - 注意: SNOW_USE_OBJECT_STORAGE 必须设置为 True（默认值）
 # ────────────────────────────────────────────────────────────
 
 services:
@@ -116,10 +113,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # RustFS 对象存储（可选服务 - 需要启用时使用 --profile storage 启动）
+
   rustfs:
-    profiles:
-      - storage  # 需要使用 --profile storage 参数才会启动此服务
     image: ${RUSTFS_IMAGE:-rustfs/rustfs:latest}
     container_name: ${CONTAINER_PREFIX:-secsnow}-rustfs
     restart: always
@@ -164,8 +159,6 @@ services:
 
   # RustFS 初始化（自动创建 bucket）
   rustfs-init:
-    profiles:
-      - storage  # 需要使用 --profile storage 参数才会启动此服务
     image: ${MINIO_MC_IMAGE:-minio/mc:latest}  # 使用 minio client，因为 RustFS 兼容 S3 API
     container_name: ${CONTAINER_PREFIX:-secsnow}-rustfs-init
     depends_on:
