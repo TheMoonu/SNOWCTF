@@ -528,9 +528,9 @@ select_performance_mode() {
     # 根据系统资源给出建议
     if [ "$CPU_CORES" != "unknown" ] && [ "$TOTAL_MEM_GB" != "unknown" ]; then
         if [ "$CPU_CORES" -ge 4 ] && [ "$(echo "$TOTAL_MEM_GB >= 7" | bc)" -eq 1 ]; then
-            echo -e "${GREEN}💡 建议：您的服务器配置较高，推荐使用【高性能模式】${NC}"
+            echo -e "${GREEN}建议：您的服务器配置较高，推荐使用【高性能模式】${NC}"
         else
-            echo -e "${BLUE}💡 建议：您的服务器配置适中，推荐使用【默认模式】${NC}"
+            echo -e "${BLUE}建议：您的服务器配置适中，推荐使用【默认模式】${NC}"
         fi
         echo ""
     fi
@@ -815,11 +815,59 @@ load_images() {
         show_error "Redis 镜像加载失败"
     fi
     
+    # 加载 PgBouncer 镜像并获取镜像名
+    show_info "加载 PgBouncer 镜像..."
+    if [ -f "pgbouncer.tar" ]; then
+        PGBOUNCER_LOADED=$(docker load -i pgbouncer.tar 2>&1)
+        if [ $? -eq 0 ]; then
+            PGBOUNCER_IMAGE_NAME=$(echo "$PGBOUNCER_LOADED" | grep -oP 'Loaded image: \K.*' | head -n 1 || echo "edoburu/pgbouncer:latest")
+            show_success "PgBouncer 镜像加载成功: $PGBOUNCER_IMAGE_NAME"
+        else
+            show_warning "PgBouncer 镜像加载失败，将使用默认镜像"
+            PGBOUNCER_IMAGE_NAME="edoburu/pgbouncer:latest"
+        fi
+    else
+        show_warning "未找到 pgbouncer.tar 文件，将使用默认镜像"
+        PGBOUNCER_IMAGE_NAME="edoburu/pgbouncer:latest"
+    fi
+    
+    # 加载 RustFS 镜像并获取镜像名
+    show_info "加载 RustFS 镜像..."
+    if [ -f "rustfs.tar" ]; then
+        RUSTFS_LOADED=$(docker load -i rustfs.tar 2>&1)
+        if [ $? -eq 0 ]; then
+            RUSTFS_IMAGE_NAME=$(echo "$RUSTFS_LOADED" | grep -oP 'Loaded image: \K.*' | head -n 1 || echo "rustfs/rustfs:latest")
+            show_success "RustFS 镜像加载成功: $RUSTFS_IMAGE_NAME"
+        else
+            show_warning "RustFS 镜像加载失败，将使用默认镜像"
+            RUSTFS_IMAGE_NAME="rustfs/rustfs:latest"
+        fi
+    else
+        show_warning "未找到 rustfs.tar 文件，将使用默认镜像"
+        RUSTFS_IMAGE_NAME="rustfs/rustfs:latest"
+    fi
+    
+    # 加载 MinIO Client 镜像并获取镜像名
+    show_info "加载 MinIO Client 镜像..."
+    if [ -f "minio-mc.tar" ]; then
+        MINIO_MC_LOADED=$(docker load -i minio-mc.tar 2>&1)
+        if [ $? -eq 0 ]; then
+            MINIO_MC_IMAGE_NAME=$(echo "$MINIO_MC_LOADED" | grep -oP 'Loaded image: \K.*' | head -n 1 || echo "minio/mc:latest")
+            show_success "MinIO Client 镜像加载成功: $MINIO_MC_IMAGE_NAME"
+        else
+            show_warning "MinIO Client 镜像加载失败，将使用默认镜像"
+            MINIO_MC_IMAGE_NAME="minio/mc:latest"
+        fi
+    else
+        show_warning "未找到 minio-mc.tar 文件，将使用默认镜像"
+        MINIO_MC_IMAGE_NAME="minio/mc:latest"
+    fi
+    
     # 加载Nginx镜像并获取镜像名
     show_info "加载 Nginx 镜像..."
     NGINX_LOADED=$(docker load -i nginx.tar 2>&1)
     if [ $? -eq 0 ]; then
-        NGINX_IMAGE_NAME=$(echo "$NGINX_LOADED" | grep -oP 'Loaded image: \K.*' | head -n 1 || echo "nginx:stable")
+        NGINX_IMAGE_NAME=$(echo "$NGINX_LOADED" | grep -oP 'Loaded image: \K.*' | head -n 1 || echo "nginx:alpine")
         show_success "Nginx 镜像加载成功: $NGINX_IMAGE_NAME"
     else
         show_error "Nginx 镜像加载失败"
@@ -848,12 +896,15 @@ load_images() {
     
     # 显示已加载的镜像
     show_info "已加载的镜像列表："
-    docker images | grep -E "postgres|redis|nginx|secsnow" || true
+    docker images | grep -E "postgres|pgbouncer|redis|rustfs|minio|nginx|secsnow" || true
     echo ""
     
     # 导出镜像名称供后续使用
     export LOADED_POSTGRES_IMAGE="$POSTGRES_IMAGE_NAME"
+    export LOADED_PGBOUNCER_IMAGE="$PGBOUNCER_IMAGE_NAME"
     export LOADED_REDIS_IMAGE="$REDIS_IMAGE_NAME"
+    export LOADED_RUSTFS_IMAGE="$RUSTFS_IMAGE_NAME"
+    export LOADED_MINIO_MC_IMAGE="$MINIO_MC_IMAGE_NAME"
     export LOADED_NGINX_IMAGE="$NGINX_IMAGE_NAME"
     export LOADED_SECSNOW_IMAGE="$SECSNOW_IMAGE_NAME"
 }
@@ -864,8 +915,11 @@ pull_images_from_registry() {
     
     # 设置默认镜像（如果用户未指定）
     REGISTRY_POSTGRES_IMAGE="${REGISTRY_POSTGRES_IMAGE:-postgres:17-bookworm}"
+    REGISTRY_PGBOUNCER_IMAGE="${REGISTRY_PGBOUNCER_IMAGE:-edoburu/pgbouncer:latest}"
     REGISTRY_REDIS_IMAGE="${REGISTRY_REDIS_IMAGE:-redis:8.4.0}"
-    REGISTRY_NGINX_IMAGE="${REGISTRY_NGINX_IMAGE:-nginx:stable}"
+    REGISTRY_RUSTFS_IMAGE="${REGISTRY_RUSTFS_IMAGE:-rustfs/rustfs:latest}"
+    REGISTRY_MINIO_MC_IMAGE="${REGISTRY_MINIO_MC_IMAGE:-minio/mc:latest}"
+    REGISTRY_NGINX_IMAGE="${REGISTRY_NGINX_IMAGE:-nginx:alpine}"
     
     # SecSnow 镜像必须由用户指定
     if [ -z "$REGISTRY_SECSNOW_IMAGE" ]; then
@@ -876,10 +930,13 @@ pull_images_from_registry() {
     fi
     
     show_info "将拉取以下镜像："
-    echo "  PostgreSQL: ${REGISTRY_POSTGRES_IMAGE}"
-    echo "  Redis:      ${REGISTRY_REDIS_IMAGE}"
-    echo "  Nginx:      ${REGISTRY_NGINX_IMAGE}"
-    echo "  SecSnow:    ${REGISTRY_SECSNOW_IMAGE}"
+    echo "  PostgreSQL:   ${REGISTRY_POSTGRES_IMAGE}"
+    echo "  PgBouncer:    ${REGISTRY_PGBOUNCER_IMAGE}"
+    echo "  Redis:        ${REGISTRY_REDIS_IMAGE}"
+    echo "  RustFS:       ${REGISTRY_RUSTFS_IMAGE}"
+    echo "  MinIO Client: ${REGISTRY_MINIO_MC_IMAGE}"
+    echo "  Nginx:        ${REGISTRY_NGINX_IMAGE}"
+    echo "  SecSnow:      ${REGISTRY_SECSNOW_IMAGE}"
     echo ""
     
     # 拉取 PostgreSQL 镜像
@@ -891,6 +948,15 @@ pull_images_from_registry() {
         show_error "PostgreSQL 镜像拉取失败，请检查镜像名称和网络连接"
     fi
     
+    # 拉取 PgBouncer 镜像
+    show_info "拉取 PgBouncer 镜像: ${REGISTRY_PGBOUNCER_IMAGE}..."
+    if docker pull "${REGISTRY_PGBOUNCER_IMAGE}"; then
+        show_success "PgBouncer 镜像拉取成功"
+        PGBOUNCER_IMAGE_NAME="${REGISTRY_PGBOUNCER_IMAGE}"
+    else
+        show_error "PgBouncer 镜像拉取失败，请检查镜像名称和网络连接"
+    fi
+    
     # 拉取 Redis 镜像
     show_info "拉取 Redis 镜像: ${REGISTRY_REDIS_IMAGE}..."
     if docker pull "${REGISTRY_REDIS_IMAGE}"; then
@@ -898,6 +964,24 @@ pull_images_from_registry() {
         REDIS_IMAGE_NAME="${REGISTRY_REDIS_IMAGE}"
     else
         show_error "Redis 镜像拉取失败，请检查镜像名称和网络连接"
+    fi
+    
+    # 拉取 RustFS 镜像
+    show_info "拉取 RustFS 镜像: ${REGISTRY_RUSTFS_IMAGE}..."
+    if docker pull "${REGISTRY_RUSTFS_IMAGE}"; then
+        show_success "RustFS 镜像拉取成功"
+        RUSTFS_IMAGE_NAME="${REGISTRY_RUSTFS_IMAGE}"
+    else
+        show_error "RustFS 镜像拉取失败，请检查镜像名称和网络连接"
+    fi
+    
+    # 拉取 MinIO Client 镜像
+    show_info "拉取 MinIO Client 镜像: ${REGISTRY_MINIO_MC_IMAGE}..."
+    if docker pull "${REGISTRY_MINIO_MC_IMAGE}"; then
+        show_success "MinIO Client 镜像拉取成功"
+        MINIO_MC_IMAGE_NAME="${REGISTRY_MINIO_MC_IMAGE}"
+    else
+        show_error "MinIO Client 镜像拉取失败，请检查镜像名称和网络连接"
     fi
     
     # 拉取 Nginx 镜像
@@ -923,12 +1007,15 @@ pull_images_from_registry() {
     
     # 显示已拉取的镜像
     show_info "已拉取的镜像列表："
-    docker images | grep -E "postgres|redis|nginx|secsnow" || true
+    docker images | grep -E "postgres|pgbouncer|redis|rustfs|minio|nginx|secsnow" || true
     echo ""
     
     # 导出镜像名称供后续使用
     export LOADED_POSTGRES_IMAGE="$POSTGRES_IMAGE_NAME"
+    export LOADED_PGBOUNCER_IMAGE="$PGBOUNCER_IMAGE_NAME"
     export LOADED_REDIS_IMAGE="$REDIS_IMAGE_NAME"
+    export LOADED_RUSTFS_IMAGE="$RUSTFS_IMAGE_NAME"
+    export LOADED_MINIO_MC_IMAGE="$MINIO_MC_IMAGE_NAME"
     export LOADED_NGINX_IMAGE="$NGINX_IMAGE_NAME"
     export LOADED_SECSNOW_IMAGE="$SECSNOW_IMAGE_NAME"
 }
@@ -977,11 +1064,20 @@ SECSNOW_VERSION=${SECSNOW_VERSION}
 # PostgreSQL 数据库镜像（从tar文件加载）
 POSTGRES_IMAGE=${LOADED_POSTGRES_IMAGE:-postgres:17-bookworm}
 
+# PgBouncer 连接池镜像（从tar文件加载）
+PGBOUNCER_IMAGE=${LOADED_PGBOUNCER_IMAGE:-edoburu/pgbouncer:latest}
+
 # Redis 缓存镜像（从tar文件加载）
 REDIS_IMAGE=${LOADED_REDIS_IMAGE:-redis:8.4.0}
 
+# RustFS 对象存储镜像（从tar文件加载）
+RUSTFS_IMAGE=${LOADED_RUSTFS_IMAGE:-rustfs/rustfs:latest}
+
+# MinIO Client 镜像（从tar文件加载，用于初始化 RustFS）
+MINIO_MC_IMAGE=${LOADED_MINIO_MC_IMAGE:-minio/mc:latest}
+
 # Nginx 反向代理镜像（从tar文件加载）
-NGINX_IMAGE=${LOADED_NGINX_IMAGE:-nginx:stable}
+NGINX_IMAGE=${LOADED_NGINX_IMAGE:-nginx:alpine}
 
 # SecSnow 应用镜像（从tar文件加载）
 SECSNOW_IMAGE=${LOADED_SECSNOW_IMAGE:-secsnow_cty_sy_sp1:1.0}
@@ -1147,10 +1243,6 @@ RUSTFS_CONSOLE_PORT=${CUSTOM_STORAGE_CONSOLE_PORT:-7901}
 # CORS 设置，控制台与 S3 API 都放开来源
 RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
 RUSTFS_CORS_ALLOWED_ORIGINS=*
-
-# RustFS 镜像配置
-RUSTFS_IMAGE=rustfs/rustfs:latest
-MINIO_MC_IMAGE=minio/mc:latest
 
 # ================================================
 # 对象存储节点配置
@@ -1703,10 +1795,16 @@ show_help() {
     echo "  --pull                  从 Docker 仓库拉取镜像（而非本地 tar 文件）"
     echo "  --postgres-image <镜像>  指定 PostgreSQL 镜像（配合 --pull 使用）"
     echo "                          默认: postgres:17-bookworm"
+    echo "  --pgbouncer-image <镜像> 指定 PgBouncer 镜像（配合 --pull 使用）"
+    echo "                          默认: edoburu/pgbouncer:latest"
     echo "  --redis-image <镜像>     指定 Redis 镜像（配合 --pull 使用）"
     echo "                          默认: redis:8.4.0"
+    echo "  --rustfs-image <镜像>    指定 RustFS 镜像（配合 --pull 使用）"
+    echo "                          默认: rustfs/rustfs:latest"
+    echo "  --minio-mc-image <镜像>  指定 MinIO Client 镜像（配合 --pull 使用）"
+    echo "                          默认: minio/mc:latest"
     echo "  --nginx-image <镜像>     指定 Nginx 镜像（配合 --pull 使用）"
-    echo "                          默认: nginx:stable"
+    echo "                          默认: nginx:alpine"
     echo "  --secsnow-image <镜像>   指定 SecSnow 镜像（配合 --pull 使用，必需）"
     echo "  --performance <模式>     指定性能模式: default（默认）或 high-performance（高性能）"
     echo "  yes/no                  是否创建管理员账户（默认: yes）"
@@ -1717,10 +1815,11 @@ show_help() {
     echo "  $0 --performance high-performance"
     echo "                          使用高性能模式安装（非交互）"
     echo "  $0 --pull --secsnow-image registry.example.com/secsnow:v1.0.0"
-    echo "                          从仓库拉取镜像进行安装"
+    echo "                          从仓库拉取镜像进行安装（使用默认依赖镜像）"
     echo "  $0 --pull --secsnow-image myregistry/secsnow:latest \\"
     echo "     --postgres-image postgres:16 \\"
     echo "     --redis-image redis:7 \\"
+    echo "     --rustfs-image rustfs/rustfs:v2.0 \\"
     echo "     --performance high-performance"
     echo "                          从仓库拉取指定版本镜像并使用高性能模式"
     echo ""
@@ -1811,7 +1910,10 @@ main() {
     # 解析参数
     USE_REGISTRY=false
     REGISTRY_POSTGRES_IMAGE=""
+    REGISTRY_PGBOUNCER_IMAGE=""
     REGISTRY_REDIS_IMAGE=""
+    REGISTRY_RUSTFS_IMAGE=""
+    REGISTRY_MINIO_MC_IMAGE=""
     REGISTRY_NGINX_IMAGE=""
     REGISTRY_SECSNOW_IMAGE=""
     CREATE_ADMIN=""
@@ -1839,12 +1941,36 @@ main() {
                     show_error "--postgres-image 参数需要指定镜像名称"
                 fi
                 ;;
+            --pgbouncer-image)
+                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+                    REGISTRY_PGBOUNCER_IMAGE="$2"
+                    shift 2
+                else
+                    show_error "--pgbouncer-image 参数需要指定镜像名称"
+                fi
+                ;;
             --redis-image)
                 if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
                     REGISTRY_REDIS_IMAGE="$2"
                     shift 2
                 else
                     show_error "--redis-image 参数需要指定镜像名称"
+                fi
+                ;;
+            --rustfs-image)
+                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+                    REGISTRY_RUSTFS_IMAGE="$2"
+                    shift 2
+                else
+                    show_error "--rustfs-image 参数需要指定镜像名称"
+                fi
+                ;;
+            --minio-mc-image)
+                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+                    REGISTRY_MINIO_MC_IMAGE="$2"
+                    shift 2
+                else
+                    show_error "--minio-mc-image 参数需要指定镜像名称"
                 fi
                 ;;
             --nginx-image)
