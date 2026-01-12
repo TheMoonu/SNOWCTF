@@ -1,13 +1,47 @@
 # 网络安全综合学习系统
-一个符合中文逻辑的网络安全综合学习系统。
-整合了贴合中文操作逻辑的CTF竞赛系统、知识竞赛系统、漏洞靶场练习系统、WIKI知识库管理系统、工具管理及招聘岗位发布等核心功能模块，全面覆盖竞赛组织、技能实训、知识沉淀、资源管理与人才对接等多元需求。您的支持就是我们技术开源的动力！谢谢！
 
-目标：致力于共创、共享网络安全学习环境。
-
-目前整体处于试用阶段，参与试用的用户可获得正式教育版免费授权，欢迎您加入社区群517929458了解具体情况。为了不必要了时间浪费，请您转至[官方文档中心](https://www.secsnow.cn/wiki/subject/6/)查看安装及使用指导。你可访问官方网站：[www.sec-snow.com](https://www.sec-snow.com)了解项目情况。您想看页面UI请具体参考：[www.secsnow.cn](https://www.secsnow.cn/)
+<div align="center">
 
 
-## 界面介绍
+
+**一个符合中文使用习惯的网络安全综合学习与竞赛平台**
+
+[![社区群](https://img.shields.io/badge/QQ群-517929458-blue)](https://qm.qq.com/cgi-bin/qm/qr?k=xxx)
+[![官网](https://img.shields.io/badge/官网-www.secsnow.cn-green)](https://www.secsnow.cn)
+[![文档](https://img.shields.io/badge/文档中心-查看文档-orange)](https://www.secsnow.cn/wiki/subject/article/this-one/)
+
+</div>
+
+---
+
+## 系统简介
+
+网络安全综合学习系统是一个专为网络安全教育和竞赛设计的综合性学习平台，整合了 CTF 竞赛、知识竞答、漏洞靶场、知识库管理等核心功能模块，全面覆盖竞赛组织、技能实训、知识沉淀、资源管理与人才培养等多元需求。
+
+**项目目标**：致力于共创、共享高质量的网络安全学习环境
+
+## ✨ 核心功能
+
+### 🎯 竞赛系统
+- **CTF 竞赛平台**：支持个人赛、团队赛，动态分数与FLAG，态势感知大屏，双模板比赛页面（简约版/科技版），多节点题目服务器隔离、扩容与监控，多种比赛权限控制，会员用户可在前台创建和管理自己的比赛，能与知识竞赛联动
+- **知识竞赛系统**：理论知识竞答，与 CTF 系统联动，支持单选、多选、判断，自动化评分，知识竞赛报名模式支持，考试及格线模式支持，可控的答案查阅设置
+- **靶场练习系统**：支持会员制练习题目，会员用户可在前台创建题目，学习岛题目分类的练习模式可按照类型学习，全动态Markdown文档支持，评论与交流功能
+
+
+## 📚 文档与支持
+
+- **官方网站**：[www.sec-snow.com](https://www.sec-snow.com)
+- **在线演示**：[www.secsnow.cn](https://www.secsnow.cn/)
+- **文档中心**：[官方文档](https://www.secsnow.cn/wiki/subject/article/this-one/)
+- **社区 QQ 群**：517929458
+
+## 🎁 授权说明
+
+目前系统处于**试用阶段**，参与试用的用户可获得**正式教育版免费授权**。
+
+详细授权政策请加入社区群或访问官网了解。
+
+## 🖼️ 界面预览
 
 #### 数据大屏
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/数据大屏.png)
@@ -47,8 +81,30 @@
 #### 个人信息页面
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/个人信息页面.png)
 
+---
 
+## 🤝 贡献与反馈
 
-## 其它声明
-本项目开发过程中使用了部分[iznoe](https://github.com/Hopetree/izone "iznoe")、[simpleui](https://github.com/newpanjing/simpleui)项目代码及架构，非常感谢！
+欢迎提交 Issue 和 Pull Request！您的支持是我们技术开源的动力！
 
+如有问题或建议，请加入社区 QQ 群：**517929458**
+
+## 🙏 致谢
+
+本项目开发过程中使用了部分优秀开源项目的代码与架构，特此感谢：
+- [izone](https://github.com/Hopetree/izone) - 博客系统架构参考
+- [simpleui](https://github.com/newpanjing/simpleui) - Django 后台 UI 框架
+
+## 📄 开源协议
+
+本项目采用开源协议发布，具体协议请查看 [LICENSE](LICENSE) 文件。
+
+---
+
+<div align="center">
+
+**⭐ 如果这个项目对你有帮助，请给我们一个 Star！**
+
+Made with ❤️ by SecSnow Team
+
+</div>
