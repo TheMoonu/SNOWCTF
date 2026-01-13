@@ -1455,17 +1455,18 @@ start_services() {
     show_info "使用命令: $COMPOSE_CMD"
     
     # 启动所有服务（包含必需的 RustFS 对象存储）
+    # 注意：标准模式和高性能模式使用不同的 Worker 配置，互斥运行
     if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-        show_info "启动所有服务（高性能模式）..."
+        show_info "启动所有服务（高性能模式 - 2个专用Worker）..."
         if $COMPOSE_CMD --profile high-performance up -d; then
-            show_success "服务启动成功（高性能模式 ）"
+            show_success "服务启动成功（高性能模式：容器Worker + 通用Worker）"
         else
             show_error "服务启动失败，请检查日志"
         fi
     else
-        show_info "启动所有服务（默认模式）..."
-        if $COMPOSE_CMD up -d; then
-            show_success "服务启动成功（默认模式 ）"
+        show_info "启动所有服务（默认模式 - 1个通用Worker）..."
+        if $COMPOSE_CMD --profile default up -d; then
+            show_success "服务启动成功（默认模式：单个通用Worker）"
         else
             show_error "服务启动失败，请检查日志"
         fi
@@ -1616,14 +1617,14 @@ show_completion() {
     echo -e "${BLUE}性能模式:${NC}"
     if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
         echo "  当前模式: 高性能模式"
-        echo "  Celery Worker: 容器Worker(150并发) + 通用Worker(6并发)"
-        echo "  Gunicorn Worker: 9个进程，最大500连接"
-        echo "  适用场景: 大规模比赛，高并发"
+        echo "  Celery Worker: 2个专用Worker（容器Worker 150并发 + 通用Worker 6并发）"
+        echo "  Gunicorn Worker: 8个进程，最大400连接"
+        echo "  适用场景: 大规模比赛，高并发，用户数>100"
     else
         echo "  当前模式: 默认模式"
-        echo "  Celery Worker: 单个通用Worker(50并发)"
-        echo "  Gunicorn Worker: 4个进程，最大300连接"
-        echo "  适用场景: 中小规模练习平台"
+        echo "  Celery Worker: 1个通用Worker（50并发，处理所有任务）"
+        echo "  Gunicorn Worker: 4个进程，最大250连接"
+        echo "  适用场景: 中小规模练习平台，用户数<100"
     fi
     
     # 根据对象存储状态显示不同信息
@@ -1644,23 +1645,23 @@ show_completion() {
     echo ""
     
     # 根据性能模式显示不同命令
-    PROFILE_PARAMS=""
     if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
         PROFILE_PARAMS="--profile high-performance"
+    else
+        PROFILE_PARAMS="--profile default"
     fi
     
-    if [ -n "$PROFILE_PARAMS" ]; then
-        echo "  重启服务:"
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} restart"
-        echo ""
-        echo "  停止服务:"
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} down"
+    echo "  重启服务:"
+    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} restart"
+    echo ""
+    echo "  停止服务:"
+    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD down"
+    echo ""
+    echo "  切换性能模式:"
+    if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
+        echo "    切换到标准模式: cd ${INSTALL_DIR} && $COMPOSE_CMD down && $COMPOSE_CMD --profile default up -d"
     else
-        echo "  重启服务:"
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD restart"
-        echo ""
-        echo "  停止服务:"
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD down"
+        echo "    切换到高性能模式: cd ${INSTALL_DIR} && $COMPOSE_CMD down && $COMPOSE_CMD --profile high-performance up -d"
     fi
     echo ""
     echo -e "${BLUE}重要文件:${NC}"

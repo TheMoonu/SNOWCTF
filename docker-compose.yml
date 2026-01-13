@@ -1,16 +1,18 @@
-# 内部网络版本 - 不暴露数据库端口到主机（更安全）
+
 #
 # 启动说明：
 # ────────────────────────────────────────────────────────────
-# 1. 启动默认模式（PostgreSQL + Redis + Django + Nginx + RustFS + 单Worker）:
-#    docker-compose up -d
+# 1. 启动标准模式（PostgreSQL + Redis + Django + Nginx + RustFS + 单Worker）:
+#    docker-compose --profile default up -d
 #    适用于：中低性能服务器（2-4核，4-8G内存）
 #
-# 2. 启动高性能版（双Worker优化）:
+# 2. 启动高性能模式（双Worker优化）:
+#    docker-compose down  # 先停止标准模式
 #    docker-compose --profile high-performance up -d
 #    适用于：高性能服务器（4核+，8G+内存）
 #
-# 3. 启动高性能版 + Flower 监控（全功能）:
+# 3. 启动高性能模式 + Flower 监控（全功能）:
+#    docker-compose down  # 先停止标准模式
 #    docker-compose --profile high-performance --profile Flower up -d
 #
 # 4. 查看所有服务状态:
@@ -19,22 +21,22 @@
 # 5. 停止并删除所有服务:
 #    docker-compose down
 #
+# 6. 从高性能模式切换回标准模式:
+#    docker-compose down
+#    docker-compose --profile default up -d
 #
-#  性能模式说明:
-#  ├─ 默认模式（中低性能）: 单个通用 Worker，并发50
+#
+#  性能模式说明（互斥，同时只能运行一种）:
+#  ├─ 标准模式（默认）: 单个通用 Worker，并发50
 #  │  适用于: 2-4核CPU，4-8G内存
-#  │  启动命令: docker-compose up -d
+#  │  启动命令: docker-compose --profile default up -d
+#  │  Worker数量: 1个（celery-worker）
 #  │
 #  └─ 高性能模式: 双Worker优化（容器Worker 150并发 + 通用Worker 6并发）
 #     适用于: 4核+CPU，8G+内存
 #     启动命令: docker-compose --profile high-performance up -d
+#     Worker数量: 2个（celery-worker-container + celery-worker-general）
 #
-#  RustFS 对象存储（必需服务 - 默认启动）:
-#    - 管理控制台: http://服务器IP:7901（直接访问，不通过 Nginx 代理）
-#    - 文件访问: http://服务器IP/media/（通过 Nginx 代理，不暴露桶名称）
-#    - API 端口（9000）: 仅内部网络访问，不对外暴露，确保安全性
-#    - 默认账号密码: rustfsadmin / 查看 .env 文件中的 RUSTFS_ROOT_PASSWORD
-#    - 注意: SNOW_USE_OBJECT_STORAGE 必须设置为 True（默认值）
 # ────────────────────────────────────────────────────────────
 
 services:
@@ -71,7 +73,6 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-secsnow}:${POSTGRES_PASSWORD:-secsnow123456}@postgres:5432/${POSTGRES_DB:-secsnow}
       AUTH_TYPE: scram-sha-256
       POOL_MODE: transaction
-      # 连接池配置（4核8G优化 - 支持156并发：150 gevent + 6 prefork）
       MAX_CLIENT_CONN: 2000              # 最大客户端连接
       DEFAULT_POOL_SIZE: 100             # 默认连接池
       MIN_POOL_SIZE: 20                  # 最小连接池
@@ -224,7 +225,7 @@ services:
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
       GUNICORN_WORKER_CONNECTIONS: ${GUNICORN_WORKER_CONNECTIONS:-300}
       GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-300}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
       # 时区配置
       TZ: Asia/Shanghai
         
@@ -254,8 +255,12 @@ services:
       retries: 3
 
   # ==================== Celery Worker 配置 ====================
-  # 默认 Worker: 通用单Worker（适配中低性能服务器 2-4核4-8G）
+  # 标准模式 Worker: 通用单Worker（适配中低性能服务器 2-4核4-8G）
+  # 注意：标准模式和高性能模式互斥，通过 profile 机制确保只运行一种
+  # 启动方式: docker-compose --profile default up -d
   celery-worker:
+    profiles:
+      - default  # 标准模式专用profile
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-celery-worker
     restart: always
@@ -287,7 +292,7 @@ services:
       SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
       SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
       # 日志级别配置
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
       # 时区配置
       TZ: Asia/Shanghai
     volumes:
@@ -315,10 +320,12 @@ services:
       retries: 3
 
   # ==================== 高性能版 Workers（需要 --profile high-performance）====================
+  # 高性能模式使用双Worker策略，按任务类型优化并发配置
+  # 启动方式: docker-compose --profile high-performance up -d
   # Worker 1: 容器创建+清理（高并发 - Gevent 池，I/O密集型）
   celery-worker-container:
     profiles:
-      - high-performance  # 高性能版专用
+      - high-performance  # 高性能模式专用profile
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-celery-worker-container
     restart: always
@@ -350,7 +357,7 @@ services:
       SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
       SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
       # 日志级别配置
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
       # 时区配置
       TZ: Asia/Shanghai
     volumes:
@@ -380,7 +387,7 @@ services:
   # Worker 2: CPU密集型任务（Prefork 池，处理排名计算+维护+其他）
   celery-worker-general:
     profiles:
-      - high-performance  # 高性能版专用
+      - high-performance  # 高性能模式专用profile
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-celery-worker-general
     restart: always
@@ -411,7 +418,7 @@ services:
       SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
       SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
       SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
       # 时区配置
       TZ: Asia/Shanghai
     volumes:
