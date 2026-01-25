@@ -244,6 +244,9 @@ stop_services() {
     if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
         PROFILE_PARAMS="--profile high-performance"
         show_info "检测到高性能模式，使用对应参数停止服务"
+    else
+        PROFILE_PARAMS="--profile default"
+        show_info "检测到默认模式，使用对应参数停止服务"
     fi
     
     
@@ -484,6 +487,7 @@ start_services() {
         PROFILE_PARAMS="--profile high-performance"
         show_info "使用高性能模式启动"
     else
+        PROFILE_PARAMS="--profile default"
         show_info "使用默认模式启动"
     fi
     
@@ -497,7 +501,7 @@ start_services() {
         fi
     else
         show_info "启动服务..."
-        if $COMPOSE_CMD up -d; then
+        if $COMPOSE_CMD  up -d; then
             show_success "服务启动成功"
         else
             show_error "服务启动失败，请检查日志"
@@ -1032,7 +1036,7 @@ migrate_media_to_storage() {
     echo ""
     
     if [ "$STORAGE_FILE_COUNT" -ge "$LOCAL_FILE_COUNT" ]; then
-        show_success "✅ 迁移成功！"
+        show_success "迁移成功！"
         echo ""
         
         # 自动备份本地文件
@@ -1049,7 +1053,7 @@ migrate_media_to_storage() {
         echo "  2. 确认无误后可删除备份: rm -rf web/media.backup"
         echo "  3. 访问 RustFS 控制台: http://你的IP:7901/"
     else
-        show_error "❌ 文件数量不匹配"
+        show_error "文件数量不匹配"
         echo ""
         echo "排查步骤："
         echo "  1. 查看 RustFS 日志: docker logs secsnow-rustfs"
@@ -1264,6 +1268,8 @@ show_completion() {
     PROFILE_PARAMS=""
     if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
         PROFILE_PARAMS="--profile high-performance"
+    else
+        PROFILE_PARAMS="--profile default"
     fi
     
     echo -e "${BLUE}常用命令:${NC}"
