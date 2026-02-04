@@ -1203,7 +1203,7 @@ CELERY_GENERAL_WORKER_CONCURRENCY=6
 TZ=Asia/Shanghai
 
 # ================================================
-# Gunicorn 配置（根据性能模式自动调整）
+# 性能配置（根据性能模式自动调整）
 # ================================================
 # 公式: workers = 2 × CPU核数 + 1
 # 
@@ -1216,11 +1216,15 @@ TZ=Asia/Shanghai
 #   - Connections: 500（每个 worker 处理 55 个连接）
 #
 $(if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-echo "GUNICORN_WORKERS=8"
+echo "GUNICORN_WORKERS=6"
 echo "GUNICORN_WORKER_CONNECTIONS=400"
+echo "MAX_REQUESTS=1000"
+echo "MAX_REQUESTS_JITTER=100"
 else
-echo "GUNICORN_WORKERS=4"
-echo "GUNICORN_WORKER_CONNECTIONS=250"
+echo "GUNICORN_WORKERS=3"
+echo "GUNICORN_WORKER_CONNECTIONS=300"
+echo "MAX_REQUESTS=600"
+echo "MAX_REQUESTS_JITTER=100"
 fi)
 # Gunicorn 超时时间（秒）
 GUNICORN_TIMEOUT=300

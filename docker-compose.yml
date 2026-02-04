@@ -72,12 +72,12 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-secsnow}:${POSTGRES_PASSWORD:-secsnow123456}@postgres:5432/${POSTGRES_DB:-secsnow}
       AUTH_TYPE: scram-sha-256
-      POOL_MODE: transaction
+      POOL_MODE: session
       MAX_CLIENT_CONN: 2000              # 最大客户端连接
-      DEFAULT_POOL_SIZE: 100             # 默认连接池
-      MIN_POOL_SIZE: 20                  # 最小连接池
-      RESERVE_POOL_SIZE: 20              # 预留连接池
-      MAX_DB_CONNECTIONS: 150            # 最大数据库连接
+      DEFAULT_POOL_SIZE: 150             # 默认连接池（增大）
+      MIN_POOL_SIZE: 50                  # 最小连接池（增大）
+      RESERVE_POOL_SIZE: 30              # 预留连接池
+      MAX_DB_CONNECTIONS: 180            # 最大数据库连接
       # 超时配置
       SERVER_IDLE_TIMEOUT: 120           # 空闲超时2分钟
       SERVER_LIFETIME: 3600              # 连接生命周期1小时
@@ -219,12 +219,15 @@ services:
       SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
       SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
       SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
-      # Gunicorn 性能配置（根据性能模式调整）
-      # 默认模式（2-4核）: WORKERS=4, CONNECTIONS=300
-      # 高性能模式（4核+）: WORKERS=9, CONNECTIONS=500
-      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
-      GUNICORN_WORKER_CONNECTIONS: ${GUNICORN_WORKER_CONNECTIONS:-300}
-      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-300}
+      # uWSGI 性能配置（多进程+多线程模式）
+      # 总并发能力 = WORKERS × THREADS
+      # 2核CPU: workers=2, threads=4 → 8并发
+      # 4核CPU: workers=4, threads=4 → 16并发
+      # 8核CPU: workers=8, threads=4 → 32并发
+      UWSGI_WORKERS: ${UWSGI_WORKERS:-4}
+      UWSGI_THREADS: ${UWSGI_THREADS:-4}
+      UWSGI_TIMEOUT: ${UWSGI_TIMEOUT:-300}
+      UWSGI_MAX_REQUESTS: ${UWSGI_MAX_REQUESTS:-5000}
       LOG_LEVEL: ${LOG_LEVEL:-WARNING}
       # 时区配置
       TZ: Asia/Shanghai
@@ -534,6 +537,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ${NGINX_CONF_DIR:-./nginx/conf.d}:/etc/nginx/conf.d:ro
+      - ./nginx/uwsgi_params:/etc/nginx/uwsgi_params:ro
       - ${NGINX_SSL_DIR:-./nginx/ssl}:/etc/nginx/ssl:ro
       - ${WEB_MEDIA_DIR:-./web/media}:/usr/share/nginx/secsnow/media
       - ${WEB_STATIC_DIR:-./web/static}:/usr/share/nginx/secsnow/static
