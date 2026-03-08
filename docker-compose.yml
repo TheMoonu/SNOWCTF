@@ -1,44 +1,4 @@
 
-#
-# 启动说明：
-# ────────────────────────────────────────────────────────────
-# 1. 启动标准模式（PostgreSQL + Redis + Django + Nginx + RustFS + 单Worker）:
-#    docker-compose --profile default up -d
-#    适用于：中低性能服务器（2-4核，4-8G内存）
-#
-# 2. 启动高性能模式（双Worker优化）:
-#    docker-compose down  # 先停止标准模式
-#    docker-compose --profile high-performance up -d
-#    适用于：高性能服务器（4核+，8G+内存）
-#
-# 3. 启动高性能模式 + Flower 监控（全功能）:
-#    docker-compose down  # 先停止标准模式
-#    docker-compose --profile high-performance --profile Flower up -d
-#
-# 4. 查看所有服务状态:
-#    docker-compose ps -a
-#
-# 5. 停止并删除所有服务:
-#    docker-compose down
-#
-# 6. 从高性能模式切换回标准模式:
-#    docker-compose down
-#    docker-compose --profile default up -d
-#
-#
-#  性能模式说明（互斥，同时只能运行一种）:
-#  ├─ 标准模式（默认）: 单个通用 Worker，并发50
-#  │  适用于: 2-4核CPU，4-8G内存
-#  │  启动命令: docker-compose --profile default up -d
-#  │  Worker数量: 1个（celery-worker）
-#  │
-#  └─ 高性能模式: 双Worker优化（容器Worker 150并发 + 通用Worker 6并发）
-#     适用于: 4核+CPU，8G+内存
-#     启动命令: docker-compose --profile high-performance up -d
-#     Worker数量: 2个（celery-worker-container + celery-worker-general）
-#
-# ────────────────────────────────────────────────────────────
-
 services:
   # PostgreSQL 数据库
   postgres:
@@ -55,7 +15,6 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - ${POSTGRES_DATA_DIR:-./db/postgres}:/var/lib/postgresql/data
-    # 不暴露端口到主机，只在内部网络访问
     networks:
       - secsnow-network
     healthcheck:
@@ -64,7 +23,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # PgBouncer 连接池（4核8G优化配置）
+  # PgBouncer 连接池
   pgbouncer:
     image: ${PGBOUNCER_IMAGE:-edoburu/pgbouncer:latest}
     container_name: ${CONTAINER_PREFIX:-secsnow}-pgbouncer
@@ -72,16 +31,15 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-secsnow}:${POSTGRES_PASSWORD:-secsnow123456}@postgres:5432/${POSTGRES_DB:-secsnow}
       AUTH_TYPE: scram-sha-256
-      POOL_MODE: transaction
-      MAX_CLIENT_CONN: 2000              # 最大客户端连接
-      DEFAULT_POOL_SIZE: 100             # 默认连接池
-      MIN_POOL_SIZE: 20                  # 最小连接池
-      RESERVE_POOL_SIZE: 20              # 预留连接池
-      MAX_DB_CONNECTIONS: 150            # 最大数据库连接
-      # 超时配置
-      SERVER_IDLE_TIMEOUT: 120           # 空闲超时2分钟
-      SERVER_LIFETIME: 3600              # 连接生命周期1小时
-      QUERY_TIMEOUT: 30                  # 查询超时30秒
+      POOL_MODE: session
+      MAX_CLIENT_CONN: 2000
+      DEFAULT_POOL_SIZE: 150
+      MIN_POOL_SIZE: 50
+      RESERVE_POOL_SIZE: 30
+      MAX_DB_CONNECTIONS: 180
+      SERVER_IDLE_TIMEOUT: 120
+      SERVER_LIFETIME: 3600
+      QUERY_TIMEOUT: 30
       TZ: Asia/Shanghai
     depends_on:
       postgres:
@@ -105,7 +63,6 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - ${REDIS_DATA_DIR:-./redis/data}:/data
-    # 不暴露端口到主机，只在内部网络访问
     networks:
       - secsnow-network
     healthcheck:
@@ -114,92 +71,22 @@ services:
       timeout: 5s
       retries: 5
 
-
-  rustfs:
-    image: ${RUSTFS_IMAGE:-rustfs/rustfs:latest}
-    container_name: ${CONTAINER_PREFIX:-secsnow}-rustfs
-    restart: always
-    user: "0:0"  # 以 root 用户运行，避免权限问题
-    security_opt:
-      - "no-new-privileges:true"
-    environment:
-      # 数据卷路径
-      RUSTFS_VOLUMES: /data/rustfs0
-      # API 和控制台监听地址
-      RUSTFS_ADDRESS: 0.0.0.0:9000
-      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
-      RUSTFS_CONSOLE_ENABLE: "true"
-      # CORS 设置
-      RUSTFS_CORS_ALLOWED_ORIGINS: ${RUSTFS_CORS_ALLOWED_ORIGINS:-*}
-      RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: ${RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS:-*}
-      # 访问密钥
-      RUSTFS_ACCESS_KEY: ${RUSTFS_ROOT_USER:-rustfsadmin}
-      RUSTFS_SECRET_KEY: ${RUSTFS_ROOT_PASSWORD:-rustfsadmin}
-      # 禁用 KMS 加密服务（避免 KMS 未初始化错误）
-      MINIO_KMS_KES_ENDPOINT: ""
-      MINIO_KMS_AUTO_ENCRYPTION: "off"
-      # 日志级别
-      RUSTFS_OBS_LOGGER_LEVEL: info
-      # 时区配置
-      TZ: Asia/Shanghai
-    volumes:
-      - ${RUSTFS_DATA_DIR:-./rustfs/data}:/data
-      - ${RUSTFS_LOG_DIR:-./rustfs/logs}:/app/logs
-    # 端口映射：只暴露 RustFS Console 管理界面到主机
-    # API 端口（9000）不暴露，所有文件访问通过 Nginx 代理
-    ports:
-      - "${RUSTFS_CONSOLE_PORT:-7901}:9001"  # 管理控制台端口 - 直接访问（http://服务器IP:7901）
-    networks:
-      - secsnow-network
-    healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f http://localhost:9000/health && curl -f http://localhost:9001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # RustFS 初始化（自动创建 bucket）
-  rustfs-init:
-    image: ${MINIO_MC_IMAGE:-minio/mc:latest}  # 使用 minio client，因为 RustFS 兼容 S3 API
-    container_name: ${CONTAINER_PREFIX:-secsnow}-rustfs-init
-    depends_on:
-      rustfs:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      echo '等待 RustFS 启动...';
-      sleep 5;
-      echo '配置 RustFS 别名...';
-      mc alias set secsnow http://rustfs:9000 ${RUSTFS_ROOT_USER:-rustfsadmin} ${RUSTFS_ROOT_PASSWORD:-rustfsadmin};
-      echo '创建 bucket: ${RUSTFS_BUCKET_NAME:-secsnow}';
-      mc mb secsnow/${RUSTFS_BUCKET_NAME:-secsnow} --ignore-existing;
-      echo '设置 bucket 为公开访问...';
-      mc anonymous set public secsnow/${RUSTFS_BUCKET_NAME:-secsnow};
-      echo 'RustFS 初始化完成！';
-      "
-    networks:
-      - secsnow-network
-
-  # Django Web 应用（前端）
+  # Django Web 应用
   web:
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-web
     restart: always
     environment:
-      # Django 配置（使用 SNOW_ 前缀）
       SNOW_SECRET_KEY: ${SNOW_SECRET_KEY:-django-insecure-)+vh#@l4crslu5fza1e8da!2(0s10mw5%_1=*uko7cu9ju*yv-}
       SNOW_DEBUG: ${SNOW_DEBUG:-False}
-      # 数据库配置（使用 SNOW_ 前缀）- 通过 PgBouncer 连接
       SNOW_POSTGRES_HOST: pgbouncer
       SNOW_POSTGRES_PORT: 5432
       SNOW_POSTGRES_NAME: ${POSTGRES_DB:-secsnow}
       SNOW_POSTGRES_USER: ${POSTGRES_USER:-secsnow}
       SNOW_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secsnow123456}
-      # Redis 配置（使用 SNOW_ 前缀）
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      #应用配置
       SECSNOW_VERSION: ${SECSNOW_VERSION:-v1.0.0}
       SNOW_ALLOWED_HOSTS: ${SNOW_ALLOWED_HOSTS:-*}
       SNOW_CSRF_TRUSTED_ORIGINS: ${SNOW_CSRF_TRUSTED_ORIGINS:-}
@@ -208,37 +95,20 @@ services:
       SNOW_PROTOCOL_HTTPS: ${SNOW_PROTOCOL_HTTPS:-http}
       SNOW_SIMPLEUI_HOME_TITLE: ${SNOW_SIMPLEUI_HOME_TITLE:-SECSNOW}
       SNOW_SIMPLEUI_LOGO: ${SNOW_SIMPLEUI_LOGO:-https://www.secsnow.cn/static/blog/img/logo.svg}
-      # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
-      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
-      SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
-      SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
-      SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
-      SNOW_STORAGE_ENDPOINT_URL: ${SNOW_STORAGE_ENDPOINT_URL:-http://rustfs:9000}
-      SNOW_STORAGE_REGION: ${SNOW_STORAGE_REGION:-us-east-1}
-      SNOW_STORAGE_LOCATION: ${SNOW_STORAGE_LOCATION:-}
-      SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
-      SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
-      SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
-      # Gunicorn 性能配置（根据性能模式调整）
-      # 默认模式（2-4核）: WORKERS=4, CONNECTIONS=300
-      # 高性能模式（4核+）: WORKERS=9, CONNECTIONS=500
-      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
-      GUNICORN_WORKER_CONNECTIONS: ${GUNICORN_WORKER_CONNECTIONS:-300}
-      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-300}
+      UWSGI_WORKERS: ${UWSGI_WORKERS:-4}
+      UWSGI_THREADS: ${UWSGI_THREADS:-4}
+      UWSGI_TIMEOUT: ${UWSGI_TIMEOUT:-300}
+      UWSGI_MAX_REQUESTS: ${UWSGI_MAX_REQUESTS:-5000}
       LOG_LEVEL: ${LOG_LEVEL:-WARNING}
-      # 时区配置
       TZ: Asia/Shanghai
-        
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${WEB_MEDIA_DIR:-./web/media}:/opt/cloud/secsnow/media
       - ${WEB_LOG_DIR:-./web/log}:/opt/cloud/secsnow/log
       - ${WEB_STATIC_DIR:-./web/static}:/opt/cloud/secsnow/static
       - ${WEB_WHOOSH_DIR:-./web/whoosh_index}:/opt/cloud/secsnow/whoosh_index
-      # 挂载宿主机信息（用于生成稳定的机器码）
       - /etc/machine-id:/host/etc/machine-id:ro
       - /sys/class/net:/host/sys/class/net:ro
-    # 不暴露端口到主机，只通过 nginx 代理访问
     depends_on:
       postgres:
         condition: service_healthy
@@ -254,52 +124,29 @@ services:
       timeout: 10s
       retries: 3
 
-  # ==================== Celery Worker 配置 ====================
-  # 标准模式 Worker: 通用单Worker（适配中低性能服务器 2-4核4-8G）
-  # 注意：标准模式和高性能模式互斥，通过 profile 机制确保只运行一种
-  # 启动方式: docker-compose --profile default up -d
+  # Celery Worker
   celery-worker:
-    profiles:
-      - default  # 标准模式专用profile
     image: ${SECSNOW_IMAGE:-secsnow:secure}
     container_name: ${CONTAINER_PREFIX:-secsnow}-celery-worker
     restart: always
-    # 通用配置：处理所有队列，gevent池，并发50，prefetch=1（避免慢任务排队）
     command: celery -A secsnow worker -Q container_creation,container_cleanup,default,maintenance -l info --pool=gevent --concurrency=${CELERY_WORKER_CONCURRENCY:-50} --prefetch-multiplier=1 -n worker@%h
     environment:
-      # Django 配置（使用 SNOW_ 前缀）
       SNOW_SECRET_KEY: ${SNOW_SECRET_KEY:-change-this-to-random-string}
       SNOW_DEBUG: ${SNOW_DEBUG:-False}
-      # 数据库配置（使用 SNOW_ 前缀）- 通过 PgBouncer 连接
       SNOW_POSTGRES_HOST: pgbouncer
       SNOW_POSTGRES_PORT: 5432
       SNOW_POSTGRES_NAME: ${POSTGRES_DB:-secsnow}
       SNOW_POSTGRES_USER: ${POSTGRES_USER:-secsnow}
       SNOW_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secsnow123456}
-      # Redis 配置（使用 SNOW_ 前缀）
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
-      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
-      SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
-      SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
-      SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
-      SNOW_STORAGE_ENDPOINT_URL: ${SNOW_STORAGE_ENDPOINT_URL:-http://rustfs:9000}
-      SNOW_STORAGE_REGION: ${SNOW_STORAGE_REGION:-us-east-1}
-      SNOW_STORAGE_LOCATION: ${SNOW_STORAGE_LOCATION:-}
-      SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
-      SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
-      SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
-      # 日志级别配置
       LOG_LEVEL: ${LOG_LEVEL:-WARNING}
-      # 时区配置
       TZ: Asia/Shanghai
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${WEB_MEDIA_DIR:-./web/media}:/opt/cloud/secsnow/media
       - ${WEB_LOG_DIR:-./web/log}:/opt/cloud/secsnow/log
-      # 挂载宿主机信息（用于生成稳定的机器码）
       - /etc/machine-id:/host/etc/machine-id:ro
       - /sys/class/net:/host/sys/class/net:ro
     depends_on:
@@ -319,132 +166,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # ==================== 高性能版 Workers（需要 --profile high-performance）====================
-  # 高性能模式使用双Worker策略，按任务类型优化并发配置
-  # 启动方式: docker-compose --profile high-performance up -d
-  # Worker 1: 容器创建+清理（高并发 - Gevent 池，I/O密集型）
-  celery-worker-container:
-    profiles:
-      - high-performance  # 高性能模式专用profile
-    image: ${SECSNOW_IMAGE:-secsnow:secure}
-    container_name: ${CONTAINER_PREFIX:-secsnow}-celery-worker-container
-    restart: always
-    # 4核8G优化：gevent池，并发150，prefetch=2（容器任务快，可以预取更多）
-    command: celery -A secsnow worker -Q container_creation,container_cleanup -l info --pool=gevent --concurrency=${CELERY_CONTAINER_WORKER_CONCURRENCY:-150} --prefetch-multiplier=2 -n container_worker@%h
-    environment:
-      # Django 配置（使用 SNOW_ 前缀）
-      SNOW_SECRET_KEY: ${SNOW_SECRET_KEY:-change-this-to-random-string}
-      SNOW_DEBUG: ${SNOW_DEBUG:-False}
-      # 数据库配置（使用 SNOW_ 前缀）- 通过 PgBouncer 连接
-      SNOW_POSTGRES_HOST: pgbouncer
-      SNOW_POSTGRES_PORT: 5432
-      SNOW_POSTGRES_NAME: ${POSTGRES_DB:-secsnow}
-      SNOW_POSTGRES_USER: ${POSTGRES_USER:-secsnow}
-      SNOW_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secsnow123456}
-      # Redis 配置（使用 SNOW_ 前缀）
-      SNOW_REDIS_HOST: redis
-      SNOW_REDIS_PORT: 6379
-      SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
-      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
-      SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
-      SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
-      SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
-      SNOW_STORAGE_ENDPOINT_URL: ${SNOW_STORAGE_ENDPOINT_URL:-http://rustfs:9000}
-      SNOW_STORAGE_REGION: ${SNOW_STORAGE_REGION:-us-east-1}
-      SNOW_STORAGE_LOCATION: ${SNOW_STORAGE_LOCATION:-}
-      SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
-      SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
-      SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
-      # 日志级别配置
-      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
-      # 时区配置
-      TZ: Asia/Shanghai
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${WEB_MEDIA_DIR:-./web/media}:/opt/cloud/secsnow/media
-      - ${WEB_LOG_DIR:-./web/log}:/opt/cloud/secsnow/log
-      # 挂载宿主机信息（用于生成稳定的机器码）
-      - /etc/machine-id:/host/etc/machine-id:ro
-      - /sys/class/net:/host/sys/class/net:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      web:
-        condition: service_started
-    networks:
-      - secsnow-network
-    healthcheck:
-      test: ["CMD", "celery", "-A", "secsnow", "inspect", "ping", "-d", "container_worker@celery-worker-container"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Worker 2: CPU密集型任务（Prefork 池，处理排名计算+维护+其他）
-  celery-worker-general:
-    profiles:
-      - high-performance  # 高性能模式专用profile
-    image: ${SECSNOW_IMAGE:-secsnow:secure}
-    container_name: ${CONTAINER_PREFIX:-secsnow}-celery-worker-general
-    restart: always
-    # 4核8G优化：prefork池，并发6，prefetch=1（定时任务慢，避免排队超时）
-    command: celery -A secsnow worker -Q default,maintenance -l info --concurrency=${CELERY_GENERAL_WORKER_CONCURRENCY:-6} --prefetch-multiplier=1 --max-tasks-per-child=50 -n general_worker@%h
-    environment:
-      # Django 配置（使用 SNOW_ 前缀）
-      SNOW_SECRET_KEY: ${SNOW_SECRET_KEY:-change-this-to-random-string}
-      SNOW_DEBUG: ${SNOW_DEBUG:-False}
-      # 数据库配置（使用 SNOW_ 前缀）- 通过 PgBouncer 连接
-      SNOW_POSTGRES_HOST: pgbouncer
-      SNOW_POSTGRES_PORT: 5432
-      SNOW_POSTGRES_NAME: ${POSTGRES_DB:-secsnow}
-      SNOW_POSTGRES_USER: ${POSTGRES_USER:-secsnow}
-      SNOW_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secsnow123456}
-      # Redis 配置（使用 SNOW_ 前缀）
-      SNOW_REDIS_HOST: redis
-      SNOW_REDIS_PORT: 6379
-      SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
-      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
-      SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
-      SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
-      SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
-      SNOW_STORAGE_ENDPOINT_URL: ${SNOW_STORAGE_ENDPOINT_URL:-http://rustfs:9000}
-      SNOW_STORAGE_REGION: ${SNOW_STORAGE_REGION:-us-east-1}
-      SNOW_STORAGE_LOCATION: ${SNOW_STORAGE_LOCATION:-}
-      SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
-      SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
-      SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
-      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
-      # 时区配置
-      TZ: Asia/Shanghai
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${WEB_MEDIA_DIR:-./web/media}:/opt/cloud/secsnow/media
-      - ${WEB_LOG_DIR:-./web/log}:/opt/cloud/secsnow/log
-      # 挂载宿主机信息（用于生成稳定的机器码）
-      - /etc/machine-id:/host/etc/machine-id:ro
-      - /sys/class/net:/host/sys/class/net:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      web:
-        condition: service_started
-    networks:
-      - secsnow-network
-    healthcheck:
-      test: ["CMD", "celery", "-A", "secsnow", "inspect", "ping", "-d", "general_worker@celery-worker-general"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   # Celery Beat 定时任务调度器
   celery-beat:
     image: ${SECSNOW_IMAGE:-secsnow:secure}
@@ -452,36 +173,20 @@ services:
     restart: always
     command: celery -A secsnow beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     environment:
-      # Django 配置（使用 SNOW_ 前缀）
       SNOW_SECRET_KEY: ${SNOW_SECRET_KEY:-change-this-to-random-string}
       SNOW_DEBUG: ${SNOW_DEBUG:-False}
-      # 数据库配置（使用 SNOW_ 前缀）- 通过 PgBouncer 连接
       SNOW_POSTGRES_HOST: pgbouncer
       SNOW_POSTGRES_PORT: 5432
       SNOW_POSTGRES_NAME: ${POSTGRES_DB:-secsnow}
       SNOW_POSTGRES_USER: ${POSTGRES_USER:-secsnow}
       SNOW_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secsnow123456}
-      # Redis 配置（使用 SNOW_ 前缀）
       SNOW_REDIS_HOST: redis
       SNOW_REDIS_PORT: 6379
       SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      # 对象存储配置（使用 SNOW_ 前缀，支持 RustFS）
-      SNOW_USE_OBJECT_STORAGE: ${SNOW_USE_OBJECT_STORAGE:-False}
-      SNOW_STORAGE_ACCESS_KEY: ${SNOW_STORAGE_ACCESS_KEY:-rustfsadmin}
-      SNOW_STORAGE_SECRET_KEY: ${SNOW_STORAGE_SECRET_KEY:-rustfsadmin}
-      SNOW_STORAGE_BUCKET_NAME: ${SNOW_STORAGE_BUCKET_NAME:-secsnow}
-      SNOW_STORAGE_ENDPOINT_URL: ${SNOW_STORAGE_ENDPOINT_URL:-http://rustfs:9000}
-      SNOW_STORAGE_REGION: ${SNOW_STORAGE_REGION:-us-east-1}
-      SNOW_STORAGE_LOCATION: ${SNOW_STORAGE_LOCATION:-}
-      SNOW_STORAGE_USE_SSL: ${SNOW_STORAGE_USE_SSL:-False}
-      SNOW_STORAGE_VERIFY_SSL: ${SNOW_STORAGE_VERIFY_SSL:-False}
-      SNOW_STORAGE_PUBLIC_URL: ${SNOW_STORAGE_PUBLIC_URL:-}
-      # 时区配置
       TZ: Asia/Shanghai
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${WEB_LOG_DIR:-./web/log}:/opt/cloud/secsnow/log
-      # 挂载宿主机信息（用于生成稳定的机器码）
       - /etc/machine-id:/host/etc/machine-id:ro
       - /sys/class/net:/host/sys/class/net:ro
     depends_on:
@@ -493,33 +198,6 @@ services:
         condition: service_healthy
       web:
         condition: service_started
-    networks:
-      - secsnow-network
-
-  # Flower 监控（可选服务 - 使用 --profile Flower 启动）
-  flower:
-    profiles:
-      - Flower  # 需要使用 --profile Flower 参数才会启动此服务
-    image: ${SECSNOW_IMAGE:-secsnow:secure}
-    container_name: ${CONTAINER_PREFIX:-secsnow}-flower
-    restart: always
-    # 添加基本认证保护（用户名:密码格式）
-    command: >
-      celery -A secsnow flower 
-      --port=5555 
-      --basic_auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-flower123456}
-    environment:
-      # Redis 配置（使用 SNOW_ 前缀）
-      SNOW_REDIS_HOST: redis
-      SNOW_REDIS_PORT: 6379
-      SNOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
-      # 时区配置
-      TZ: Asia/Shanghai
-    # 直接暴露 5555 端口到主机
-    ports:
-      - "${FLOWER_PORT:-5555}:5555"
-    depends_on:
-      - redis
     networks:
       - secsnow-network
 
@@ -534,6 +212,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ${NGINX_CONF_DIR:-./nginx/conf.d}:/etc/nginx/conf.d:ro
+      - ./nginx/uwsgi_params:/etc/nginx/uwsgi_params:ro
       - ${NGINX_SSL_DIR:-./nginx/ssl}:/etc/nginx/ssl:ro
       - ${WEB_MEDIA_DIR:-./web/media}:/usr/share/nginx/secsnow/media
       - ${WEB_STATIC_DIR:-./web/static}:/usr/share/nginx/secsnow/static
@@ -552,7 +231,3 @@ networks:
   secsnow-network:
     name: ${NETWORK_NAME:-secsnow-network}
     driver: bridge
-
-volumes:
-  postgres-data:
-  redis-data:
