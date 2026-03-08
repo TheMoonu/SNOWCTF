@@ -892,12 +892,11 @@ NGINX_LOG_DIR=./web/log/nginx
 CELERY_WORKER_CONCURRENCY=50
 
 # ================================================
-# uWSGI 配置
+# Gunicorn 配置
 # ================================================
-UWSGI_WORKERS=4
-UWSGI_THREADS=4
-UWSGI_TIMEOUT=300
-UWSGI_MAX_REQUESTS=5000
+GUNICORN_WORKERS=4
+GUNICORN_WORKER_CONNECTIONS=500
+GUNICORN_TIMEOUT=200
 
 # ================================================
 # 高级配置
