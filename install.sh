@@ -1051,10 +1051,6 @@ run_migrations() {
     show_info "收集静态文件..."
     docker exec secsnow-web python manage.py collectstatic --noinput || show_error "收集静态文件失败"
     
-    # 功能初始化
-    show_info "初始化功能模块..."
-    docker exec secsnow-web python manage.py init_license_modules || show_warning "功能初始化有警告"
-    
     # 网站初始化
     show_info "初始化网站数据..."
     docker exec secsnow-web python manage.py init_site_data || show_warning "网站初始化有警告"
