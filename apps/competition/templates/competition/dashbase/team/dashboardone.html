@@ -1,0 +1,1237 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ competition.title }} - 数据感知系统</title>
+    
+    {% if site_favicon %}
+    <link rel="shortcut icon" href="{{ site_favicon }}" type="image/x-icon"/>
+    {% else %}
+    <link rel="shortcut icon" href="{% static 'public/img/favicon.ico' %}" type="image/x-icon"/>
+    {% endif %}
+    
+    <!-- Toast 提示框样式 -->
+    <link rel="stylesheet" href="{% static 'public/css/toast.css' %}">
+    
+    <style>
+        /* ================= 核心基础样式 ================= */
+        :root {
+            --bg-color: #050510;
+            --card-bg: rgba(12, 20, 40, 0.75);
+            --border-color: rgba(0, 243, 255, 0.3);
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --text-main: #e0f7fa;
+            --text-dim: #5c8d9e;
+            --success: #00ff9d;
+            --danger: #ff2a2a;
+            --warning: #ffbf00;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Rajdhani', 'Segoe UI', 'PingFang SC', sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 50%, #111a3b 0%, #050510 80%),
+                linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+        }
+
+        /* 字体加载 (如果有本地字体可替换，这里使用系统字体回退) */
+        @font-face {
+            font-family: 'Digital';
+            src: local('Courier New'); /* 模拟数字字体 */
+        }
+
+        /* ================= 布局容器 ================= */
+        .app-container {
+            display: grid;
+            grid-template-rows: 70px 90px 1fr; /* 头部 | 统计卡片 | 主内容 */
+            height: 100vh;
+            padding: 10px 20px 20px 20px;
+            gap: 15px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* 背景扫描线特效 */
+        .scan-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.3) 51%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.3;
+        }
+
+        /* ================= 头部样式 ================= */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.1), transparent);
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .header-title {
+            font-size: 32px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--primary);
+            text-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .sys-btn {
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 5px 15px;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            font-size: 12px;
+            transition: all 0.3s;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        }
+
+        .sys-btn:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .countdown-wrapper {
+            font-family: 'Digital', monospace;
+            font-size: 24px;
+            color: var(--warning);
+            text-shadow: 0 0 10px rgba(255, 191, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            padding: 4px 10px;
+            border: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.3);
+        }
+
+        .status-light {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #333;
+        }
+        .status-light.active { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .status-light.warn { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+        .status-light.error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+        /* ================= 统计卡片栏 (KPI) ================= */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 15px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 15px;
+            transition: transform 0.3s;
+            overflow: hidden;
+        }
+        
+        /* 卡片装饰角 */
+        .kpi-card::before {
+            content: ''; position: absolute; top: 0; left: 0;
+            width: 6px; height: 6px; border-top: 2px solid var(--primary); border-left: 2px solid var(--primary);
+        }
+        .kpi-card::after {
+            content: ''; position: absolute; bottom: 0; right: 0;
+            width: 6px; height: 6px; border-bottom: 2px solid var(--primary); border-right: 2px solid var(--primary);
+        }
+
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0, 243, 255, 0.1); }
+
+        .kpi-label { 
+            font-size: 12px; 
+            color: var(--text-dim); 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            text-align: center;
+            width: 100%;
+        }
+        .kpi-value { 
+            font-family: 'Digital', monospace; 
+            font-size: 28px; 
+            color: var(--text-main); 
+            font-weight: bold; 
+            margin: 2px 0; 
+            text-align: center;
+            width: 100%;
+        }
+        .kpi-sub { 
+            font-size: 10px; 
+            color: var(--primary); 
+            opacity: 0.8; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            text-align: center;
+            width: 100%;
+        }
+
+        /* ================= 主内容网格 ================= */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 20fr 55fr 25fr; /* 使用fr单位自动扣除gap */
+            gap: 15px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .panel-col {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+            overflow: hidden;
+            min-width: 0; /* 允许列正确收缩 */
+        }
+
+        /* 通用面板容器样式 */
+        .tech-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0; /* 允许flex子项滚动 */
+            min-width: 0; /* 允许flex子项收缩 */
+            overflow: hidden; /* 防止内容溢出边框 */
+            backdrop-filter: blur(4px);
+        }
+
+        .tech-panel-header {
+            height: 36px;
+            display: flex;
+            align-items: center;
+            padding-left: 15px;
+            background: rgba(0, 243, 255, 0.05);
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+            color: var(--primary);
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .tech-panel-header::before {
+            content: '■'; margin-right: 8px; font-size: 10px; animation: blink 2s infinite;
+        }
+
+        .chart-box {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* ================= 特定模块样式 ================= */
+        
+        /* 列表容器 */
+        .list-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden; /* 防止横向溢出 */
+            padding: 10px;
+        }
+
+        /* 滚动条美化 */
+        .list-container::-webkit-scrollbar { width: 4px; }
+        .list-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+        .list-container::-webkit-scrollbar-track { background: transparent; }
+
+        /* 提交记录项 */
+        .feed-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid transparent;
+            font-size: 12px;
+            animation: slideIn 0.4s ease-out;
+            gap: 10px;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .feed-item.success { border-left-color: var(--success); background: linear-gradient(90deg, rgba(0, 255, 157, 0.1), transparent); }
+        .feed-item.error { border-left-color: var(--danger); }
+        
+        .feed-info { 
+            display: flex; 
+            flex-direction: column; 
+            flex: 1;
+            min-width: 0; /* 允许flex子项收缩 */
+            overflow: hidden;
+        }
+        .feed-team { 
+            color: var(--text-main); 
+            font-weight: bold; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .feed-chal { 
+            color: var(--text-dim); 
+            font-size: 11px; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .feed-score { color: var(--success); font-family: 'Digital', monospace; font-size: 14px; white-space: nowrap; }
+        .feed-time { color: var(--text-dim); font-size: 10px; text-align: right; min-width: 50px; white-space: nowrap; }
+
+        /* 血榜项 */
+        .blood-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+            gap: 10px;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .blood-rank { 
+            width: 24px; height: 24px; 
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; /* 防止收缩 */
+            font-weight: bold; font-size: 12px;
+            border-radius: 2px;
+        }
+        .rank-1 { background: var(--danger); color: white; box-shadow: 0 0 10px var(--danger); }
+        .rank-2 { background: var(--warning); color: black; }
+        .rank-3 { background: #fff; color: black; }
+        
+        .blood-content { 
+            flex: 1; 
+            min-width: 0; /* 允许flex子项收缩 */
+            overflow: hidden;
+        }
+        .blood-title { 
+            color: var(--primary); 
+            font-size: 12px; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+        .blood-team { 
+            color: var(--text-main); 
+            font-size: 13px; 
+            font-weight: bold; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .blood-time {
+            font-family: monospace; 
+            color: #8aa; 
+            font-size: 12px;
+            white-space: nowrap;
+            flex-shrink: 0; /* 时间不收缩 */
+        }
+
+        /* ================= 动画 ================= */
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        /* 媒体查询适配 */
+        @media (max-width: 1400px) {
+            .main-grid { grid-template-columns: 25fr 45fr 30fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scan-overlay"></div>
+
+    <div class="app-container">
+        <!-- 1. 头部区域 -->
+        <div class="header">
+            <div class="status-badge">
+                <div id="status-dot" class="status-light"></div>
+                <span id="status-text">系统初始化...</span>
+            </div>
+
+            <div class="header-title" data-text="{{ competition.title }}">
+                {{ competition.title }}-数据感知系统
+            </div>
+
+            <div class="header-controls">
+                <div class="countdown-wrapper">
+                    <span id="countdown-label">剩余时间</span>
+                    <span id="countdown">00:00:00</span>
+                    </div>
+                    <button class="sys-btn" id="fullscreen-btn">[ 全屏 ]</button>
+            </div>
+        </div>
+
+        <!-- 2. KPI 统计区域 -->
+        <div class="stats-row">
+            <div class="kpi-card">
+                <div class="kpi-label">参赛人数</div>
+                <div class="kpi-value" id="stat-teams">0</div>
+                <div class="kpi-sub">活跃参与者</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">题目总数</div>
+                <div class="kpi-value" id="stat-challenges">0</div>
+                <div class="kpi-sub">全部目标</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">已解题</div>
+                <div class="kpi-value" id="stat-solved" style="color: var(--primary)">0</div>
+                <div class="kpi-sub">成功提交</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">当前领先</div>
+                <div class="kpi-value" id="stat-leader" style="font-family: inherit; font-size: 20px; color: var(--warning); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">暂无</div>
+                <div class="kpi-sub">当前得分 <span id="stat-leader-score" style="color: var(--text-main); font-weight: bold;">0</span></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">最新解题</div>
+                <div class="kpi-value" id="stat-latest-detail" style="font-size: 16px; color: var(--success)">---</div>
+                <div class="kpi-sub" id="stat-latest">暂无</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">解题速度</div>
+                <div class="kpi-value" id="stat-speed">0.0</div>
+                <div class="kpi-sub">旗帜/10分钟</div>
+            </div>
+        </div>
+
+        <!-- 3. 主图表与信息流区域 -->
+        <div class="main-grid">
+            
+            <!-- 左列：排行榜 -->
+            <div class="panel-col">
+                <div class="tech-panel">
+                    <div class="tech-panel-header">实时排行</div>
+                    <div class="chart-box" id="leaderboard-chart"></div>
+                </div>
+            </div>
+
+            <!-- 中列：趋势图 + 类别/热力 -->
+            <div class="panel-col">
+                <div class="tech-panel" style="flex: 2;">
+                    <div class="tech-panel-header">分数趋势</div>
+                    <div class="chart-box" id="timeline-chart"></div>
+                </div>
+                <div class="tech-panel" style="flex: 1.2; flex-direction: row; gap: 10px; background: transparent; border: none;">
+                    <!-- 内部子面板 -->
+                    <div class="tech-panel" style="flex: 1;">
+                        <div class="tech-panel-header">分类雷达</div>
+                        <div class="chart-box" id="category-chart"></div>
+                    </div>
+                    <div class="tech-panel" style="flex: 1;">
+                        <div class="tech-panel-header">提交热力图</div>
+                        <div class="chart-box" id="heatmap-chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右列：动态 + 血榜 -->
+            <div class="panel-col">
+                <div class="tech-panel" style="flex: 1;">
+                    <div class="tech-panel-header">实时动态</div>
+                    <div class="list-container" id="submissions-stream">
+                        <!-- JS 动态填充 -->
+                    </div>
+                </div>
+                <div class="tech-panel" style="flex: 0.8;">
+                    <div class="tech-panel-header">一血榜</div>
+                    <div class="list-container" id="blood-list-right">
+                        <!-- JS 动态填充 -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ECharts CDN -->
+    <script src="{% static 'public/js/echarts.min.js' %}"></script>
+    
+    <!-- Toast 提示框 -->
+    <script src="{% static 'public/js/toast.js' %}"></script>
+    
+    <script>
+        /**
+         * 战态感知系统前端逻辑
+         */
+
+        // 1. ECharts 初始化
+        let charts = {
+            leaderboard: echarts.init(document.getElementById('leaderboard-chart')),
+            timeline: echarts.init(document.getElementById('timeline-chart')),
+            category: echarts.init(document.getElementById('category-chart')),
+            heatmap: echarts.init(document.getElementById('heatmap-chart'))
+        };
+
+        // 2. 工具函数：格式化数字
+        function animateValue(element, newValue, suffix = '') {
+            if(!element) return;
+            // 简单的文本替换，实际项目可加数字滚动库
+            element.textContent = newValue + suffix;
+            // 添加闪烁效果提示更新
+            element.style.color = '#fff';
+            setTimeout(() => { element.style.color = ''; }, 300);
+        }
+
+        // 3. 连接状态管理
+        function updateConnectionStatus(status) {
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            dot.className = 'status-light'; // reset
+            if (status === 'connected') {
+                dot.classList.add('active');
+                text.textContent = '系统在线';
+                text.style.color = 'var(--success)';
+            } else if (status === 'connecting') {
+                dot.classList.add('warn');
+                text.textContent = '连接中...';
+                text.style.color = 'var(--warning)';
+            } else {
+                dot.classList.add('error');
+                text.textContent = '离线';
+                text.style.color = 'var(--danger)';
+            }
+        }
+
+        // 4. 倒计时逻辑（支持三种状态：未开始、进行中、已结束）
+        let countdownTimer = null;
+        function updateCountdown() {
+            const now = new Date();
+            const start = new Date('{{ competition.start_time|date:"Y-m-d H:i:s" }}');
+            const end = new Date('{{ competition.end_time|date:"Y-m-d H:i:s" }}');
+            
+            const countdownEl = document.getElementById('countdown');
+            const labelEl = document.getElementById('countdown-label');
+            
+            // 比赛还未开始
+            if (now < start) {
+                const diff = start - now;
+                labelEl.textContent = '距离开始';
+                countdownEl.style.color = 'var(--info)';
+                
+                const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+                const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+                const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+                countdownEl.textContent = `${h}:${m}:${s}`;
+            }
+            // 比赛进行中
+            else if (now >= start && now <= end) {
+                const diff = end - now;
+                labelEl.textContent = '剩余时间';
+                countdownEl.style.color = 'var(--warning)';
+                
+                const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+                const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+                const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+                countdownEl.textContent = `${h}:${m}:${s}`;
+            }
+            // 比赛已结束
+            else {
+                labelEl.textContent = '已结束';
+                countdownEl.textContent = "00:00:00";
+                countdownEl.style.color = "var(--danger)";
+                
+                if (countdownTimer) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                }
+            }
+        }
+        
+        // 确保只创建一次定时器
+        if (!countdownTimer) {
+            countdownTimer = setInterval(updateCountdown, 1000);
+        }
+
+        // 5. 数据更新逻辑
+        
+        // 更新排行榜 (水平柱状图 - 团队赛优化版)
+        function updateLeaderboard(data) {
+            if (!data || !Array.isArray(data) || data.length === 0) return;
+            
+            // 先按分数降序排序（从高到低）
+            const sortedData = [...data].sort((a, b) => (b.score || 0) - (a.score || 0));
+            
+            // 然后倒序处理（因为ECharts柱状图从下往上显示）
+            const teams = sortedData.map(item => item.name || '未知').reverse();
+            const scores = sortedData.map(item => item.score || 0).reverse();
+            
+            const option = {
+                grid: { 
+                    left: 210, 
+                    right: 15, 
+                    top: '2%', 
+                    bottom: '2%'
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: 'rgba(5, 5, 16, 0.95)',
+                    borderColor: '#00f3ff',
+                    borderWidth: 1,
+                    textStyle: { color: '#fff', fontSize: 12 },
+                    formatter: function(params) {
+                        if (!params || params.length === 0) return '';
+                        const index = params[0].dataIndex;
+                        const rank = teams.length - index;
+                        const name = teams[index];
+                        const score = scores[index];
+                        return `<div style="padding: 5px;">
+                            <div style="color: #ffeb3b; font-weight: bold; margin-bottom: 5px;">排名: ${rank}</div>
+                            <div style="color: #00f3ff; margin-bottom: 3px;">队伍: ${name}</div>
+                            <div style="color: #fff; font-weight: bold;">分数: ${score}</div>
+                        </div>`;
+                    }
+                },
+                xAxis: { show: false },
+                yAxis: {
+                    type: 'category',
+                    data: teams,
+                    axisLabel: { 
+                        color: '#8aa', 
+                        fontSize: 10,
+                        margin: 200,
+                        align: 'left',
+                        formatter: function(value, index) {
+                            var rank = teams.length - index;
+                            var rankStyle = rank <= 3 ? 'rankTop' : 'rank';
+                            // 智能截断：显示7个字符（中文约3.5个字，确保不溢出）
+                            var displayName = value.length > 7 ? value.substring(0, 7) + '..' : value;
+                            return '{' + rankStyle + '|' + rank + '} {name|' + displayName + '}{score|' + (scores[index] || 0) + '}';
+                        },
+                        rich: {
+                            rankTop: {
+                                width: 22,
+                                color: '#ffeb3b',
+                                align: 'center',
+                                fontWeight: 'bold',
+                                fontSize: 12
+                            },
+                            rank: {
+                                width: 22,
+                                color: '#678',
+                                align: 'center',
+                                fontSize: 10
+                            },
+                            name: {
+                                width: 110,
+                                color: '#8aa',
+                                align: 'left',
+                                fontSize: 12,
+                                fontWeight: '500',
+                                overflow: 'truncate',
+                                ellipsis: '..'
+                            },
+                            score: {
+                                width: 43,
+                                color: '#fff',
+                                align: 'right',
+                                fontFamily: 'monospace',
+                                fontWeight: 'bold',
+                                fontSize: 11
+                            }
+                        }
+                    },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
+                },
+                series: [{
+                    type: 'bar',
+                    data: scores,
+                    barWidth: 12,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                            { offset: 0, color: 'rgba(0, 243, 255, 0.1)' },
+                            { offset: 1, color: '#00f3ff' }
+                        ]),
+                        borderRadius: [0, 5, 5, 0]
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                { offset: 0, color: 'rgba(0, 243, 255, 0.3)' },
+                                { offset: 1, color: '#00f3ff' }
+                            ]),
+                            shadowBlur: 10,
+                            shadowColor: '#00f3ff'
+                        }
+                    },
+                    label: { show: false }
+                }]
+            };
+            charts.leaderboard.setOption(option);
+        }
+
+        // 更新趋势图 (发光折线图)
+        function updateTimeline(data) {
+            if (!data || !Array.isArray(data) || data.length === 0) return;
+            const option = {
+                grid: { left: '5%', right: '3%', top: '15%', bottom: '10%', containLabel: true },
+                tooltip: { 
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(5, 5, 16, 0.9)',
+                    borderColor: '#00f3ff',
+                    textStyle: { color: '#fff' }
+                },
+                legend: { 
+                    type: 'scroll', 
+                    top: 0, 
+                    textStyle: { color: '#8aa' },
+                    pageTextStyle: { color: '#fff' }
+                },
+                xAxis: {
+                    type: 'time',
+                    axisLine: { lineStyle: { color: '#334' } },
+                    axisLabel: { color: '#678' },
+                    splitLine: { show: false }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLine: { show: false },
+                    axisLabel: { color: '#678' },
+                    splitLine: { lineStyle: { color: '#1a2a4a', type: 'dashed' } }
+                },
+                series: data.map(series => ({
+                    name: series.name || '未知',
+                    type: 'line',
+                    smooth: true,
+                    symbol: 'none',
+                    lineStyle: { width: 2 },
+                    areaStyle: { opacity: 0.1 },
+                    data: Array.isArray(series.data) ? series.data : []
+                }))
+            };
+            charts.timeline.setOption(option);
+        }
+
+        // 更新雷达图
+        function updateCategory(data) {
+            if(!data || !Array.isArray(data) || data.length === 0) return;
+            const option = {
+                radar: {
+                    indicator: data.map(d => ({ name: d.category, max: d.total })),
+                    shape: 'polygon',
+                    splitArea: { show: false },
+                    splitLine: { lineStyle: { color: 'rgba(0, 243, 255, 0.2)' } },
+                    axisLine: { lineStyle: { color: 'rgba(0, 243, 255, 0.2)' } },
+                    axisName: { color: '#00f3ff', fontSize: 10 }
+                },
+                series: [{
+                    type: 'radar',
+                    data: [{
+                        value: data.map(d => d.solved),
+                        name: '已完成',
+                        itemStyle: { color: '#bc13fe' },
+                        areaStyle: { color: 'rgba(188, 19, 254, 0.3)' },
+                        lineStyle: { width: 2, shadowBlur: 10, shadowColor: '#bc13fe' }
+                    }]
+                }]
+            };
+            charts.category.setOption(option);
+        }
+
+        // 更新热力图 (简单的柱状分布替代，视觉更清晰)
+        function updateHeatmap(submissions) {
+            if(!submissions || !Array.isArray(submissions)) return;
+            // 统计每小时提交数
+            const bins = new Array(24).fill(0);
+            submissions.forEach(sub => {
+                if(sub.time && sub.time.indexOf(':') > -1) {
+                    const h = parseInt(sub.time.split(':')[0]);
+                    if(!isNaN(h)) bins[h]++;
+                }
+            });
+
+            const option = {
+                grid: { left: '5%', right: '5%', top: '10%', bottom: '5%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: bins.map((_, i) => i),
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#567', fontSize: 10 }
+                },
+                yAxis: { show: false },
+                series: [{
+                    type: 'bar',
+                    data: bins,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#00f3ff' },
+                            { offset: 1, color: 'rgba(0, 243, 255, 0.1)' }
+                        ])
+                    }
+                }]
+            };
+            charts.heatmap.setOption(option);
+        }
+
+        // 更新侧边栏列表
+        function updateSidebars(data) {
+            if (!data) return;
+            
+            // 实时 Feed
+            const feedContainer = document.getElementById('submissions-stream');
+            if (Array.isArray(data.recent_submissions) && data.recent_submissions.length > 0) {
+                feedContainer.innerHTML = data.recent_submissions.map(sub => `
+                    <div class="feed-item ${sub.status === 'success' ? 'success' : 'error'}">
+                        <div class="feed-info">
+                            <span class="feed-team">${sub.team || '未知'}</span>
+                            <span class="feed-chal">${sub.challenge || '未知题目'}</span>
+                        </div>
+                        <div style="text-align:right; flex-shrink: 0;">
+                            <div class="feed-score">${sub.points > 0 ? '+'+sub.points : '0'}</div>
+                            <div class="feed-time">${sub.time || '--:--'}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                feedContainer.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 20px; font-size: 12px;">暂无提交记录</div>';
+            }
+
+            // 血榜
+            const bloodContainer = document.getElementById('blood-list-right');
+            if (Array.isArray(data.first_bloods) && data.first_bloods.length > 0) {
+                bloodContainer.innerHTML = data.first_bloods.slice(0, 10).map(b => `
+                    <div class="blood-item">
+                        <div class="blood-rank rank-${b.rank}">${b.rank}</div>
+                        <div class="blood-content">
+                            <div class="blood-team">${b.team || '未知'}</div>
+                            <div class="blood-title">${b.challenge || '未知题目'}</div>
+                        </div>
+                        <div class="blood-time">${b.time || '--:--'}</div>
+                    </div>
+                `).join('');
+            } else {
+                bloodContainer.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 20px; font-size: 12px;">暂无一血记录</div>';
+            }
+        }
+
+        // 6. 核心数据调度器
+        function renderDashboard(data) {
+            if (!data) return;
+            
+            // 更新数字
+            const stats = data.stats || {};
+            animateValue(document.getElementById('stat-teams'), stats.participant_count || 0);
+            animateValue(document.getElementById('stat-challenges'), stats.total_challenges || 0);
+            animateValue(document.getElementById('stat-solved'), stats.solved_challenges || 0);
+            
+            // 显示当前领先（直接从 stats 获取）
+            document.getElementById('stat-leader').textContent = stats.leader_name || '暂无';
+            document.getElementById('stat-leader-score').textContent = stats.leader_score || 0;
+
+            if (Array.isArray(data.recent_submissions) && data.recent_submissions.length > 0) {
+                const latest = data.recent_submissions.find(s => s.status === 'success');
+                if (latest) {
+                    document.getElementById('stat-latest').textContent = latest.team || '暂无';
+                    document.getElementById('stat-latest-detail').textContent = latest.challenge || '---';
+                }
+                // 简易计算速度
+                const speed = Math.min(data.recent_submissions.filter(s => s.status === 'success').length, 20);
+                document.getElementById('stat-speed').textContent = speed.toFixed(1);
+            }
+
+            // 更新图表
+            updateLeaderboard(data.leaderboard);
+            updateTimeline(data.series_data);
+            updateCategory(data.category_stats);
+            updateHeatmap(data.recent_submissions);
+            updateSidebars(data);
+        }
+
+        // 7. Fetch 与 SSE 逻辑
+        let eventSource = null;
+        let demoRefreshTimer = null;  // Demo模式刷新定时器
+        let retryTimeout = null;       // 失败重试定时器
+        let sseConnected = false;      // SSE 连接状态标记（安全控制）
+        let sseBlocked = false;        // SSE 被阻止标记（连接数超限等）
+        const IS_DEMO = {{ is_demo|default:False|lower }};
+        const DEMO_REFRESH_INTERVAL = 30000;  // Demo模式刷新间隔：30秒
+        
+        function loadInitialData() {
+            // 安全检查：如果 SSE 被阻止且不是 Demo 模式，拒绝加载数据
+            if (sseBlocked && !IS_DEMO) {
+                console.error('数据访问被阻止：SSE 连接超限或被拒绝');
+                updateConnectionStatus('disconnected');
+                return;
+            }
+            
+            updateConnectionStatus('connecting');
+            
+            // Demo模式使用demo数据API
+            const dataUrl = IS_DEMO 
+                ? '{% url "competition:dashboard_demo_data" %}'
+                : `{% url 'competition:competition_dashboard_data_optimized' competition.slug %}?top_n=30&max_points=200`;
+            
+            fetch(dataUrl)
+                .then(res => {
+                    // 安全检查：检查响应状态
+                    if (res.status === 403) {
+                        sseBlocked = true;
+                        updateConnectionStatus('disconnected');
+                        return res.json().then(data => {
+                            throw new Error(data.error || '无权访问数据');
+                        });
+                    }
+                    if (res.status === 429) {
+                        sseBlocked = true;
+                        updateConnectionStatus('disconnected');
+                        throw new Error('请求过于频繁');
+                    }
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    renderDashboard(data);
+                    // Demo模式不使用SSE，而是定时刷新
+                    if (IS_DEMO) {
+                        updateConnectionStatus('connected');
+                        // 避免重复创建定时器
+                        if (!demoRefreshTimer) {
+                            demoRefreshTimer = setInterval(loadInitialData, DEMO_REFRESH_INTERVAL);
+                            console.log(`Demo模式：每${DEMO_REFRESH_INTERVAL/1000}秒刷新一次数据`);
+                        }
+                    } else {
+                        connectSSE(); // 真实模式建立长连接
+                    }
+                })
+                .catch(err => {
+                    console.error("Init Error", err);
+                    updateConnectionStatus('disconnected');
+                    
+                    // 如果被阻止，不要重试
+                    if (sseBlocked) {
+                        console.error('数据访问被永久阻止，停止重试');
+                        showErrorToast(
+                            '无权访问数据大屏，请刷新页面重新连接或联系管理员',
+                            '访问被拒绝',
+                            0  // 不自动关闭
+                        );
+                        return;
+                    }
+                    
+                    // 清理旧的重试定时器
+                    if (retryTimeout) {
+                        clearTimeout(retryTimeout);
+                    }
+                    // 5秒后重试
+                    retryTimeout = setTimeout(loadInitialData, 5000);
+                });
+        }
+
+        let reconnectTimeout = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+        const BASE_RECONNECT_DELAY = 3000;
+        
+        function connectSSE() {
+            if (IS_DEMO) return; // Demo模式不使用SSE
+            
+            // 清理旧连接和定时器
+            if (eventSource) {
+                try {
+                    eventSource.close();
+                } catch (e) {
+                    console.error('关闭旧SSE连接失败:', e);
+                }
+                eventSource = null;
+            }
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+            
+            // 检查重连次数限制
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                console.error('SSE 重连次数过多，停止重连');
+                updateConnectionStatus('disconnected');
+                // 30秒后重置重连计数
+                setTimeout(() => {
+                    reconnectAttempts = 0;
+                    console.log('重置重连计数，可以重新连接');
+                }, 30000);
+                return;
+            }
+            
+            try {
+                updateConnectionStatus('connecting');
+                eventSource = new EventSource(`{% url 'competition:dashboard_sse' competition.slug %}`);
+                
+                eventSource.onopen = () => {
+                    console.log('SSE 连接已建立');
+                    updateConnectionStatus('connected');
+                    reconnectAttempts = 0; // 连接成功，重置计数
+                    sseConnected = true;   // 标记 SSE 已连接
+                    sseBlocked = false;    // 清除阻止标记
+                    
+                    // 显示连接成功提示（仅首次或重连后）
+                    if (reconnectAttempts > 0 || !sseConnected) {
+                        showSuccessToast(
+                            '实时数据推送已连接',
+                            '连接成功',
+                            3000
+                        );
+                    }
+                };
+                
+                eventSource.onerror = (err) => {
+                    console.error('SSE 连接错误:', err);
+                    console.error('SSE readyState:', eventSource ? eventSource.readyState : 'null');
+                    console.error('SSE URL:', eventSource ? eventSource.url : 'null');
+                    
+                    // 尝试获取更多错误信息
+                    fetch('{% url "competition:dashboard_sse" competition.slug %}', {
+                        method: 'HEAD',
+                        credentials: 'same-origin'
+                    }).then(response => {
+                        console.log('SSE端点状态检查:', response.status, response.statusText);
+                        if (response.status === 429) {
+                            console.error('错误原因: 连接数超限，系统将在2分钟后自动恢复');
+                            sseBlocked = true;  // 标记为被阻止
+                            
+                            // 只在第一次失败时显示提示
+                            if (reconnectAttempts === 1) {
+                                showWarningToast(
+                                    '连接数超限，可能原因：<br>' +
+                                    '1. 您在其他标签页打开了此页面<br>' +
+                                    '2. 之前的连接未正常关闭<br><br>' +
+                                    '系统将在 <strong>2 分钟</strong>后自动恢复<br>' +
+                                    '或者您可以关闭其他标签页后刷新页面',
+                                    '连接超限',
+                                    120000  // 显示2分钟
+                                );
+                            }
+                            
+                            // 2分钟后清除阻止状态，允许重新连接
+                            setTimeout(() => {
+                                reconnectAttempts = 0;
+                                sseBlocked = false;
+                                console.log('连接限制已自动重置，可以重新连接');
+                            }, 120000); // 2分钟
+                            
+                        } else if (response.status === 403) {
+                            console.error('错误原因: 权限不足');
+                            sseBlocked = true;  // 永久阻止
+                            showErrorToast(
+                                '您没有权限访问该数据大屏，请先报名参赛',
+                                '权限不足',
+                                0  // 不自动关闭
+                            );
+                        } else if (response.status === 503) {
+                            console.error('错误原因: 服务器繁忙');
+                            // 503 不阻止，允许重试
+                            showWarningToast(
+                                '系统繁忙，请稍后再试',
+                                '服务器繁忙',
+                                5000
+                            );
+                        } else if (response.status >= 500) {
+                            console.error('错误原因: 服务器内部错误');
+                            // 服务器错误不阻止，允许重试
+                            showErrorToast(
+                                '服务器内部错误，系统将自动重试',
+                                '服务器错误',
+                                5000
+                            );
+                        }
+                    }).catch(fetchErr => {
+                        console.error('状态检查失败:', fetchErr);
+                    });
+                    
+                    updateConnectionStatus('disconnected');
+                    
+                    // 关闭旧连接
+                    if (eventSource) {
+                        try {
+                            eventSource.close();
+                        } catch (e) {
+                            console.error('关闭SSE连接失败:', e);
+                        }
+                        eventSource = null;
+                    }
+                    
+                    // 指数退避重连
+                    reconnectAttempts++;
+                    const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1), 30000);
+                    console.log(`将在 ${delay/1000} 秒后重连（第 ${reconnectAttempts} 次尝试）`);
+                    reconnectTimeout = setTimeout(connectSSE, delay);
+                };
+                
+                eventSource.onmessage = (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        if (msg.type === 'initial' || msg.type === 'all') {
+                            renderDashboard(msg.data);
+                        } else if (msg.type === 'timeout') {
+                            // 服务器主动断开，需要刷新页面
+                            console.warn('SSE 连接超时，准备刷新页面');
+                            showInfoToast(
+                                '连接超时，页面将在 2 秒后自动刷新',
+                                '连接超时',
+                                2000
+                            );
+                            setTimeout(() => {
+                                location.reload();
+                            }, 2000);
+                        } else if (msg.type === 'error') {
+                            console.error('SSE 错误消息:', msg.message);
+                            showErrorToast(
+                                msg.message || '连接异常',
+                                'SSE 错误',
+                                5000
+                            );
+                        }
+                    } catch (err) { 
+                        console.error('SSE 消息解析错误:', err); 
+                    }
+                };
+            } catch (err) {
+                console.error('创建 SSE 连接失败:', err);
+                reconnectAttempts++;
+                const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1), 30000);
+                reconnectTimeout = setTimeout(connectSSE, delay);
+            }
+        }
+
+        // 8. 窗口控制
+        document.getElementById('fullscreen-btn').addEventListener('click', () => {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        });
+
+        window.addEventListener('resize', () => {
+            Object.values(charts).forEach(c => c.resize());
+        });
+
+        // 页面卸载时清理资源（防止内存泄漏和连接堆积）
+        window.addEventListener('beforeunload', (e) => {
+            console.log('页面即将卸载，清理资源...');
+            
+            // 1. 立即关闭 SSE 连接（最重要）
+            sseConnected = false;
+            sseBlocked = false;
+            
+            if (eventSource) {
+                try {
+                    eventSource.close();
+                    console.log('SSE连接已关闭');
+                } catch (err) {
+                    console.error('关闭SSE连接失败:', err);
+                }
+                eventSource = null;
+            }
+            
+            // 2. 清除所有定时器
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+            if (demoRefreshTimer) {
+                clearInterval(demoRefreshTimer);
+                demoRefreshTimer = null;
+            }
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+            if (retryTimeout) {
+                clearTimeout(retryTimeout);
+                retryTimeout = null;
+            }
+            
+            // 3. 销毁图表实例
+            try {
+                Object.values(charts).forEach(chart => {
+                    if (chart && typeof chart.dispose === 'function') {
+                        chart.dispose();
+                    }
+                });
+                console.log('图表实例已销毁');
+            } catch (err) {
+                console.error('销毁图表失败:', err);
+            }
+        });
+        
+        // 页面隐藏时也关闭SSE连接（用户切换标签页或最小化窗口）
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('页面已隐藏，关闭SSE连接以节省资源');
+                if (eventSource) {
+                    try {
+                        eventSource.close();
+                        eventSource = null;
+                    } catch (err) {
+                        console.error('关闭SSE连接失败:', err);
+                    }
+                }
+            } else {
+                console.log('页面已显示，重新建立SSE连接');
+                if (!IS_DEMO && !eventSource) {
+                    // 重置重连计数
+                    reconnectAttempts = 0;
+                    connectSSE();
+                }
+            }
+        });
+
+        // 启动
+        loadInitialData();
+    </script>
+</body>
+</html>

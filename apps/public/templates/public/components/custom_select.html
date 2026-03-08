@@ -1,0 +1,339 @@
+{% comment %}
+自定义下拉框组件
+
+使用方法：
+{% include 'public/components/custom_select.html' with 
+   select_name='type' 
+   select_id='search-type-select'
+   options=search_type_options 
+   default_value='article'
+   placeholder='请选择'
+   class='custom-select-compact'
+%}
+
+参数说明：
+- select_name: 表单字段名（必填）
+- select_id: input的id（可选）
+- options: 选项列表（必填）格式: [{'value': 'val', 'label': '标签', 'icon': 'fa fa-icon'}]
+- default_value: 默认选中值（可选）
+- placeholder: 占位文本（可选，默认"请选择"）
+- class: 自定义类名（可选）
+{% endcomment %}
+
+<div class="custom-select-wrapper {% if class %}{{ class }}{% endif %}" data-select-name="{{ select_name|default:'select' }}">
+    <div class="custom-select-display" tabindex="0">
+        <span class="custom-select-value">{{ placeholder|default:'请选择' }}</span>
+        <span class="custom-select-arrow"></span>
+    </div>
+    <div class="custom-select-dropdown">
+        {% if options %}
+            {% for option in options %}
+            <div class="custom-select-option" 
+                 data-value="{{ option.value }}" 
+                 {% if option.value == default_value %}data-selected="true"{% endif %}>
+                {% if option.icon %}<i class="{{ option.icon }} mr-1"></i>{% endif %}
+                {{ option.label }}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="custom-select-option" data-value="">无选项</div>
+        {% endif %}
+    </div>
+    <input type="hidden" name="{{ select_name|default:'select' }}" value="{{ default_value|default:'' }}" id="{{ select_id|default:'' }}">
+</div>
+
+<style>
+/* ========== 自定义下拉框通用样式 ========== */
+.custom-select-wrapper {
+    position: relative;
+    display: inline-block;
+    min-width: 100px;
+    user-select: none;
+}
+
+.custom-select-display {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    color: #495057;
+}
+
+.custom-select-display:hover {
+    border-color: #80bdff;
+}
+
+.custom-select-display:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.15);
+}
+
+.custom-select-wrapper.active .custom-select-display {
+    border-color: #80bdff;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.custom-select-value {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.custom-select-arrow {
+    margin-left: 8px;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #666;
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.custom-select-wrapper.active .custom-select-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #80bdff;
+    border-top: none;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.custom-select-wrapper.active .custom-select-dropdown {
+    display: block;
+}
+
+.custom-select-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 14px;
+    color: #495057;
+}
+
+.custom-select-option:hover {
+    background: #f8f9fa;
+    color: #007bff;
+}
+
+.custom-select-option.selected {
+    background: #e7f3ff;
+    color: #007bff;
+    font-weight: 500;
+}
+
+.custom-select-option:active {
+    background: #d0e9ff;
+}
+
+/* 紧凑样式变体 */
+.custom-select-compact .custom-select-display {
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+.custom-select-compact .custom-select-option {
+    padding: 8px 10px;
+    font-size: 13px;
+}
+
+/* 内联样式变体（无边框，适合嵌入其他组件） */
+.custom-select-inline .custom-select-display {
+    border: none;
+    background: transparent;
+    padding: 0;
+}
+
+.custom-select-inline:hover .custom-select-display,
+.custom-select-inline.active .custom-select-display {
+    background: transparent;
+}
+
+/* 滚动条样式 */
+.custom-select-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
+/* 暗色主题适配 */
+@media (prefers-color-scheme: dark) {
+    .custom-select-display {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .custom-select-dropdown {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .custom-select-option {
+        color: #e2e8f0;
+    }
+    
+    .custom-select-option:hover {
+        background: #4a5568;
+    }
+    
+    .custom-select-option.selected {
+        background: #2c5282;
+        color: #63b3ed;
+    }
+}
+</style>
+
+<script>
+(function() {
+    // 初始化所有自定义下拉框
+    function initCustomSelects() {
+        document.querySelectorAll('.custom-select-wrapper').forEach(function(wrapper) {
+            if (wrapper.dataset.initialized) return;
+            wrapper.dataset.initialized = 'true';
+            
+            const display = wrapper.querySelector('.custom-select-display');
+            const dropdown = wrapper.querySelector('.custom-select-dropdown');
+            const valueSpan = wrapper.querySelector('.custom-select-value');
+            const hiddenInput = wrapper.querySelector('input[type="hidden"]');
+            const options = wrapper.querySelectorAll('.custom-select-option');
+            
+            // 设置默认选中项
+            const selectedOption = wrapper.querySelector('.custom-select-option[data-selected="true"]');
+            if (selectedOption) {
+                selectOption(selectedOption);
+            }
+            
+            // 点击显示/隐藏下拉框
+            display.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleDropdown(wrapper);
+            });
+            
+            // 键盘支持
+            display.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleDropdown(wrapper);
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    openDropdown(wrapper);
+                    const firstOption = wrapper.querySelector('.custom-select-option');
+                    if (firstOption) firstOption.focus();
+                } else if (e.key === 'Escape') {
+                    closeDropdown(wrapper);
+                }
+            });
+            
+            // 选项点击事件
+            options.forEach(function(option) {
+                option.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    selectOption(option);
+                    closeDropdown(wrapper);
+                    
+                    // 触发change事件
+                    const event = new Event('change', { bubbles: true });
+                    hiddenInput.dispatchEvent(event);
+                });
+                
+                // 选项键盘支持
+                option.setAttribute('tabindex', '0');
+                option.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        option.click();
+                    }
+                });
+            });
+            
+            function selectOption(option) {
+                const value = option.dataset.value;
+                const text = option.textContent.trim();
+                
+                // 更新显示
+                valueSpan.textContent = text;
+                hiddenInput.value = value;
+                
+                // 更新选中状态
+                options.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            }
+            
+            function toggleDropdown(wrapper) {
+                if (wrapper.classList.contains('active')) {
+                    closeDropdown(wrapper);
+                } else {
+                    openDropdown(wrapper);
+                }
+            }
+            
+            function openDropdown(wrapper) {
+                // 关闭其他下拉框
+                document.querySelectorAll('.custom-select-wrapper.active').forEach(function(other) {
+                    if (other !== wrapper) {
+                        closeDropdown(other);
+                    }
+                });
+                wrapper.classList.add('active');
+            }
+            
+            function closeDropdown(wrapper) {
+                wrapper.classList.remove('active');
+                display.focus();
+            }
+        });
+    }
+    
+    // 点击页面其他地方关闭下拉框
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.custom-select-wrapper.active').forEach(function(wrapper) {
+            wrapper.classList.remove('active');
+        });
+    });
+    
+    // 初始化
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCustomSelects);
+    } else {
+        initCustomSelects();
+    }
+    
+    // 暴露全局初始化函数，供动态加载时使用
+    window.initCustomSelects = initCustomSelects;
+})();
+</script>
+

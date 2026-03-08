@@ -1,0 +1,1054 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}创建比赛{% endblock %}
+
+{% block metas %}
+<meta name="description" content="创建新的CTF比赛">
+<meta name="keywords" content="CTF,比赛,创建比赛">
+{% endblock %}
+
+{% block top-file %}
+<style>
+    .comp-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .comp-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        padding: 30px;
+        margin-bottom: 25px;
+        border: none;
+    }
+    
+    .comp-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+        color: #333;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 15px;
+    }
+    
+    .comp-form-group {
+        margin-bottom: 22px;
+    }
+    
+    .comp-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #444;
+        font-size: 0.95rem;
+    }
+    
+    .comp-input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: all 0.2s;
+        background-color: #fafafa;
+    }
+    
+    .comp-input:focus {
+        border-color: #6591f1;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(101, 145, 241, 0.1);
+        background-color: #fff;
+    }
+    
+    /* 移除黑色边框 */
+    .comp-input:focus, .comp-input:active, button:focus, button:active {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    
+    .comp-textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+    
+    .comp-select {
+        height: 42px;
+        background-color: #fafafa;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px;
+    }
+    
+    .comp-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-align: center;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .comp-btn-primary {
+        background-color: #6591f1;
+        color: white;
+    }
+    
+    .comp-btn-primary:hover {
+        background-color: #5080e0;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(101, 145, 241, 0.2);
+    }
+    
+    .comp-btn-light {
+        background-color: #f5f5f5;
+        color: #444;
+    }
+    
+    .comp-btn-light:hover {
+        background-color: #e9e9e9;
+        transform: translateY(-1px);
+    }
+    
+    .comp-btn-success {
+        background-color: #4caf50;
+        color: white;
+    }
+    
+    .comp-btn-success:hover {
+        background-color: #43a047;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(76, 175, 80, 0.2);
+    }
+    
+    /* 优化日历表样式 */
+    .comp-datetime-wrapper {
+        position: relative;
+    }
+    
+    .comp-datetime-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    /* 移除日期选择器的黑色边框 */
+    input[type="datetime-local"] {
+        color: #444;
+        font-size: 14px;
+        padding-right: 30px;
+        border-radius: 6px;
+    }
+    
+    input[type="datetime-local"]:focus, 
+    input[type="datetime-local"]:active {
+        outline: none !important;
+        box-shadow: none !important;
+        border-color: #6591f1 !important;
+    }
+    
+    /* 移除日期选择器内部元素的黑色边框 */
+    ::-webkit-datetime-edit,
+    ::-webkit-datetime-edit-fields-wrapper,
+    ::-webkit-datetime-edit-text,
+    ::-webkit-datetime-edit-month-field,
+    ::-webkit-datetime-edit-day-field,
+    ::-webkit-datetime-edit-year-field,
+    ::-webkit-datetime-edit-hour-field,
+    ::-webkit-datetime-edit-minute-field,
+    ::-webkit-datetime-edit-ampm-field {
+        outline: none !important;
+    }
+    
+    /* 移除日期选择器下拉菜单的黑色边框 */
+    ::-webkit-calendar-picker-indicator {
+        outline: none !important;
+        border: none !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+        cursor: pointer !important;
+    }
+    
+    /* 优化文件上传样式 */
+    .comp-file-upload {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        border: 2px dashed #e0e0e0;
+        border-radius: 8px;
+        background-color: #fafafa;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    
+    .comp-file-upload:hover {
+        border-color: #6591f1;
+        background-color: #f5f7ff;
+    }
+    
+    .comp-file-upload input[type="file"] {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    
+    .comp-file-icon {
+        font-size: 32px;
+        color: #6591f1;
+        margin-bottom: 10px;
+    }
+    
+    .comp-file-text {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+    
+    .comp-file-subtext {
+        font-size: 12px;
+        color: #888;
+    }
+    
+    .comp-file-preview {
+        margin-top: 15px;
+        display: none;
+        width: 100%;
+    }
+    
+    .comp-file-preview img {
+        max-width: 100%;
+        max-height: 150px;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .comp-file-name {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #666;
+        word-break: break-all;
+    }
+    
+    .comp-help-text {
+        font-size: 12px;
+        color: #888;
+        margin-top: 6px;
+    }
+    
+    .comp-required {
+        color: #e74c3c;
+        margin-left: 3px;
+    }
+    
+    .comp-success-card {
+        text-align: center;
+        padding: 40px 20px;
+    }
+    
+    .comp-success-icon {
+        font-size: 60px;
+        color: #4caf50;
+        margin-bottom: 25px;
+    }
+    
+    .comp-success-title {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: #333;
+    }
+    
+    .comp-success-text {
+        font-size: 16px;
+        color: #666;
+        margin-bottom: 30px;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .comp-options {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 25px;
+        flex-wrap: wrap;
+    }
+    
+    .comp-invalid-feedback {
+        color: #e74c3c;
+        font-size: 12px;
+        margin-top: 5px;
+        display: none;
+    }
+    
+    .comp-input.is-invalid {
+        border-color: #e74c3c;
+        background-color: #fff9f9;
+    }
+    
+    .comp-input.is-invalid + .comp-invalid-feedback {
+        display: block;
+    }
+    
+    .comp-step-indicator {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        color: #888;
+        font-size: 14px;
+    }
+    
+    .comp-step-indicator-text {
+        font-weight: 500;
+    }
+    
+    .comp-step-indicator-count {
+        color: #6591f1;
+        font-weight: 600;
+    }
+
+    /* 保留原有样式 */
+    
+    /* 添加验证码样式 */
+    .captcha-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .captcha-input {
+        flex: 1;
+        margin-right: 10px;
+    }
+    
+    .captcha-image {
+        height: 40px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .captcha-refresh {
+        margin-left: 10px;
+        color: #6591f1;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    
+    .captcha-refresh:hover {
+        color: #5080e0;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-12 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'competition:CompetitionView' %}">竞赛列表</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">创建竞赛</li>
+                </ol>
+            </nav>
+
+            <!-- 表单卡片 -->
+            <div class="comp-card">
+                <form id="competitionForm" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" id="captcha_key" name="captcha_key" value="{{ form.initial.captcha_key }}">
+                    
+                    <!-- 步骤1：基本信息 -->
+                    <div class="comp-step-content" id="step1Content">
+                        <div class="comp-step-indicator">
+                            <span class="comp-step-indicator-text">步骤 <span class="comp-step-indicator-count">1/3</span></span>
+                            <span>基本信息</span>
+                        </div>
+                        <h2 class="comp-title">基本信息</h2>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="title">比赛标题<span class="comp-required">*</span></label>
+                            <input type="text" id="title" name="title" class="comp-input" required>
+                            <div class="comp-invalid-feedback">请输入比赛标题</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="description">比赛描述<span class="comp-required">*</span></label>
+                            <textarea id="description" name="description" class="comp-input comp-textarea" required></textarea>
+                            <div class="comp-help-text">详细描述比赛的规则、目标和奖励等信息</div>
+                            <div class="comp-invalid-feedback">请输入比赛描述</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="competition_type">比赛类型<span class="comp-required">*</span></label>
+                            <select id="competition_type" name="competition_type" class="comp-input comp-select" onchange="toggleTeamSettings()">
+                                <option value="individual">个人赛</option>
+                                <option value="team">团体赛</option>
+                            </select>
+                            <div class="comp-help-text">个人赛：参赛者单独参与；团体赛：参赛者组队参与</div>
+                        </div>
+                        
+                        <div class="comp-form-group" id="team_max_members_group" style="display: none;">
+                            <label class="comp-label" for="team_max_members">队伍最大人数<span class="comp-required">*</span></label>
+                            <select id="team_max_members" name="team_max_members" class="comp-input comp-select">
+                                <option value="2">2人</option>
+                                <option value="3">3人</option>
+                                <option value="4" selected>4人</option>
+                            </select>
+                            <div class="comp-help-text">设置团队赛中每个队伍的最大人数限制（2-4人）</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="visibility_type">公开类型<span class="comp-required">*</span></label>
+                            <select id="visibility_type" name="visibility_type" class="comp-input comp-select">
+                                <option value="public">公开赛</option>
+                                <option value="internal">内部赛</option>
+                            </select>
+                            <div class="comp-help-text">公开赛：任何人都可以报名；内部赛：需要邀请码才能报名</div>
+                        </div>
+
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="is_audit">报名审核<span class="comp-required">*</span></label>
+                            <select id="is_audit" name="is_audit" class="comp-input comp-select">
+                                <option value="True">需要审核</option>
+                                <option value="False">不需要审核</option>
+                            </select>
+                            <div class="comp-help-text">需要审核：需要管理员审核报名信息；不需要审核：直接报名成功</div>
+                        </div>
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="img_link">封面图片</label>
+                            <div class="comp-file-upload" id="fileUploadArea">
+                                <input type="file" id="img_link" name="img_link" accept="image/*" onchange="previewImage(this)">
+                                <div class="comp-file-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <div class="comp-file-text">点击或拖拽上传图片</div>
+                                <div class="comp-file-subtext">支持 JPG、PNG 格式</div>
+                                <div class="comp-file-preview" id="imagePreview">
+                                    <img id="previewImg" src="#" alt="预览图">
+                                    <div class="comp-file-name" id="fileName"></div>
+                                </div>
+                            </div>
+                            <div class="comp-help-text">上传图片大小建议使用5:3的宽高比，为了清晰度原始图片宽度应该超过250px</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="theme">主题风格<span class="comp-required">*</span></label>
+                            <select id="theme" name="theme" class="comp-input comp-select">
+                                <option value="default">默认风格</option>
+                                <option value="tech">CTF科技风格</option>
+                            </select>
+                            <div class="comp-help-text">默认风格：默认风格；CTF科技风格：CTF科技风格</div>
+                        </div>
+
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="dashboard_template">数据大屏模板<span class="comp-required">*</span></label>
+                            <select id="dashboard_template" name="dashboard_template" class="comp-input comp-select">
+                                <option value="dashboardone">模板1</option>
+                                <option value="dashboardtwo">模板2</option>
+                            </select>
+                            <div class="comp-help-text">数据大屏模板：数据大屏模板1；数据大屏模板2：数据大屏模板2</div>
+                            <div class="comp-invalid-feedback">请选择数据大屏模板</div>
+                        </div>
+                        
+                        <!-- 关联知识竞赛 -->
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="related_quiz">关联知识竞赛</label>
+                            <select id="related_quiz" name="related_quiz" class="comp-input comp-select">
+                                <option value="">不关联</option>
+                                {% for quiz in available_quizzes %}
+                                <option value="{{ quiz.id }}">{{ quiz.title }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="comp-help-text">关联后将自动生成综合排行榜（CTF + 知识竞赛），一个知识竞赛只能关联一个比赛，关联后报名系统融合。</div>
+                        </div>
+                        
+                        <!-- CTF权重（仅在选择关联知识竞赛时显示） -->
+                        <div class="comp-form-group" id="ctfWeightGroup" style="display: none;">
+                            <label class="comp-label" for="combined_score_ctf_weight">CTF比赛成绩权重<span class="comp-required">*</span></label>
+                            <input type="number" id="combined_score_ctf_weight" name="combined_score_ctf_weight" 
+                                   class="comp-input" step="0.01" min="0" max="1" value="0.60">
+                            <div class="comp-help-text">综合分数中CTF所占权重（0-1之间，建议0.6，即CTF占60%，知识竞赛占40%）</div>
+                            <div class="comp-invalid-feedback">CTF权重必须在0-1之间</div>
+                        </div>
+                        
+                        <!-- 归一化基准百分比（仅在选择关联知识竞赛时显示） -->
+                        <div class="comp-form-group" id="topPercentGroup" style="display: none;">
+                            <label class="comp-label" for="combined_score_top_percent">归一化基准百分比<span class="comp-required">*</span></label>
+                            <input type="number" id="combined_score_top_percent" name="combined_score_top_percent" 
+                                   class="comp-input" min="1" max="100" value="20">
+                            <div class="comp-help-text">取前百分之几的平均分作为归一化基准（建议10-30之间，用于平衡CTF和知识竞赛的分数差异）</div>
+                            <div class="comp-invalid-feedback">归一化基准百分比必须在1-100之间</div>
+                        </div>
+                        
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="slug">自定义路由</label>
+                            <input type="text" id="slug" name="slug" class="comp-input">
+                            <div class="comp-help-text">只能包含字母和数字，用于生成比赛的URL，留空则自动生成</div>
+                            <div class="comp-invalid-feedback">路由只能包含字母和数字</div>
+                        </div>
+                        
+                        <div class="text-right">
+                            <button type="button" class="comp-btn comp-btn-primary" onclick="nextStep(1)">下一步</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 步骤2：时间设置 -->
+                    <div class="comp-step-content" id="step2Content" style="display: none;">
+                        <div class="comp-step-indicator">
+                            <span class="comp-step-indicator-text">步骤 <span class="comp-step-indicator-count">2/3</span></span>
+                            <span>时间设置</span>
+                        </div>
+                        <h2 class="comp-title">时间设置</h2>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="start_time">开始时间<span class="comp-required">*</span></label>
+                            <div class="comp-datetime-wrapper">
+                                <input type="datetime-local" id="start_time" name="start_time" class="comp-input" required>
+                                <div class="comp-datetime-icon">
+                                    <i class="far fa-calendar-alt"></i>
+                                </div>
+                            </div>
+                            <div class="comp-invalid-feedback">请选择开始时间</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="end_time">结束时间<span class="comp-required">*</span></label>
+                            <div class="comp-datetime-wrapper">
+                                <input type="datetime-local" id="end_time" name="end_time" class="comp-input" required>
+                                <div class="comp-datetime-icon">
+                                    <i class="far fa-calendar-alt"></i>
+                                </div>
+                            </div>
+                            <div class="comp-invalid-feedback">请选择结束时间</div>
+                            <div class="comp-invalid-feedback" id="timeError">结束时间必须晚于开始时间</div>
+                        </div>
+                        
+                        <div class="text-right">
+                            <button type="button" class="comp-btn comp-btn-light mr-2" onclick="prevStep(2)">上一步</button>
+                            <button type="button" class="comp-btn comp-btn-primary" onclick="nextStep(2)">下一步</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 步骤3：验证码 -->
+                    <div class="comp-step-content" id="step3Content" style="display: none;">
+                        <div class="comp-step-indicator">
+                            <span class="comp-step-indicator-text">步骤 <span class="comp-step-indicator-count">3/3</span></span>
+                            <span>安全验证</span>
+                        </div>
+                        <h2 class="comp-title">安全验证</h2>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="captcha">验证码<span class="comp-required">*</span></label>
+                            <div class="captcha-container">
+                                <div class="captcha-input">
+                                    <input type="text" id="captcha" name="captcha" class="comp-input" placeholder="请输入验证码" required>
+                                </div>
+                                <img src="{{ captcha_image }}" alt="验证码" class="captcha-image" id="captchaImage">
+                                <i class="fas fa-sync captcha-refresh" id="refreshCaptcha" title="刷新验证码"></i>
+                            </div>
+                            <div class="comp-help-text">请输入图片中显示的验证码</div>
+                            <div class="comp-invalid-feedback" id="captchaError">验证码错误或已过期</div>
+                        </div>
+                        
+                        <div class="text-right">
+                            <button type="button" class="comp-btn comp-btn-light mr-2" onclick="prevStep(3)">上一步</button>
+                            <button type="button" class="comp-btn comp-btn-primary" onclick="submitForm()">创建比赛</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 步骤4：完成创建 -->
+                    <div class="comp-step-content" id="step4Content" style="display: none;">
+                        <div class="comp-success-card">
+                            <div class="comp-success-icon">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                            <h2 class="comp-success-title">比赛创建成功</h2>
+                            <p class="comp-success-text">您已成功创建了比赛，现在您可以选择添加题目或稍后再添加。</p>
+                            
+                            
+                            <div class="comp-options">
+                                <a href="javascript:void(0)" id="addChallengesBtn" class="comp-btn comp-btn-primary">
+                                    <i class="fa fa-plus-circle"></i> 添加现有题目
+                                </a>
+                                <a href="javascript:void(0)" id="createChallengeBtn" class="comp-btn comp-btn-success">
+                                    <i class="fa fa-plus"></i> 创建新题目
+                                </a>
+                                <a href="javascript:void(0)" id="viewCompetitionBtn" class="comp-btn comp-btn-light">
+                                    <i class="fa fa-eye"></i> 查看比赛详情
+                                </a>
+                                <a href="javascript:void(0)" id="manageCompetitionBtn" class="comp-btn comp-btn-light">
+                                    <i class="fa fa-cog"></i> 进入比赛管理
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+let currentStep = 1;
+let createdCompetitionId = null;
+let createdCompetitionSlug = null;
+
+// 显示指定步骤
+function showStep(step) {
+    document.querySelectorAll('.comp-step-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    document.getElementById(`step${step}Content`).style.display = 'block';
+    currentStep = step;
+}
+
+// 验证第一步
+function validateStep1() {
+    let isValid = true;
+    const title = document.getElementById('title');
+    const description = document.getElementById('description');
+    const slug = document.getElementById('slug');
+    
+    // 重置验证状态
+    [title, description, slug].forEach(field => {
+        field.classList.remove('is-invalid');
+    });
+    
+    // 验证标题
+    if (!title.value.trim()) {
+        title.classList.add('is-invalid');
+        isValid = false;
+    }
+    
+    // 验证描述
+    if (!description.value.trim()) {
+        description.classList.add('is-invalid');
+        isValid = false;
+    }
+    
+    // 验证自定义路由（如果有值）
+    if (slug.value.trim()) {
+        const slugRegex = /^[a-zA-Z0-9]+$/;
+        if (!slugRegex.test(slug.value.trim())) {
+            slug.classList.add('is-invalid');
+            isValid = false;
+        }
+    }
+    
+    // 验证关联知识竞赛的相关字段
+    const relatedQuizSelect = document.getElementById('related_quiz');
+    if (relatedQuizSelect && relatedQuizSelect.value) {
+        const ctfWeightInput = document.getElementById('combined_score_ctf_weight');
+        const topPercentInput = document.getElementById('combined_score_top_percent');
+        
+        // 验证CTF权重
+        if (ctfWeightInput) {
+            const weight = parseFloat(ctfWeightInput.value);
+            if (isNaN(weight) || weight < 0 || weight > 1) {
+                ctfWeightInput.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                ctfWeightInput.classList.remove('is-invalid');
+            }
+        }
+        
+        // 验证归一化基准百分比
+        if (topPercentInput) {
+            const percent = parseInt(topPercentInput.value);
+            if (isNaN(percent) || percent < 1 || percent > 100) {
+                topPercentInput.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                topPercentInput.classList.remove('is-invalid');
+            }
+        }
+    }
+    
+    return isValid;
+}
+
+// 验证第二步
+function validateStep2() {
+    let isValid = true;
+    const startTime = document.getElementById('start_time');
+    const endTime = document.getElementById('end_time');
+    const timeError = document.getElementById('timeError');
+    
+    // 重置验证状态
+    [startTime, endTime].forEach(field => {
+        field.classList.remove('is-invalid');
+    });
+    timeError.style.display = 'none';
+    
+    // 验证开始时间
+    if (!startTime.value) {
+        startTime.classList.add('is-invalid');
+        isValid = false;
+    }
+    
+    // 验证结束时间
+    if (!endTime.value) {
+        endTime.classList.add('is-invalid');
+        isValid = false;
+    }
+    
+    // 验证结束时间是否晚于开始时间
+    if (startTime.value && endTime.value) {
+        const start = new Date(startTime.value);
+        const end = new Date(endTime.value);
+        
+        if (end <= start) {
+            endTime.classList.add('is-invalid');
+            timeError.style.display = 'block';
+            isValid = false;
+        }
+    }
+    
+    return isValid;
+}
+
+// 验证第三步
+function validateStep3() {
+    let isValid = true;
+    const captcha = document.getElementById('captcha');
+    const captchaError = document.getElementById('captchaError');
+    
+    // 重置验证状态
+    captcha.classList.remove('is-invalid');
+    captchaError.style.display = 'none';
+    
+    // 验证验证码
+    if (!captcha.value.trim()) {
+        captcha.classList.add('is-invalid');
+        captchaError.textContent = '请输入验证码';
+        captchaError.style.display = 'block';
+        isValid = false;
+    }
+    
+    return isValid;
+}
+
+// 下一步
+function nextStep(step) {
+    if (step === 1 && !validateStep1()) {
+        return;
+    }
+    
+    if (step === 2 && !validateStep2()) {
+        return;
+    }
+    
+    showStep(step + 1);
+    
+    // 滚动到顶部
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+// 上一步
+function prevStep(step) {
+    showStep(step - 1);
+    
+    // 滚动到顶部
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+// 图片预览功能
+function previewImage(input) {
+    const preview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const fileName = document.getElementById('fileName');
+    
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            fileName.textContent = file.name;
+            preview.style.display = 'block';
+        }
+        
+        reader.readAsDataURL(file);
+        
+        // 更改上传区域样式
+        document.getElementById('fileUploadArea').style.borderStyle = 'solid';
+        document.getElementById('fileUploadArea').style.borderColor = '#6591f1';
+    } else {
+        preview.style.display = 'none';
+        document.getElementById('fileUploadArea').style.borderStyle = 'dashed';
+        document.getElementById('fileUploadArea').style.borderColor = '#e0e0e0';
+    }
+}
+
+// 刷新验证码
+function refreshCaptcha() {
+    fetch("{% url 'competition:refresh_captcha' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('captchaImage').src = data.captcha_image;
+            document.getElementById('captcha_key').value = data.captcha_key;
+            document.getElementById('captcha').value = '';
+        }
+    })
+    .catch(error => console.error('Error refreshing captcha:', error));
+}
+
+// 提交表单
+async function submitForm() {
+    if (!validateStep3()) {
+        return;
+    }
+    
+    const form = document.getElementById('competitionForm');
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch("{% url 'competition:competition_create' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            createdCompetitionId = data.id;
+            createdCompetitionSlug = data.slug;
+            // 更新按钮链接（统一使用slug）
+            document.getElementById('addChallengesBtn').href = `/ctf/${createdCompetitionSlug}/add-challenges/`;
+            document.getElementById('createChallengeBtn').href = `/ctf/${createdCompetitionSlug}/create-challenge/`;
+            document.getElementById('viewCompetitionBtn').href = `/ctf/${createdCompetitionSlug}/`;
+            document.getElementById('manageCompetitionBtn').href = `/ctf/${createdCompetitionSlug}/manage/`;
+            // 显示成功页面
+            showStep(4);
+            
+            // 显示成功消息
+            showSuccessToast("比赛创建成功！");
+        } else {
+            // 处理字段错误
+            if (data.errors) {
+                Object.keys(data.errors).forEach(field => {
+                    const element = document.getElementById(field);
+                    if (element) {
+                        element.classList.add('is-invalid');
+                        const feedback = element.nextElementSibling;
+                        if (feedback && feedback.classList.contains('comp-invalid-feedback')) {
+                            feedback.textContent = data.errors[field];
+                            feedback.style.display = 'block';
+                        }
+                    }
+                });
+            }
+            
+            // 如果有验证码错误，更新验证码
+            if (data.captcha_image && data.captcha_key) {
+                document.getElementById('captchaImage').src = data.captcha_image;
+                document.getElementById('captcha_key').value = data.captcha_key;
+                document.getElementById('captcha').value = '';
+            }
+            
+            showErrorToast(data.message || "创建失败，请检查表单内容");
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showErrorToast("发生错误，请稍后重试");
+    }
+}
+
+// 控制团队赛设置的显示/隐藏
+function toggleTeamSettings() {
+    const competitionType = document.getElementById('competition_type').value;
+    const teamMaxMembersGroup = document.getElementById('team_max_members_group');
+    const teamMaxMembersSelect = document.getElementById('team_max_members');
+    
+    if (competitionType === 'team') {
+        // 团队赛，显示队伍最大人数选择
+        teamMaxMembersGroup.style.display = 'block';
+        teamMaxMembersSelect.required = true;
+    } else {
+        // 个人赛，隐藏队伍最大人数选择
+        teamMaxMembersGroup.style.display = 'none';
+        teamMaxMembersSelect.required = false;
+    }
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    showStep(1);
+    
+    // 设置默认开始和结束时间
+    const now = new Date();
+    const start = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 明天
+    const end = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3天后
+    
+    document.getElementById('start_time').value = formatDateTime(start);
+    document.getElementById('end_time').value = formatDateTime(end);
+    
+    // 初始化团队赛设置的显示状态
+    toggleTeamSettings();
+    
+    // 关联知识竞赛选择事件监听
+    const relatedQuizSelect = document.getElementById('related_quiz');
+    if (relatedQuizSelect) {
+        relatedQuizSelect.addEventListener('change', function() {
+            const ctfWeightGroup = document.getElementById('ctfWeightGroup');
+            const topPercentGroup = document.getElementById('topPercentGroup');
+            const ctfWeightInput = document.getElementById('combined_score_ctf_weight');
+            const topPercentInput = document.getElementById('combined_score_top_percent');
+            
+            if (this.value) {
+                // 选择了知识竞赛，显示权重和百分比输入框
+                ctfWeightGroup.style.display = 'block';
+                topPercentGroup.style.display = 'block';
+                ctfWeightInput.required = true;
+                topPercentInput.required = true;
+            } else {
+                // 未选择知识竞赛，隐藏权重和百分比输入框
+                ctfWeightGroup.style.display = 'none';
+                topPercentGroup.style.display = 'none';
+                ctfWeightInput.required = false;
+                topPercentInput.required = false;
+            }
+        });
+    }
+    
+    // 移除所有元素的黑色边框
+    document.querySelectorAll('input, button, select, textarea').forEach(el => {
+        el.addEventListener('focus', function() {
+            this.style.outline = 'none';
+        });
+    });
+    
+    // 拖拽上传功能
+    const dropArea = document.getElementById('fileUploadArea');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight() {
+        dropArea.style.borderColor = '#6591f1';
+        dropArea.style.backgroundColor = '#f5f7ff';
+    }
+    
+    function unhighlight() {
+        dropArea.style.borderColor = '#e0e0e0';
+        dropArea.style.backgroundColor = '#fafafa';
+    }
+    
+    dropArea.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length) {
+            document.getElementById('img_link').files = files;
+            previewImage(document.getElementById('img_link'));
+        }
+    }
+    
+    // 特别处理日期时间选择器的边框问题
+    const dateTimeInputs = document.querySelectorAll('input[type="datetime-local"]');
+    dateTimeInputs.forEach(input => {
+        input.addEventListener('click', function(e) {
+            // 防止默认的聚焦边框
+            // 防止默认的聚焦边框
+            this.blur();
+            setTimeout(() => {
+                this.focus();
+            }, 10);
+        });
+        
+        // 监听日期选择器打开事件
+        input.addEventListener('focus', function() {
+            this.style.outline = 'none';
+            this.style.boxShadow = 'none';
+            this.style.borderColor = '#6591f1';
+        });
+    });
+    
+    // 设置验证码刷新事件
+    const refreshCaptchaBtn = document.getElementById('refreshCaptcha');
+    const captchaImage = document.getElementById('captchaImage');
+    
+    if (refreshCaptchaBtn) {
+        refreshCaptchaBtn.addEventListener('click', refreshCaptcha);
+    }
+    
+    if (captchaImage) {
+        captchaImage.addEventListener('click', refreshCaptcha);
+    }
+});
+
+// 格式化日期时间为HTML datetime-local格式
+function formatDateTime(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+// 显示成功提示
+</script>
+{% endblock %}

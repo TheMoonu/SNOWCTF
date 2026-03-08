@@ -2,9 +2,20 @@
 
 {% load i18n %}
 
-{% block head_title %}{% trans "Sign Up Closed" %}{% endblock %}
-{% block user_title %}{% trans "Sign Up Closed" %}{% endblock %}
+{% block head_title %}注册已关闭{% endblock %}
+{% block user_title %}注册已关闭{% endblock %}
+{% block form_description %}暂时无法注册新账号{% endblock %}
 
 {% block content %}
-<p>{% trans "We are sorry, but the sign up is currently closed." %}</p>
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    很抱歉，系统注册功能当前已关闭。
+</div>
+
+<div class="text-center mt-4">
+    <a href="/" class="btn btn-primary" style="display: inline-flex; align-items: center; justify-content: center; min-width: 200px; height: 46px; text-decoration: none;">
+        <i class="bi bi-house me-2"></i>
+        返回首页
+    </a>
+</div>
 {% endblock %}

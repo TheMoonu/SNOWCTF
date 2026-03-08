@@ -1,0 +1,440 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}镜像配置管理{% endblock %}
+
+{% block top-file %}
+<!-- 确保引入toast.js -->
+<script src="{% static 'public/js/toast.js' %}"></script>
+<style>
+    .container-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        padding: 30px;
+        margin-bottom: 25px;
+        border: none;
+    }
+    
+    .container-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+        color: #333;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 15px;
+    }
+    
+    .container-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-align: center;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        text-decoration: none;
+    }
+    
+    .container-btn-primary {
+        background-color: #6591f1;
+        color: white;
+    }
+    
+    .container-btn-primary:hover {
+        background-color: #5080e0;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(101, 145, 241, 0.2);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .container-btn-sm {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+    }
+    
+    .container-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .container-table th,
+    .container-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .container-table th {
+        font-weight: 600;
+        color: #444;
+        background-color: #f9f9f9;
+    }
+    
+    .container-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .container-table tr:hover td {
+        background-color: #f5f7ff;
+    }
+    
+    .container-empty {
+        text-align: center;
+        padding: 40px 20px;
+        color: #777;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+    }
+    
+    .container-empty-icon {
+        font-size: 40px;
+        margin-bottom: 15px;
+        color: #ccc;
+    }
+    
+    .container-pagination {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }
+    
+    .container-pagination .page-item .page-link {
+        color: #6591f1;
+        border: none;
+        border-radius: 4px;
+        margin: 0 3px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .container-pagination .page-item.active .page-link {
+        background-color: #6591f1;
+        color: white;
+    }
+    
+    .container-image-tag {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        font-family: monospace;
+    }
+    
+    .container-category-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        background-color: #e3f2fd;
+        color: #0c5460;
+    }
+    
+    .container-flag-method-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .container-status-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+    
+    .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-approved {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-rejected {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .container-date {
+        color: #777;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+    
+    .container-author {
+        color: #777;
+        font-size: 0.85rem;
+    }
+    
+    .container-actions {
+        display: flex;
+        gap: 5px;
+        justify-content: flex-start;
+        align-items: center;
+    }
+    
+    .image-name-col {
+        max-width: 300px;
+        word-break: break-all;
+    }
+    
+    .ports-display {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #666;
+    }
+    
+    .container-btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .container-btn-danger:hover {
+        background-color: #c82333;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.2);
+    }
+    
+    .container-btn-danger[disabled] {
+        background-color: #f5c6cb;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    /* 模态框样式 */
+    .modal-content {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .modal .close {
+        background: transparent;
+        border: none !important;
+        outline: none !important;
+        font-size: 1.5rem;
+        opacity: 0.5;
+        transition: all 0.2s ease;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .modal .close:hover {
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-user mr-1"></i><a href="{% url 'public:profileViews' user.uuid %}">个人中心</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">镜像配置管理</li>
+                </ol>
+            </nav>
+
+            <!-- 列表卡片 -->
+            <div class="container-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="container-title mb-0">镜像配置列表</h2>
+                    <a href="{% url 'container:docker_image_create' %}" class="container-btn container-btn-primary">
+                        <i class="fa fa-plus mr-1"></i>创建镜像配置
+                    </a>
+                </div>
+
+                {% if docker_images %}
+                <div class="table-responsive">
+                    <table class="container-table dynamic-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%;">镜像名称</th>
+                                <th style="width: 10%;">标签</th>
+                                <th style="width: 10%;">类型</th>
+                                <th style="width: 10%;">端口</th>
+                                <th style="width: 10%;">状态</th>
+                                <th style="width: 10%;">创建时间</th>
+                                <th style="width: 10%;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for image in docker_images %}
+                            <tr>
+                                <td class="image-name-col">
+                                    <strong>{{ image.name }}</strong>
+                                    {% if image.registry != 'docker.io' %}
+                                    <br><small class="text-muted">{{ image.registry }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="container-image-tag" style="background-color: #e8f5e9; color: #2e7d32;">
+                                        {{ image.tag }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="container-category-badge">
+                                        {{ image.get_category_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="ports-display">{{ image.exposed_ports }}</span>
+                                </td>
+                                <td>
+                                    {% if image.review_status == 'PENDING' %}
+                                    <span class="container-status-badge status-pending">待审核</span>
+                                    {% elif image.review_status == 'APPROVED' %}
+                                    <span class="container-status-badge status-approved">已通过</span>
+                                    {% elif image.review_status == 'REJECTED' %}
+                                    <span class="container-status-badge status-rejected">已拒绝</span>
+                                    {% endif %}
+                                </td>
+                                <td class="container-date">
+                                    {{ image.created_at|date:"Y-m-d H:i" }}
+                                </td>
+                                <td>
+                                    <div class="container-actions">
+                                        {% if image.review_status == 'APPROVED' and not user.is_superuser %}
+                                            <button class="container-btn container-btn-sm" style="width: 65px; background-color: #e0e0e0; color: #666; cursor: not-allowed;" disabled>
+                                                已审核
+                                            </button>
+                                        {% else %}
+                                            <a href="{% url 'container:docker_image_update' image.id %}" class="container-btn container-btn-primary container-btn-sm" style="width: 65px; text-decoration: none;">
+                                                <i class="fa fa-edit mr-1"></i> 修改
+                                            </a>
+                                        {% endif %}
+                                        <button class="container-btn container-btn-danger container-btn-sm" 
+                                                onclick="showDeleteConfirmModal('{{ image.id }}', '{{ image.name }}:{{ image.tag }}')"
+                                                {% if not user.is_staff and image.author != user %}disabled{% endif %}
+                                                style="width: 65px;">
+                                            <i class="fa fa-trash mr-1"></i> 删除
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                {% if is_paginated %}
+                <nav class="container-pagination">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="fa fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="fa fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                {% else %}
+                <div class="container-empty">
+                    <div class="container-empty-icon">
+                        <i class="fa fa-box-open"></i>
+                    </div>
+                    <p>暂无Docker镜像配置</p>
+                    <a href="{% url 'container:docker_image_create' %}" class="container-btn container-btn-primary mt-3">
+                        <i class="fa fa-plus mr-1"></i>创建第一个镜像配置
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-weight-bold" style="font-size: 1.1rem;">确认删除</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="mb-0">确定要删除 <span id="delete-image-name" class="font-weight-bold"></span> 吗？</p>
+                <p class="text-danger mt-2 mb-0"><small>此操作不可恢复</small></p>
+                <form id="delete-form" method="post" action="">
+                    {% csrf_token %}
+                    <input type="hidden" id="delete-image-id" name="image_id">
+                </form>
+            </div>
+            <div class="modal-footer border-0 pt-0 justify-content-center">
+                <button type="button" class="btn btn-light btn-sm px-4" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger btn-sm px-4" onclick="confirmDelete()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 显示删除确认模态框
+function showDeleteConfirmModal(imageId, imageName) {
+    document.getElementById('delete-image-id').value = imageId;
+    document.getElementById('delete-image-name').textContent = imageName;
+    document.getElementById('delete-form').action = `/container/api/v1/docker-image/${imageId}/delete/`;
+    $('#deleteConfirmModal').modal('show');
+}
+
+// 确认删除
+function confirmDelete() {
+    document.getElementById('delete-form').submit();
+}
+</script>
+{% endblock %}
+

@@ -2,18 +2,31 @@
 
 {% load i18n %}
 
-{% block head_title %}{% trans "Verify Your E-mail Address" %}{% endblock %}
-{% block user_title %}{% trans "Verify Your E-mail Address" %}{% endblock %}
+{% block head_title %}验证邮箱地址{% endblock %}
+{% block user_title %}验证邮箱地址{% endblock %}
+{% block form_description %}请验证您的邮箱以继续使用{% endblock %}
 
 {% block content %}
 
 {% url 'account_email' as email_url %}
 
-<p>{% blocktrans %}网站的这一部分要求我们确认您就是您所声称的人。为此，我们需要您验证您电子邮件地址的所有权。{% endblocktrans %}</p>
+<div class="alert alert-info" role="alert">
+    <i class="bi bi-envelope me-2"></i>
+    为了保护您的账号安全，我们需要验证您的电子邮件地址。
+</div>
 
-<p>{% blocktrans %}我们已向您发送了一封电子邮件以供验证。请点击提供的链接完成注册过程。如果您在几分钟内没有收到，请与我们联系。{% endblocktrans %}</p>
+<div class="alert alert-success" role="alert">
+    <i class="bi bi-send me-2"></i>
+    我们已向您发送验证邮件，请点击邮件中的链接完成验证。
+</div>
 
-<p>{% blocktrans %}<strong>Note:</strong> you can still <a href="{{ email_url }}">change your e-mail address</a>.{% endblocktrans %}</p>
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-info-circle me-2"></i>
+    如果您在几分钟内没有收到邮件，请检查垃圾邮件文件夹或联系我们。
+</div>
 
+<p class="text-center text-muted mt-3">
+    <strong>提示：</strong>您仍然可以 <a href="{{ email_url }}">更改您的电子邮件地址</a>
+</p>
 
 {% endblock %}

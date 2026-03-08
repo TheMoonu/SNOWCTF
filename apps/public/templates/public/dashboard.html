@@ -18,7 +18,7 @@
 body {
     background: #001324;
     color: #fff;
-    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-family: 'PingFang SC', 'PingFang SC', sans-serif;
     overflow: hidden;
     height: 100vh;
 }
@@ -427,7 +427,7 @@ body {
         }
 
         function updateDashboard() {
-            fetch(`/api/v1/competition/{{ competition.slug }}/dashboard-data/`)
+            fetch(`/api/v1/ctf/{{ competition.slug }}/dashboard-data/`)
                 .then(response => response.json())
                 .then(data => {
                     // 更新统计数据
@@ -496,7 +496,7 @@ body {
                             }
                         }]
                     });
-                    
+                    console.log('Score trends data:', data.series_data);
                     // 更新时间线图表
                     charts.timeline.setOption({
                         tooltip: {

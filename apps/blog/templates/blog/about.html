@@ -1,0 +1,27 @@
+{% extends 'public/base.html' %}
+{% load static %}
+
+{% block head_title %}关于网站{% endblock %}
+{% block metas %}
+    <meta name="description" content="{{ site_description }}">
+    <meta name="keywords" content="{{ site_keywords }}">
+{% endblock %}
+{% block top-file %}
+    <style>
+        .card img {
+            max-width: 100%;
+        }
+    </style>
+{% endblock %}
+
+
+{% block base_content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12" style="line-height:2">
+                <div class="card rounded-6 border-0 p-3 f-16">{{ body|safe }}</div>
+            </div>
+            
+        </div>
+    </div>
+{% endblock %}

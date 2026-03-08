@@ -1,0 +1,543 @@
+{% extends 'public/base.html' %}
+{% load comment_tags %}
+{% block head_title %}{{competition.title }}_解题动态{% endblock %}
+
+{% block base_content %}
+<style>
+    /* 解题动态页面优化样式 */
+    .submission-dynamic-container {
+        padding: 20px 0;
+    }
+    
+    .dynamic-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    .dynamic-header h2 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 600;
+    }
+    
+    .dynamic-header p {
+        margin: 10px 0 0;
+        opacity: 0.9;
+        font-size: 14px;
+    }
+    
+    .dynamic-table-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .dynamic-table {
+        margin: 0;
+        min-width: 800px;
+    }
+    
+    /* ========================================
+       全局简约白色表头样式
+       可复用到其他页面的表格
+       ======================================== */
+    
+    /* 表头基础样式 - 纯白背景 + 细分割线 */
+    .dynamic-table thead th,
+    .table thead th {
+        background: #ffffff;
+        color: #1f2937;
+        font-weight: 600;
+        font-size: 13px;
+        padding: 16px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        letter-spacing: 0.3px;
+    }
+    
+    /* 第一列固定样式 */
+    .dynamic-table thead th:first-child,
+    .table thead th:first-child {
+        text-align: left;
+        padding-left: 25px;
+        min-width: 150px;
+        position: sticky;
+        left: 0;
+        z-index: 20;
+        background: #ffffff;
+        border-right: 1px solid #e5e7eb;
+    }
+    
+    /* 当前用户信息卡片 */
+    .current-user-card {
+        background: white;
+        border-radius: 10px;
+        padding: 25px 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5e7eb;
+    }
+    
+    .current-user-card h4 {
+        color: #1f2937;
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 15px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f3f4f6;
+    }
+    
+    .current-user-card h4 i {
+        font-size: 20px;
+        color: #1890ff;
+    }
+    
+    .user-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .user-info-item {
+        background: #f9fafb;
+        padding: 15px 20px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    
+    .user-info-item:hover {
+        background: #f3f4f6;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    }
+    
+    .user-info-label {
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 500;
+    }
+    
+    .user-info-value {
+        font-size: 20px;
+        font-weight: 700;
+        margin: 0;
+        color: #1f2937;
+    }
+    
+    .user-info-value.score {
+        font-size: 28px;
+        color: #10b981;
+    }
+    
+    .user-info-value.rank {
+        font-size: 24px;
+    }
+    
+    .rank-badge {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    
+    .rank-badge:nth-of-type(1) {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .dynamic-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    
+    .dynamic-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .dynamic-table tbody td {
+        padding: 15px 12px;
+        border-bottom: 1px solid #f0f0f0;
+        text-align: center;
+        font-size: 14px;
+    }
+    
+    .dynamic-table tbody td:first-child {
+        font-weight: 600;
+        color: #495057;
+        text-align: left;
+        padding-left: 25px;
+        position: sticky;
+        left: 0;
+        background: white;
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.02);
+        z-index: 5;
+    }
+    
+    .dynamic-table tbody tr:hover td:first-child {
+        background-color: #f8f9fa;
+    }
+    
+    /* 血榜徽章样式 */
+    .blood-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    .blood-first {
+        background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+        color: #8b6914;
+        box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+    }
+    
+    .blood-second {
+        background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+        color: #5a5a5a;
+        box-shadow: 0 2px 8px rgba(192, 192, 192, 0.3);
+    }
+    
+    .blood-third {
+        background: linear-gradient(135deg, #cd7f32 0%, #e8a87c 100%);
+        color: #5c3d1f;
+        box-shadow: 0 2px 8px rgba(205, 127, 50, 0.3);
+    }
+    
+    .blood-solved {
+        background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+    }
+    
+    .blood-badge i {
+        font-size: 14px;
+    }
+    
+    .unsolved {
+        color: #cbd5e0;
+        font-size: 16px;
+    }
+    
+    /* 空状态 - 独立显示在中间 */
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        margin: 40px 0;
+    }
+    
+    .empty-state i {
+        font-size: 72px;
+        color: #e5e7eb;
+        margin-bottom: 20px;
+        display: block;
+    }
+    
+    .empty-state h4 {
+        color: #6b7280;
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .empty-state p {
+        color: #9ca3af;
+        font-size: 14px;
+        margin: 0;
+    }
+    
+    /* 响应式优化 */
+    @media (max-width: 768px) {
+        .dynamic-header {
+            padding: 20px;
+        }
+        
+        .dynamic-header h2 {
+            font-size: 22px;
+        }
+        
+        .dynamic-table thead th:first-child,
+        .dynamic-table tbody td:first-child {
+            padding-left: 15px;
+        }
+    }
+    
+    /* 自定义滚动条 */
+    .table-wrapper::-webkit-scrollbar {
+        height: 8px;
+    }
+    
+    .table-wrapper::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    .table-wrapper::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+    
+    .table-wrapper::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+</style>
+
+<div class="container">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb bg-white border-0 rounded-6 py-2 f-15">
+            <li class="breadcrumb-item">
+                <i class="fa fa-home mr-1"></i><a href="{% url 'competition:CompetitionView' %}">竞赛列表</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'competition:competition_detail' competition.slug %}">{{competition.title}}</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">解题动态</li>
+        </ol>
+    </nav>
+    
+  
+    
+    <!-- 当前用户信息卡片 -->
+    {% if current_user_info %}
+    <div class="current-user-card">
+        <h4>
+            <i class="fa fa-user-circle"></i>
+            我的比赛信息
+        </h4>
+        <div class="user-info-grid">
+            <div class="user-info-item">
+                <div class="user-info-label">参赛者</div>
+                <div class="user-info-value">{{ current_user_info.user_name }}</div>
+            </div>
+            {% if is_team_competition and current_user_info.team_name %}
+            <div class="user-info-item">
+                <div class="user-info-label">所属队伍</div>
+                <div class="user-info-value" title="队伍成员：{{ current_user_info.members|join:', ' }}">
+                    {{ current_user_info.team_name }}
+                </div>
+            </div>
+            {% endif %}
+            <div class="user-info-item">
+                <div class="user-info-label">当前得分</div>
+                <div class="user-info-value score">{{ current_user_info.score }}</div>
+            </div>
+            <div class="user-info-item">
+                <div class="user-info-label">当前名次</div>
+                <div class="user-info-value rank">
+                    {% if current_user_info.rank == 0 %}
+                        <span class="rank-badge">未上榜</span>
+                    {% elif current_user_info.rank == 1 %}
+                        <span class="rank-badge">🥇 第{{ current_user_info.rank }}名</span>
+                    {% elif current_user_info.rank == 2 %}
+                        <span class="rank-badge">🥈 第{{ current_user_info.rank }}名</span>
+                    {% elif current_user_info.rank == 3 %}
+                        <span class="rank-badge">🥉 第{{ current_user_info.rank }}名</span>
+                    {% else %}
+                        <span class="rank-badge">第{{ current_user_info.rank }}名</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="user-info-item">
+                <div class="user-info-label">已解题数</div>
+                <div class="user-info-value">{{ current_user_info.solved_count }}</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 动态表格 -->
+    {% if players %}
+    <div class="dynamic-table-card">
+        <!-- 分页信息 -->
+        {% if paginator.num_pages > 1 %}
+        <div style="padding: 15px 25px; background: #ffffff; border-bottom: 1px solid #e5e7eb;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="color: #4b5563; font-size: 13px;">
+                    <i class="fa fa-users"></i> 
+                    共 <strong style="color: #1f2937;">{{ paginator.count }}</strong> 个队伍/选手，当前第 <strong style="color: #1f2937;">{{ page_obj.number }}</strong>/{{ paginator.num_pages }} 页
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="table-wrapper">
+            <table class="table dynamic-table">
+                <thead>
+                    <tr>
+                        <th>队伍/选手</th>
+                        {% for challenge in challenges %}
+                            <th title="{{ challenge.title }}">{{ challenge.title|truncatechars:15 }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in players %}
+                    <tr>
+                        <td title="{{ player.name }}">{{ player.name|truncatechars:25 }}</td>
+                        {% for challenge in challenges %}
+                            {% if challenge.id in player.submissions %}
+                                {% with status=player.submissions|dict_get:challenge.id %}
+                                <td>
+                                    {% if status == "一血" %}
+                                        <span class="blood-badge blood-first" title="第一个解出此题">
+                                            <i class="fa fa-trophy"></i>
+                                            <span>一血</span>
+                                        </span>
+                                    {% elif status == "二血" %}
+                                        <span class="blood-badge blood-second" title="第二个解出此题">
+                                            <i class="fa fa-trophy"></i>
+                                            <span>二血</span>
+                                        </span>
+                                    {% elif status == "三血" %}
+                                        <span class="blood-badge blood-third" title="第三个解出此题">
+                                            <i class="fa fa-trophy"></i>
+                                            <span>三血</span>
+                                        </span>
+                                    {% else %}
+                                        <span class="blood-badge blood-solved" title="已成功解出">
+                                            <i class="fa fa-check"></i>
+                                            <span>已解</span>
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                {% endwith %}
+                            {% else %}
+                                <td>
+                                    <span class="unsolved" title="尚未解出">-</span>
+                                </td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页导航 -->
+        {% if paginator.num_pages > 1 %}
+        <div style="padding: 20px 25px; background: white; border-top: 1px solid #e5e7eb;">
+            <nav aria-label="解题动态分页">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">首页</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">首页</span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">上一页</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ paginator.num_pages }}">末页</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">下一页</span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">末页</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <!-- 空状态 -->
+    <div class="empty-state">
+        <i class="fa fa-inbox"></i>
+        <h4>暂无解题记录</h4>
+        <p>比赛开始后，解题动态将在这里实时展示</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // 表格滚动优化
+    $(document).ready(function() {
+        const $tableWrapper = $('.table-wrapper');
+        
+        // 检测横向滚动
+        if ($tableWrapper.length && $tableWrapper[0].scrollWidth > $tableWrapper[0].clientWidth) {
+            // 添加拖拽滚动
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+            
+            $tableWrapper.css('cursor', 'grab');
+            
+            $tableWrapper.on('mousedown', function(e) {
+                isDown = true;
+                $(this).css('cursor', 'grabbing');
+                startX = e.pageX - $(this).offset().left;
+                scrollLeft = $(this).scrollLeft();
+            });
+            
+            $tableWrapper.on('mouseleave mouseup', function() {
+                isDown = false;
+                $(this).css('cursor', 'grab');
+            });
+            
+            $tableWrapper.on('mousemove', function(e) {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - $(this).offset().left;
+                const walk = (x - startX) * 2;
+                $(this).scrollLeft(scrollLeft - walk);
+            });
+        }
+    });
+</script>
+{% endblock %}

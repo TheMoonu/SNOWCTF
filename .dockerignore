@@ -1,0 +1,103 @@
+# Git 相关
+.git
+.gitignore
+.gitattributes
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv
+secsnowvenv/
+
+# IDE 和编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+celerybeat-schedule
+
+# 测试和覆盖率
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.tmp
+*.temp
+.cache/
+
+# 日志和数据库
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# 数据目录（由 docker-compose 挂载）
+db/
+redis/
+web/log/
+web/media/
+web/static/
+web/whoosh_index/
+log/
+logs/
+media/
+whoosh_index/
+
+# 文档
+*.md
+!README.md
+docs/
+
+# 配置文件
+.env
+.env.*
+snow.env
+*.local
+
+# Docker 相关
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+.dockerignore
+
+# 备份和临时文件
+*.sql
+*.dump
+*.bak
+*.backup
+*~
+
+# 证书和密钥
+certificates/
+*.pem
+*.key
+*.crt
+*.p12
+nginx/ssl/
+
+# 其他
+.DS_Store
+Thumbs.db
+node_modules/
+
+encrypt_apps_v2.sh
+env.example
+apps_backup_*
+exclude_files.txt
+Dockerfile
+install/
+build_and_push.sh

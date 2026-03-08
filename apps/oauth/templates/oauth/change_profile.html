@@ -3,168 +3,675 @@
 {% load static %}
 
 {% block metas %}
-    <meta name="description" content="用户账号管理，使用django-allauth社交用户系统，支持微博、Github等社交账号登录，加入{{ site_end_title }}，查看更多信息。">
-    <meta name="keywords" content="django-allauth,社交用户系统,OAuth 2.0">
+    <meta name="description" content="用户账号管理，加入{{ site_name }}，查看更多信息。">
+    <meta name="keywords" content="{{ site_keywords }}">
 {% endblock %}
 
 {% block top-file %}
-<link href="{% static 'public/css/account.css' %}?v=20171229.01966" rel="stylesheet">
+<link href="{% static 'public/css/account.css' %}?v=20251230.01" rel="stylesheet">
+<style>
+    /* 个人资料修改页面样式 - 简约风格 */
+    .profile-container {
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 0 15px;
+    }
+    
+    .profile-card {
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .profile-card-header {
+        background: #f8f9fa;
+        padding: 20px 30px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .profile-card-title {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        display: flex;
+        align-items: center;
+    }
+    
+    .profile-card-title i {
+        margin-right: 10px;
+        color: #0184ff;
+        font-size: 22px;
+    }
+    
+    .profile-card-body {
+        padding: 30px;
+    }
+    
+    /* 表单组样式 */
+    .form-group-custom {
+        margin-bottom: 24px;
+    }
+    
+    .form-label-custom {
+        display: block;
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .form-label-custom .required {
+        color: #dc3545;
+        margin-left: 3px;
+    }
+    
+    /* 头像上传区域 */
+    .avatar-section {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    
+    .avatar-preview-wrapper {
+        position: relative;
+        flex-shrink: 0;
+    }
+    
+    .avatar-preview {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #e9ecef;
+        transition: border-color 0.3s ease;
+    }
+    
+    .avatar-preview:hover {
+        border-color: #0184ff;
+    }
+    
+    .avatar-upload-wrapper {
+        flex: 1;
+    }
+    
+    .btn-upload {
+        display: inline-block;
+        padding: 8px 18px;
+        background: #0184ff;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-upload:hover {
+        background: #3a6fd8;
+        transform: translateY(-1px);
+    }
+    
+    .upload-tip {
+        display: none;
+        color: #28a745;
+        font-size: 13px;
+        margin-top: 8px;
+    }
+    
+    .upload-tip.show {
+        display: block;
+    }
+    
+    .upload-tip i {
+        margin-right: 4px;
+    }
+    
+    .form-hint {
+        font-size: 13px;
+        color: #6c757d;
+        margin-top: 6px;
+    }
+    
+    /* 输入框样式 */
+    .form-input-custom {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: all 0.2s ease;
+        background: #fff;
+    }
+    
+    .form-input-custom:focus {
+        outline: none;
+        border-color: #0184ff;
+        box-shadow: 0 0 0 3px rgba(81, 137, 240, 0.1);
+    }
+    
+    .form-input-custom.is-invalid {
+        border-color: #dc3545;
+    }
+    
+    .form-input-custom.is-invalid:focus {
+        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+    }
+    
+    /* 文本域 */
+    textarea.form-input-custom {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    /* 错误提示 */
+    .error-message {
+        color: #dc3545;
+        font-size: 13px;
+        margin-top: 6px;
+    }
+    
+    /* 操作按钮 */
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .btn-primary-custom {
+        padding: 10px 24px;
+        background: #0184ff;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-primary-custom:hover {
+        background: #3a6fd8;
+        transform: translateY(-1px);
+    }
+    
+    .btn-secondary-custom {
+        padding: 10px 24px;
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-secondary-custom:hover {
+        background: #5a6268;
+        transform: translateY(-1px);
+        color: white;
+        text-decoration: none;
+    }
+    
+    /* 快捷链接 */
+    .quick-links {
+        background: #f8f9fa;
+        padding: 20px 30px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .quick-links-title {
+        font-size: 14px;
+        color: #6c757d;
+        margin-bottom: 12px;
+        font-weight: 500;
+    }
+    
+    .quick-links-list {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .quick-link {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 14px;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        color: #495057;
+        text-decoration: none;
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+    
+    .quick-link:hover {
+        background: #0184ff;
+        border-color: #0184ff;
+        color: white;
+        text-decoration: none;
+        transform: translateY(-1px);
+    }
+    
+    .quick-link i {
+        margin-right: 6px;
+        font-size: 14px;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 576px) {
+        .profile-container {
+            margin: 20px auto;
+        }
+        
+        .profile-card-header,
+        .profile-card-body,
+        .quick-links {
+            padding: 20px;
+        }
+        
+        .avatar-section {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+        }
+        
+        .btn-primary-custom,
+        .btn-secondary-custom {
+            width: 100%;
+        }
+        
+        .quick-links-list {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .quick-link {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
 {% endblock %}
 
-{% block head_title%}个人信息修改{% endblock%}
+{% block head_title %}个人信息修改{% endblock %}
 
 {% block base_content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12 col-sm-8 col-md-6 offset-sm-2 offset-md-3 px-xl-5">
-            <div class="card px-3 px-lg-4">
-                <div class="card-header text-center bg-white py-2"><h3 class="my-1 text-primary">修改资料</h3></div>
-                <div class="card-body">
-                    <form method="post" enctype="multipart/form-data" class="profile-form">
-                        {% csrf_token %}
-                        
-                        <!-- 头像上传 -->
-                        <div class="form-group mb-4">
-                            <label class="form-label">
-                                头像
-                                <span class="text-danger">*</span>
+<div class="profile-container">
+    <div class="profile-card">
+        <!-- 卡片头部 -->
+        <div class="profile-card-header">
+            <h3 class="profile-card-title">
+                <i class="bi bi-person-circle"></i>
+                修改个人资料
+            </h3>
+        </div>
+        
+        <!-- 卡片主体 -->
+        <div class="profile-card-body">
+            <form method="post" enctype="multipart/form-data" id="profileForm">
+                {% csrf_token %}
+                
+                <!-- 头像上传 -->
+                <div class="form-group-custom">
+                    <label class="form-label-custom">
+                        头像
+                    </label>
+                    <div class="avatar-section">
+                        <div class="avatar-preview-wrapper">
+                            <img src="{{ user.avatar.url }}" 
+                                 class="avatar-preview" 
+                                 id="avatarPreview"
+                                 alt="用户头像">
+                        </div>
+                        <div class="avatar-upload-wrapper">
+                            <label for="avatarInput" class="btn-upload">
+                                <i class="bi bi-upload"></i> 选择头像
                             </label>
-                            <div class="d-flex align-items-center">
-                                <div class="me-3">
-                                    <img src="{{ user.avatar.url }}" class="rounded-circle" id="avatar-preview"  
-                                         style="width: 80px; height: 80px; object-fit: cover;">
-                                </div>
+                            <input type="file" 
+                                   name="avatar" 
+                                   id="avatarInput" 
+                                   accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                   style="display: none;">
+                            <div class="upload-tip" id="uploadTip">
+                                <i class="bi bi-check-circle-fill"></i>
+                                头像已选择，提交后生效
                             </div>
-                            <div class="avatar-upload mt-4">
-                                <label for="id_avatar" class="btn btn-outline-primary btn-sm">
-                                    更换头像
-                                </label>
-                                <input type="file" name="avatar" id="id_avatar" class="d-none" accept="image/*">
-                                <span id="upload-tip" class="text-success ms-2" style="display: none;">
-                                    <i class="bi bi-check-circle"></i> 头像已选择，提交表单后生效
-                                </span>
-                                <div id="avatar-error" class="invalid-feedback" style="display: none;">
-                                    请选择头像文件
-                                </div>
-                                <div class="form-text mt-1">支持jpg、png、gif格式，文件小于10MB</div>
+                            <div class="form-hint">
+                                支持 JPG、PNG、GIF、WebP 格式，文件大小不超过 5MB
                             </div>
+                            <div class="error-message" id="avatarError" style="display: none;"></div>
                         </div>
-                    
-                        <!-- 个人网址 -->
-                        <div class="form-group mb-4">
-                            <label for="id_link" class="form-label">个人网址</label>
-                            <input type="url" name="link" class="form-control" id="id_link" 
-                                   value="{{ form.link.value|default:'' }}"
-                                   placeholder="请输入以http开头的完整网址">
-                            {% if form.link.errors %}
-                            <div class="invalid-feedback d-block">{{ form.link.errors.0 }}</div>
-                            {% endif %}
-                            <div class="form-text">{{ form.link.help_text }}</div>
-                        </div>
-                    
-                        <!-- 个人简介 -->
-                        <div class="form-group mb-4">
-                            <label for="id_profile" class="form-label">个人简介</label>
-                            <textarea name="profile" class="form-control" id="id_profile" 
-                                      rows="4" placeholder="写点什么介绍一下自己吧...（100字以内）">{{ form.profile.value|default:'' }}</textarea>
-                            {% if form.profile.errors %}
-                            <div class="invalid-feedback d-block">{{ form.profile.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-                    
-                        <div class="text-end">
-                            <button type="submit" class="btn btn-outline-primary btn-sm">保存修改</button>
-                        </div>
-                    </form>
-                    
-                    
-                </div>
-                <div class="text-center mb-5" id="social-login">
-                    <div class="login-title"><span>更多操作</span></div>
-                    <div class="more-link mt-3">
-                        <a class="btn btn-primary btn-sm mx-3" href="{% url 'oauth:profile' %}">查看资料</a>
-                        <a class="btn btn-primary btn-sm mx-3" href="{% url 'account_change_password' %}">修改密码</a>
                     </div>
                 </div>
-            </div>
+                
+                <div class="form-hint mb-2">
+                    <i class="bi bi-shield-lock"></i> 您的个人信息我们严格进行了脱敏和加密存储。
+                </div>
+                <!-- 真实姓名 -->
+                <div class="form-group-custom">
+                    <label for="realNameInput" class="form-label-custom">
+                        真实姓名
+                    </label>
+                    <input type="text" 
+                           name="real_name" 
+                           class="form-input-custom" 
+                           id="realNameInput" 
+                           value=""
+                           placeholder="{% if user.real_name %}当前: {{ user.real_name_masked }}{% else %}请输入真实姓名{% endif %}"
+                           maxlength="50">
+                    {% if form.real_name.errors %}
+                    <div class="error-message">{{ form.real_name.errors.0 }}</div>
+                    {% endif %}
+                  
+                </div>
+                
+                <!-- 手机号 -->
+                <div class="form-group-custom">
+                    <label for="phonesInput" class="form-label-custom">
+                        手机号
+                    </label>
+                    <input type="tel" 
+                           name="phones" 
+                           class="form-input-custom" 
+                           id="phonesInput" 
+                           value=""
+                           placeholder="{% if user.phones %}当前: {{ user.phones_masked }}{% else %}请输入手机号{% endif %}"
+                           maxlength="11"
+                           pattern="[0-9]*">
+                    {% if form.phones.errors %}
+                    <div class="error-message">{{ form.phones.errors.0 }}</div>
+                    {% endif %}
+                   
+                </div>
+                
+                <!-- 学院/部门 -->
+                <div class="form-group-custom">
+                    <label for="departmentInput" class="form-label-custom">
+                        学院/部门
+                    </label>
+                    <input type="text" 
+                           name="department" 
+                           class="form-input-custom" 
+                           id="departmentInput" 
+                           value=""
+                           placeholder="{% if user.department %}当前: {{ user.department_masked }}{% else %}请输入学院或部门名称{% endif %}"
+                           maxlength="100">
+                    {% if form.department.errors %}
+                    <div class="error-message">{{ form.department.errors.0 }}</div>
+                    {% endif %}
+                    
+                </div>
+                
+                <!-- 学号/工号 -->
+                <div class="form-group-custom">
+                    <label for="studentIdInput" class="form-label-custom">
+                        学号/工号
+                    </label>
+                    <input type="text" 
+                           name="student_id" 
+                           class="form-input-custom" 
+                           id="studentIdInput" 
+                           value=""
+                           placeholder="{% if user.student_id %}当前: {{ user.student_id_masked }}{% else %}请输入学号或工号{% endif %}"
+                           maxlength="50">
+                    {% if form.student_id.errors %}
+                    <div class="error-message">{{ form.student_id.errors.0 }}</div>
+                    {% endif %}
+                    
+                </div>
+                
+                <!-- 个人简介 -->
+                <div class="form-group-custom">
+                    <label for="profileInput" class="form-label-custom">
+                        个人简介
+                    </label>
+                    <textarea name="profile" 
+                              class="form-input-custom" 
+                              id="profileInput" 
+                              rows="5" 
+                              placeholder="写点什么介绍一下自己吧..."
+                              maxlength="200">{{ form.profile.value|default:'' }}</textarea>
+                    {% if form.profile.errors %}
+                    <div class="error-message">{{ form.profile.errors.0 }}</div>
+                    {% endif %}
+                    <div class="form-hint">
+                        <span id="charCount">0</span>/200 字
+                    </div>
+                </div>
+                
+                <!-- 操作按钮 -->
+                <div class="form-actions">
+                    <a href="{% url 'oauth:profile' %}" class="btn-secondary-custom">
+                        <i class="bi bi-x-lg"></i> 取消
+                    </a>
+                    <button type="submit" class="btn-primary-custom" id="submitBtn">
+                        <i class="bi bi-check-lg"></i> 保存修改
+                    </button>
+                </div>
+            </form>
         </div>
+        
+        
     </div>
 </div>
-<style>
-    .profile-form {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 20px;
-    }
+
+<script>
+(function() {
+    'use strict';
     
-    .invalid-feedback {
-        color: #dc3545;
-        font-size: 0.875em;
-        margin-top: 0.25rem;
-    }
+    // 配置
+    const CONFIG = {
+        MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
+        ALLOWED_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
+        ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+    };
     
-    .form-text {
-        font-size: 0.875em;
-        color: #6c757d;
-    }
-    </style>
+    // 元素引用
+    const elements = {
+        form: document.getElementById('profileForm'),
+        avatarInput: document.getElementById('avatarInput'),
+        avatarPreview: document.getElementById('avatarPreview'),
+        avatarError: document.getElementById('avatarError'),
+        uploadTip: document.getElementById('uploadTip'),
+        realNameInput: document.getElementById('realNameInput'),
+        phonesInput: document.getElementById('phonesInput'),
+        departmentInput: document.getElementById('departmentInput'),
+        studentIdInput: document.getElementById('studentIdInput'),
+        profileInput: document.getElementById('profileInput'),
+        charCount: document.getElementById('charCount'),
+        submitBtn: document.getElementById('submitBtn')
+    };
     
-    <script>
-    // 表单提交验证
-    document.querySelector('form').onsubmit = function(e) {
-        const avatarInput = document.getElementById('id_avatar');
-        const avatarPreview = document.getElementById('avatar-preview');
-        const avatarError = document.getElementById('avatar-error');
+    // 字符计数
+    function updateCharCount() {
+        const length = elements.profileInput.value.length;
+        elements.charCount.textContent = length;
         
-        // 只有在使用默认头像且没有选择新头像时才阻止提交
-        if (avatarPreview.src.includes('default.png') && !avatarInput.files.length) {
+        if (length > 200) {
+            elements.charCount.style.color = '#dc3545';
+        } else {
+            elements.charCount.style.color = '#6c757d';
+        }
+    }
+    
+    // 初始化字符计数
+    updateCharCount();
+    elements.profileInput.addEventListener('input', updateCharCount);
+    
+    // 文件大小格式化
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    
+    // 验证文件
+    function validateFile(file) {
+        const errors = [];
+        
+        // 检查文件类型
+        if (!CONFIG.ALLOWED_TYPES.includes(file.type)) {
+            errors.push('不支持的文件格式，请选择 JPG、PNG、GIF 或 WebP 格式的图片');
+        }
+        
+        // 检查文件扩展名（额外安全检查）
+        const fileName = file.name.toLowerCase();
+        const hasValidExtension = CONFIG.ALLOWED_EXTENSIONS.some(ext => fileName.endsWith(ext));
+        if (!hasValidExtension) {
+            errors.push('文件扩展名不正确');
+        }
+        
+        // 检查文件大小
+        if (file.size > CONFIG.MAX_FILE_SIZE) {
+            errors.push(`文件大小不能超过 ${formatFileSize(CONFIG.MAX_FILE_SIZE)}，当前文件: ${formatFileSize(file.size)}`);
+        }
+        
+        // 检查文件大小不能为0
+        if (file.size === 0) {
+            errors.push('文件不能为空');
+        }
+        
+        return errors;
+    }
+    
+    // 显示错误
+    function showErrorToast(message) {
+        elements.avatarError.textContent = message;
+        elements.avatarError.style.display = 'block';
+        elements.uploadTip.classList.remove('show');
+        elements.avatarInput.classList.add('is-invalid');
+    }
+    
+    // 清除错误
+    function clearError() {
+        elements.avatarError.style.display = 'none';
+        elements.avatarInput.classList.remove('is-invalid');
+    }
+    
+    // 头像文件选择处理
+    elements.avatarInput.addEventListener('change', function(e) {
+        const file = this.files[0];
+        
+        if (!file) {
+            elements.uploadTip.classList.remove('show');
+            return;
+        }
+        
+        // 验证文件
+        const errors = validateFile(file);
+        
+        if (errors.length > 0) {
+            showErrorToast(errors[0]);
+            this.value = ''; // 清除选择
+            showErrorMessage(errors[0]);
+            return;
+        }
+        
+        // 清除错误
+        clearError();
+        
+        // 预览图片
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            elements.avatarPreview.src = e.target.result;
+            elements.uploadTip.classList.add('show');
+        };
+        reader.onerror = function() {
+            showErrorToast('图片读取失败，请重试');
+            showErrorMessage('图片读取失败，请重试');
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    // 手机号验证
+    function validatePhone(phone) {
+        if (!phone) return true; // 空值允许
+        // 验证中国大陆手机号格式
+        const phonePattern = /^1[3-9]\d{9}$/;
+        return phonePattern.test(phone);
+    }
+    
+    // 表单提交验证
+    elements.form.addEventListener('submit', function(e) {
+        let hasError = false;
+        
+        // 验证真实姓名长度
+        const realNameValue = elements.realNameInput.value.trim();
+        if (realNameValue.length > 50) {
             e.preventDefault();
-            avatarError.style.display = 'block';
-            avatarInput.focus();
+            elements.realNameInput.classList.add('is-invalid');
+            showErrorMessage('真实姓名不能超过50个字符');
+            hasError = true;
+        } else {
+            elements.realNameInput.classList.remove('is-invalid');
+        }
+        
+        // 验证手机号格式
+        const phonesValue = elements.phonesInput.value.trim();
+        if (phonesValue && !validatePhone(phonesValue)) {
+            e.preventDefault();
+            elements.phonesInput.classList.add('is-invalid');
+            showErrorMessage('请输入有效的手机号码（11位数字，以1开头）');
+            hasError = true;
+        } else {
+            elements.phonesInput.classList.remove('is-invalid');
+        }
+        
+        // 验证简介长度
+        if (elements.profileInput.value.length > 200) {
+            e.preventDefault();
+            elements.profileInput.classList.add('is-invalid');
+            showErrorMessage('个人简介不能超过200个字符');
+            hasError = true;
+        } else {
+            elements.profileInput.classList.remove('is-invalid');
+        }
+        
+        // 如果有文件选择，再次验证
+        if (elements.avatarInput.files.length > 0) {
+            const errors = validateFile(elements.avatarInput.files[0]);
+            if (errors.length > 0) {
+                e.preventDefault();
+                showErrorToast(errors[0]);
+                showErrorMessage(errors[0]);
+                hasError = true;
+            }
+        }
+        
+        // 如果没有错误，显示提交中状态
+        if (!hasError) {
+            elements.submitBtn.disabled = true;
+            elements.submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 提交中...';
+        }
+    });
+    
+    // Toast 提示（使用全局 toast 函数）
+    function showErrorMessage(message) {
+        showToast(message, '错误', 5000, 'danger');
+    }
+    
+    // 防止重复提交
+    let isSubmitting = false;
+    elements.form.addEventListener('submit', function(e) {
+        if (isSubmitting) {
+            e.preventDefault();
             return false;
         }
-        
-        // 其他情况（已有头像或选择了新头像）允许提交
-        avatarError.style.display = 'none';
-        return true;
-    };
-    
-    // 文件选择处理
-    document.getElementById('id_avatar').onchange = function(e) {
-        const file = this.files[0];
-        const tipElement = document.getElementById('upload-tip');
-        const previewElement = document.getElementById('avatar-preview');
-        const errorElement = document.getElementById('avatar-error');
-        
-        if (file) {
-            // 检查文件大小（10MB）
-            if (file.size > 10 * 1024 * 1024) {
-                alert('文件大小不能超过10MB');
-                this.value = '';
-                tipElement.style.display = 'none';
-                errorElement.style.display = 'block';
-                return;
-            }
-    
-            // 预览图片
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                previewElement.src = e.target.result;
-                tipElement.style.display = 'inline';
-                errorElement.style.display = 'none';
-            }
-            reader.readAsDataURL(file);
-        } else {
-            tipElement.style.display = 'none';
-            // 如果是默认头像，显示错误信息
-            if (previewElement.src.includes('default.png')) {
-                errorElement.style.display = 'block';
-            }
-        }
-    };
-    </script>
-
+        isSubmitting = true;
+    });
+})();
+</script>
 {% endblock %}
-
-
-

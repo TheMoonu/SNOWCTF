@@ -1,0 +1,84 @@
+{% load static %}
+
+<!-- 创建者侧边栏 -->
+
+{% if quiz %}
+<!-- 竞赛信息卡片 -->
+<div class="card border-0 shadow-sm mb-3 rounded-6 ">
+    <div class="card-body">
+        <h6 class="mb-3"><i class="bi bi-info-circle text-primary"></i> 竞赛信息</h6>
+        <ul class="list-unstyled mb-0 small">
+            <li class="mb-2">
+                <strong>状态：</strong>
+                {% if quiz.is_active %}
+                <span class="state-label state-label-info">已激活</span>
+                {% else %}
+                <span class="state-label state-label-warning">未激活</span>
+                {% endif %}
+            </li>
+            <li class="mb-2">
+                <strong>题目数：</strong>{{ quiz.quiz_questions.count }} 题
+            </li>
+            <li class="mb-2">
+                <strong>总分：</strong>{{ quiz.total_score }} 分
+            </li>
+            <li class="mb-2">
+                <strong>时长：</strong>{{ quiz.duration }} 分钟
+            </li>
+            <li class="mb-2">
+                <strong>创建时间：</strong><br>{{ quiz.created_at|date:"Y-m-d H:i" }}
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- 快捷操作卡片 -->
+<div class="card border-0 shadow-sm mb-3 rounded-6 ">
+    <div class="card-body">
+        <h6 class="mb-3"><i class="bi bi-lightning text-warning"></i> 快捷操作</h6>
+        <div class="d-grid gap-2">
+            <a href="{% url 'quiz:creator_edit_quiz' quiz.slug %}" class="btn btn-sm btn-outline-primary btn-block">
+                <i class="bi bi-gear"></i> 竞赛设置
+            </a>
+            <a href="{% url 'quiz:quiz_statistics' quiz.slug %}" class="btn btn-sm btn-outline-info btn-block">
+                <i class="bi bi-bar-chart"></i> 数据统计
+            </a>
+            
+            <!-- 阅卷功能入口 -->
+            <a href="{% url 'quiz:quiz_grading' quiz.slug %}" class="btn btn-sm btn-outline-primary btn-block">
+                <i class="bi bi-pencil-square"></i> 阅卷管理
+                {% with pending_count=quiz.get_pending_grading_count %}
+                    {% if pending_count > 0 %}
+                        <span class="badge badge-light ml-1">{{ pending_count }}</span>
+                    {% endif %}
+                {% endwith %}
+            </a>
+            
+            {% if quiz.require_registration %}
+            <a href="{% url 'quiz:quiz_registrations' quiz.slug %}" class="btn btn-sm btn-outline-success btn-block">
+                <i class="bi bi-people"></i> 报名管理
+                {% with pending_count=quiz.get_pending_registrations_count %}
+                    {% if pending_count > 0 %}
+                        <span class="state-label state-label-warning ml-1">{{ pending_count }}</span>
+                    {% endif %}
+                {% endwith %}
+            </a>
+            {% endif %}
+            
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 帮助提示卡片 -->
+<div class="card border-0 shadow-sm rounded-6 mb-3">
+    <div class="card-body">
+        <h6 class="mb-3"><i class="bi bi-question-circle text-info"></i> 帮助提示</h6>
+        <ul class="mb-0 small text-muted">
+            <li class="mb-2">创建竞赛后，需要添加题目才能激活</li>
+            <li class="mb-2">可以自己创建题目，也可以从题库选择</li>
+            <li class="mb-2">激活竞赛后，用户才能看到和参加</li>
+            <li class="mb-2">可以随时查看数据统计和排行榜</li>
+        </ul>
+    </div>
+</div>

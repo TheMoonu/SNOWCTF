@@ -1,0 +1,223 @@
+{% extends 'public/base.html' %}
+{% load blog_tags static comment_tags %}
+{% load humanize %}
+
+{% block head_title %}{{ article.title }}_{{ article.topic }}{% endblock %}
+{% block metas %}
+    <meta name="description" content="{{ article.summary }}">
+    <meta name="keywords" content="{% keywords_to_str article %}">
+    {#SEO优化#}
+    <meta property="og:locale" content="zh_CN"/>
+    <meta property="og:site_name" content="{{ site_name }}"/>
+    <meta property="og:type" content="article"/>
+    <meta property="og:title" content="{{ article.title }}_{{ article.category }}"/>
+    <meta property="og:url" content="{{ site_url }}{{ article.get_absolute_url }}"/>
+    {% if article.img_link %}
+    <meta property="og:image" content="{{ site_url }}{{ article.img_link.url }}"/>
+    <meta property="og:image:secure_url" content="{{ site_url }}{{ article.img_link.url }}"/>
+    {% endif %}
+    <meta property="og:image:width" content="250"/>
+    <meta property="og:image:height" content="150"/>
+    <meta property="article:published_time"
+          content="{{ article.create_date | date:"Y-m-d" }}T{{ article.create_date | time:"H:i:s" }}+00:00"/>
+    <meta property="article:modified_time"
+          content="{{ article.update_date | date:"Y-m-d" }}T{{ article.update_date | time:"H:i:s" }}+00:00"/>
+    <meta name="twitter:card" content="summary"/>
+    <meta name="twitter:title" content="{{ article.title }}_{{ article.category }}"/>
+    {% if article.img_link %}
+    <meta name="twitter:image" content="{{ site_url }}{{ article.img_link.url }}"/>
+    {% endif %}
+    {#SEO优化#}
+{% endblock %}
+
+
+{% block top-file %}
+    <script>var stop_headroom = true;</script>
+    
+    {% if user.is_authenticated %}
+        <link href="{% static 'comment/css/simple_editor.css' %}" rel="stylesheet">
+    {% endif %}
+    <link href="{% static 'public/css/detail.css' %}?v=20260116.01" rel="stylesheet">
+    <link href="{% static 'public/css/monokai-2.css' %}?v=20240206.02" rel="stylesheet">
+    <link href="{% static 'comment/css/base_comment.css' %}?v=20190114.554" rel="stylesheet">
+    <style>
+        footer {
+            display: none;
+        }
+
+        .subject-col-7 {
+            margin-bottom: 1.2rem;
+        }
+    </style>
+{% endblock %}
+
+{% block base_content %}
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-lg-2 d-none d-lg-block subject-col-2 subject-block">
+                <div class="subject-list f-14 rounded-6">
+                    <div class="toc-title f-15"><strong>{{ article.topic.subject.name }}</strong></div>
+                    <div class="subject-article-list">
+                        <ul>
+                            {% for topic in article.topic.subject.get_topics %}
+                                {#只显示有文章的主题，展开文章所属的主题，前提主题收起来#}
+                                {% if topic.get_articles %}
+                                    <li>
+                                        <div class="subject-subcategory collapsible {% if topic != article.topic %}collapsed{% else %}active-subject{% endif %}">
+                                            <div class="subcategory-title">{{ topic.name }}</div>
+                                            <div class="caret">
+                                                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true"
+                                                     focusable="false"
+                                                     viewBox="0 0 24 24" class="caret-icon">
+                                                    <path d="M9,19c-0.3,0-0.5-0.1-0.7-0.3c-0.4-0.4-0.4-1,0-1.4l5.3-5.3L8.3,6.7c-0.4-0.4-0.4-1,0-1.4s1-0.4,1.4,0l6,6c0.4,0.4,0.4,1,0,1.4l-6,6C9.5,18.9,9.3,19,9,19z"></path>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <ul class="{% if topic != article.topic %}collapse{% endif %}">
+                                            {% for each in topic.get_articles %}
+                                                <li>
+                                                    <a class="{% if request.path == each.get_subject_absolute_url %}active{% endif %}"
+                                                       href="{{ each.get_subject_absolute_url }}">{{ each.get_topic_title }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-7 subject-col-7">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                        <li class="breadcrumb-item">
+                            <i class="fa fa-home mr-1"></i><a href="{% url 'blog:index' %}">WIKI空间</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{{ article.topic.subject.get_absolute_url }}">{{ article.topic.subject.name }}</a>
+                        </li>
+                        <li class="breadcrumb-item active d-none d-md-block" aria-current="page">
+                            {% if user.is_superuser or user == article.author %}
+                                <a class="edit-blog" href="{% url 'blog:article_edit' article.slug %}"
+                                   target="_blank" title="编辑文章">
+                                    {{ article.title|my_slice:":50" }}</a>
+                            {% else %}
+                                {{ article.title|my_slice:":50" }}
+                            {% endif %}
+
+                        </li>
+                        <li class="breadcrumb-item active d-md-none" aria-current="page">
+                            {% if user.is_superuser or user == article.author %}
+                                <a class="edit-blog" href="{% url 'blog:article_edit' article.slug %}"
+                                   target="_blank" title="编辑文章">当前文章</a>
+                            {% else %}
+                                当前文章
+                            {% endif %}
+                        </li>
+                    </ol>
+                </nav>
+                <div class="card rounded-6 border-0" id="article">
+                    <div class="card-body px-2 px-md-3 pb-0">
+                        <h1 class="card-title text-center font-weight-bold text-info">{{ article.title }}</h1>
+                        <hr>
+                        <div class="text-center f-13">
+                        <span class="mx-2" data-toggle="tooltip" data-placement="bottom"
+                              title="最后编辑于{{ article.update_date|date:'Y年m月d日' }}">发表于 {{ article.create_date|date:'Y年m月d日' }}</span>
+                            <span class="mx-2">阅读 {{ article.views }}</span>
+                            <span class="mx-2">评论 {{ article.article_comments.count }}</span>
+                        </div>
+                        <div class="article-body mt-4 f-17 markdown-content" style="line-height:1.8">
+                            {{ article.body|safe }}
+                        </div>
+                        <div class="tag-cloud my-4">
+                            {% for tag in article.tags.all %}
+                                <a class="tags f-16" href="{{ tag.get_absolute_url }}">#{{ tag.name }}</a>
+                            {% endfor %}
+                        </div>
+                       
+                    </div>
+                </div>
+                {% if article.get_pre or article.get_next %}
+                <div class="more-page-card my-4">
+                    <nav class="more-page f-16">
+                        <ul class="pagination justify-content-between">
+                            <li class="page-item">
+                                {% if article.get_pre %}
+                                    <a href="{{ article.get_pre.get_absolute_url }}"
+                                       data-toggle="tooltip" data-placement="top"
+                                       title="{{ article.get_pre.title }}">上一篇</a>
+                                {% endif %}
+                            </li>
+                            <li class="page-item">
+                                {% if article.get_next %}
+                                    <a href="{{ article.get_next.get_absolute_url }}"
+                                       data-toggle="tooltip" data-placement="top"
+                                       title="{{ article.get_next.title }}">下一篇</a>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+                <div class="card mt-2 rounded-6 border-0" id="comment-block">
+                    {% include 'comment/comment_form.html' %}
+                    {% get_parent_comments article as comment_list %}
+                    {% include 'comment/comment_list.html' %}
+                </div>
+            </div>
+            <div class="col-lg-2 d-none d-lg-block subject-col-2 toc-block">
+                <div class="article-toc f-14 rounded-6">
+                    <div class="toc-title f-15"><strong>大纲</strong></div>
+                    {{ article.toc|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--图片预览-->
+    <div class="modal fade" id="img-to-big" tabindex="-1" role="dialog" aria-labelledby="img-to-bigTitle"
+         aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 90%">
+            <img class="rounded mx-auto d-block" alt="image" style="max-width: 100%">
+        </div>
+    </div>
+
+    <!--跳转到评论按钮-->
+    <div class="text-center" id="go-to-com" title="查看评论" href="#comment-block"><i class="fa fa-commenting"></i></div>
+{% endblock %}
+
+{% block end_file %}
+    <script src="{% static 'public/js/markdown-code-copy.js' %}?v=20251231.01"></script>
+    <script>
+        {#文章里面的外链单独打开#}
+        const links = document.querySelectorAll('#article a');
+        links.forEach(link => {
+            link.setAttribute('target', '_blank');
+        });
+        {#第一个标题自动激活#}
+        document.addEventListener('DOMContentLoaded', function () {
+            const firstLi = document.querySelector('div.article-toc div.toc > ul > li > a:first-child');
+            if (firstLi) {
+                firstLi.classList.add('active');
+            }
+        });
+        {#专题导航点击事件#}
+        $(".collapsible").click(function () {
+            $(this).toggleClass("collapsed");
+            const parentElement = $(this).parent();
+            parentElement.children("ul").toggleClass("collapse");
+        });
+    </script>
+    {% if user.is_authenticated %}
+    <script src="{% static 'comment/js/simple_editor_article.js' %}"></script>
+    <script src="{% static 'comment/js/activate-power.js' %}?v=20180120"></script>
+    <script>
+        var sw = window.screen.width;
+        if (sw > 1200) {
+            POWERMODE.colorful = true;
+            POWERMODE.shake = false;
+            document.body.addEventListener('input', POWERMODE)
+        }
+    </script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,521 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load blog_tags %}
+
+{% block head_title %}WIKI 知识库{% endblock %}
+{% block metas %}
+<meta name="description" content="WIKI 知识库 - 技术文档与学习资源">
+<meta name="keywords" content="wiki,知识库,文档,技术学习">
+{% endblock %}
+
+{% block top-file %}
+<script>var stop_headroom = true;</script>
+<style>
+    :root {
+        --primary: #3a80f5;
+        --primary-dark: #2d6ad4;
+        --primary-light: rgba(58, 128, 245, 0.05);
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --bg-page: #f8fafc;
+        --border-color: rgba(226, 232, 240, 0.8);
+    }
+    
+    .wiki-container {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 1.5rem 2rem;
+    }
+    
+    /* 使用 Flexbox 布局，更加可控 */
+    .wiki-grid-layout {
+        display: flex;
+        gap: 2rem;
+        align-items: flex-start;
+    }
+    
+    /* 左侧主内容区 */
+    .wiki-main-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    /* 1. 搜索区 */
+    .search-section {
+        margin-bottom: 1.5rem;
+    }
+    
+    .search-input-group {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    
+    .search-input {
+        width: 100%;
+        height: 60px;
+        padding: 0 5rem 0 3.5rem;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        font-size: 1.05rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 10px 25px -5px rgba(58, 128, 245, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .search-icon-main {
+        position: absolute;
+        left: 1.25rem;
+        color: var(--text-muted);
+        font-size: 1.125rem;
+        pointer-events: none;
+    }
+    
+    .search-input:focus ~ .search-icon-main {
+        color: var(--primary);
+    }
+    
+    .search-action-btn {
+        position: absolute;
+        right: 0.625rem;
+        height: 44px;
+        padding: 0 1.5rem;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    /* 专题网格 */
+    .subjects-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+    }
+    
+    /* 2. 搜索结果 */
+    .results-section {
+        display: none;
+        margin-bottom: 1.5rem;
+    }
+    
+    .results-section.active {
+        display: block;
+    }
+    
+    .results-card {
+        background: white;
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    }
+    
+    .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.25rem;
+    }
+    
+    .close-results {
+        color: var(--text-muted);
+        background: var(--bg-page);
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        cursor: pointer;
+    }
+    
+    .result-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 12px;
+        text-decoration: none;
+        transition: all 0.2s;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .result-item:last-child { border-bottom: none; }
+    .result-item:hover { background: var(--bg-page); }
+    
+    .result-item .result-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .result-item .result-title {
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 0.375rem;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+    }
+    
+    .result-item .result-summary {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        line-height: 1.6;
+        margin-bottom: 0.5rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .result-item .result-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+    
+    /* 搜索关键字高亮样式 */
+    .result-item mark.search-highlight,
+    mark.search-highlight {
+        background: linear-gradient(120deg, #fef08a 0%, #fde047 100%);
+        color: #854d0e;
+        padding: 0.125rem 0.25rem;
+        border-radius: 3px;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .result-item .result-subject {
+        color: var(--primary);
+        background: var(--primary-light);
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-muted);
+    }
+    
+    .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-muted);
+    }
+    
+    /* 3. 专题卡片 */
+    .subject-card {
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .subject-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
+        border-color: var(--primary);
+    }
+    
+    .subject-cover {
+        height: 180px;
+        overflow: hidden;
+        background: #e2e8f0;
+    }
+    
+    .subject-cover img {
+        width: 100%; height: 100%; object-fit: cover;
+        transition: transform 0.6s ease;
+    }
+    
+    .subject-card:hover .subject-cover img { transform: scale(1.08); }
+    
+    .subject-info { padding: 1.5rem; flex-grow: 1; }
+    .subject-name { 
+        font-size: 1.125rem; font-weight: 700; color: var(--text-main); 
+        margin-bottom: 0.75rem; transition: color 0.3s;
+    }
+    
+    .subject-stats {
+        font-size: 0.75rem; font-weight: 600; color: var(--primary);
+        background: var(--primary-light);
+        padding: 0.375rem 0.75rem; border-radius: 8px;
+        display: inline-block; margin-bottom: 1rem;
+    }
+    
+    .subject-desc {
+        font-size: 0.875rem; color: var(--text-muted); line-height: 1.6;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    
+    /* 4. 侧边栏 */
+    .wiki-sidebar {
+        width: 320px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        position: sticky;
+        top: 1.5rem;
+        align-self: flex-start;
+        max-height: calc(100vh - 3rem);
+        overflow-y: auto;
+    }
+    
+    .sidebar-widget {
+        background: white;
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid var(--border-color);
+    }
+    
+    .ai-widget {
+        background: linear-gradient(135deg, #3a80f5 0%, #2563eb 100%);
+        color: white;
+        border: none;
+    }
+    
+    .ai-icon-box {
+        width: 44px; height: 44px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem; margin-bottom: 1rem;
+    }
+    
+    .ai-btn-white {
+        display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+        width: 100%; height: 44px; background: white; color: var(--primary);
+        border-radius: 10px; font-weight: 700; text-decoration: none;
+        margin-top: 1.25rem; transition: all 0.2s;
+    }
+    
+    .ai-btn-white:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1); }
+    
+    .stat-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 0.875rem 0; border-bottom: 1px solid #f1f5f9;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: var(--text-muted); font-size: 0.875rem; }
+    .stat-value { font-weight: 700; color: var(--text-main); }
+    
+    /* 响应式适配 */
+    @media (max-width: 1200px) {
+        .subjects-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .wiki-sidebar {
+            width: 280px;
+        }
+    }
+    
+    @media (max-width: 992px) {
+        .wiki-grid-layout {
+            flex-direction: column;
+        }
+        .subjects-grid {
+            grid-template-columns: 1fr;
+        }
+        .wiki-sidebar {
+            width: 100%;
+            order: -1;
+            position: static;
+            max-height: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="wiki-container">
+    <div class="wiki-grid-layout">
+        <!-- 左侧主内容区 -->
+        <div class="wiki-main-content">
+            <!-- 搜索区 -->
+            <section class="search-section">
+                <div class="search-input-group">
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        id="searchInput"
+                        placeholder="搜索您感兴趣的内容..."
+                        autocomplete="off">
+                    <i class="fa fa-search search-icon-main"></i>
+                    <button class="search-action-btn" onclick="searchDocs()">搜索</button>
+                </div>
+            </section>
+            
+            <!-- 搜索结果 (初始隐藏) -->
+            <section class="results-section" id="resultsSection">
+                <div class="results-card">
+                    <div class="results-header">
+                        <div style="font-weight:600;">搜索结果：<span id="searchQuery" style="color:var(--primary);"></span></div>
+                        <button class="close-results" onclick="clearSearch()"><i class="fa fa-times"></i> 清除</button>
+                    </div>
+                    <div id="resultsList"></div>
+                </div>
+            </section>
+            
+            <!-- 专题网格 -->
+            <div class="subjects-grid" id="subjectsGrid">
+                {% for subject in subjects %}
+                {% with first_article=subject.get_first_article %}
+                <a href="{% if first_article %}{{ first_article.get_subject_absolute_url }}{% else %}{{ subject.get_absolute_url }}{% endif %}" class="subject-card">
+                    <div class="subject-cover">
+                        <img src="{{ subject.cover_image.url }}" alt="{{ subject.name }}" loading="lazy">
+                    </div>
+                    <div class="subject-info">
+                        <h3 class="subject-name">{{ subject.name }}</h3>
+                        <div class="subject-stats">
+                            <i class="fa fa-folder-open-o"></i>
+                            <span>该专题有{{ subject.get_article_count }} 篇文章</span>
+                        </div>
+                        {% if subject.description %}
+                        <p class="subject-desc">{{ subject.description }}</p>
+                        {% endif %}
+                    </div>
+                </a>
+                {% endwith %}
+                {% endfor %}
+            </div>
+        </div>
+        
+     
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+async function searchDocs() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (!query) {
+        showToast('请输入搜索关键词');
+        return;
+    }
+    
+    if (query.length < 2) {
+        showToast('请输入至少2个字符进行搜索');
+        return;
+    }
+    
+    const resultsSection = document.getElementById('resultsSection');
+    const resultsList = document.getElementById('resultsList');
+    const subjectsGrid = document.getElementById('subjectsGrid');
+    
+    // 显示搜索结果区域，隐藏专题网格
+    resultsSection.classList.add('active');
+    subjectsGrid.style.display = 'none';
+    document.getElementById('searchQuery').textContent = `"${query}"`;
+    
+    // 显示加载动画
+    resultsList.innerHTML = '<div class="loading-spinner"><i class="fa fa-spinner fa-spin"></i> 搜索中...</div>';
+    
+    try {
+        const response = await fetch(`/wiki/wiki-search/?q=${encodeURIComponent(query)}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        if (!response.ok) {
+            throw new Error('搜索请求失败');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            resultsList.innerHTML = `<div class="no-results"><i class="fa fa-exclamation-circle"></i> ${data.message || '搜索失败'}</div>`;
+            return;
+        }
+        
+        if (data.results.length === 0) {
+            resultsList.innerHTML = '<div class="no-results"><i class="fa fa-search"></i><br><br>没有找到相关的 Wiki 文章</div>';
+            return;
+        }
+        
+        // 渲染搜索结果（使用高亮内容）
+        let listHtml = '';
+        data.results.forEach(article => {
+            // 使用高亮版本的标题和摘要
+            const displayTitle = article.title_highlighted || article.title;
+            const displaySummary = article.summary_highlighted || article.summary;
+            
+            listHtml += `
+                <a href="${article.url}" class="result-item">
+                    <div class="result-info">
+                        <div class="result-title">${displayTitle}</div>
+                        ${displaySummary ? `<div class="result-summary">${displaySummary}</div>` : ''}
+                        <div class="result-meta">
+                            ${article.subject ? `<span class="result-subject"><i class="fa fa-folder-o"></i> ${article.subject}</span>` : ''}
+                            <span><i class="fa fa-eye"></i> ${article.views}</span>
+                            <span><i class="fa fa-calendar-o"></i> ${article.create_date}</span>
+                        </div>
+                    </div>
+                    <i class="fa fa-chevron-right" style="color:#cbd5e1; font-size:0.875rem;"></i>
+                </a>`;
+        });
+        
+        resultsList.innerHTML = listHtml;
+        
+        // 显示搜索统计
+        if (data.total > data.results.length) {
+            resultsList.innerHTML += `
+                <div style="text-align:center; padding:1rem; color:var(--text-muted); font-size:0.875rem;">
+                    显示前 ${data.results.length} 条结果，共找到 ${data.total} 条
+                </div>`;
+        }
+        
+    } catch (error) {
+        console.error('搜索错误:', error);
+        resultsList.innerHTML = '<div class="no-results" style="color:#ef4444;"><i class="fa fa-exclamation-triangle"></i><br><br>搜索出错，请稍后重试</div>';
+    }
+}
+
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('resultsSection').classList.remove('active');
+    document.getElementById('subjectsGrid').style.display = 'grid';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('searchInput');
+    
+    // 回车键搜索
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            searchDocs();
+        }
+    });
+    
+    // 实时搜索提示（可选）
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        // 清除之前的定时器
+        clearTimeout(searchTimeout);
+        
+        // 如果输入为空，可以显示提示
+        if (query.length === 0) {
+            // 可以添加一些提示逻辑
+        } else if (query.length === 1) {
+            // 提示需要更多字符
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends 'blog/base.html' %}
+{% load blog_tags oauth_tags comment_tags %}
+{% load humanize %}
+{% load highlight %}
+
+{% block head_title %}文章搜索：{{ query }}{% endblock %}
+{% block metas %}
+    <meta name="description" content="文章搜索：{{ query }}，网站全文搜索功能，按照文章标题和内容建立索引，实现整站搜索，django-haystack全文搜索库的使用">
+    <meta name="keywords" content="{{ query }},全文搜索,django-haystack">
+{% endblock %}
+
+{% block base_content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                        <li class="breadcrumb-item">
+                            <i class="fa fa-home mr-1"></i><a href="{% url 'blog:index' %}">首页</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'blog:vulnerabilitywiki' %}">漏洞库</a>
+                        </li>
+                        
+                    </ol>
+                </nav>
+                {% include 'blog/tags/searchview.html' %}    
+                <div class="description bg-white px-3 pt-3 pb-1 mb-1 mb-sm-2 mb-md-3">
+                    <p class="float-right mb-0">共<span class="mx-2 text-info">{{ paginator.count }}</span>篇</p>
+                    <h1 class="f-17"><strong>当前搜索：{{ query }}</strong></h1>
+                    <p class="f-16">若您未检索到相应漏洞可能是由于其账号没有相关权限或者本库中不存在此漏洞信息。本库的漏洞信息、技术和工具仅供学习研究之用，禁止任何非法攻击他人网络系统和未授权的渗透测试，否则后果自负。</p>
+                </div>
+                {% if query %}
+                    <div class="summary-list">
+                        {% for article in search_list %}
+                            <div class="article-block">
+                                <div class="media mb-1 mb-sm-2 p-2 p-lg-3">
+                                    <div class="align-self-center rounded-6 mr-2 mr-lg-3 w-25 modal-open">
+                                        <a href="{{ article.object.get_absolute_url }}">
+                                            <img class="w-100 article-img" src="{{ article.object.img_link.url }}"
+                                                 alt="{{ article.object.title }}">
+                                        </a>
+                                    </div>
+                                    <div class="media-body">
+                                        <div class="text-muted mb-2 f-12">
+                                            {% get_user_avatar_tag article.object.author %}
+                                            <span>{{ article.object.author }}</span>
+                                            <span><i class="fa fa-calendar-times-o ml-2 mr-1"></i>
+                                                {{ article.object.create_date|naturaltime }}</span>
+                                        </div>
+                                        <h2 class="mt-0 font-weight-bold text-info f-17">
+                                            <a href="{{ article.object.get_absolute_url }}">
+                                                {% my_highlight article.object.title query %}</a>
+                                        </h2>
+                                        {% with article.object.body_to_markdown|safe as this_body %}
+                                            <p class="d-none d-sm-block mb-2 f-15">{% highlight this_body with query max_length 130 %}</p>
+                                            <p class="d-block d-sm-none mb-2 f-15">{% highlight this_body with query max_length 64 %}</p>
+                                        {% endwith %}
+                                        <div class="text-muted mb-0 f-12">
+                                            <a class="cate" href="{{ article.object.category.get_absolute_url }}"
+                                               title="查看当前分类下更多文章">
+                                                <i class="fa fa-book mr-1"></i>{{ article.object.category }}</a>
+                                            <span><i class="fa fa-eye ml-2 mr-1"></i>{{ article.object.views }}</span>
+                                            <a href="{{ article.object.get_absolute_url }}#comment-block"
+                                               title="查看文章评论">
+                                                <i class="fa fa-comments ml-2 mr-1"></i>{% get_comment_count article.object %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="p-3 mt-3 bg-white"><p>暂时没有文章!</p></div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                {% if is_paginated %}
+                    <div class="d-none d-md-block">{% load_pages 10 %}</div>
+                    <div class="d-md-none">{% load_pages 4 %}</div>
+                {% endif %}
+            </div>
+            <div class="col-lg-4">
+                {% include 'blog/tags/base_right.html' %}
+            </div>
+        </div>
+    </div>
+{% endblock %}

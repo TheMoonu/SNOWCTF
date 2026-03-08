@@ -1,0 +1,165 @@
+{% extends 'public/base.html' %}
+{% load blog_tags static comment_tags %}
+{% load humanize %}
+
+{% block head_title %}{{ article.title }}_{{ article.category }}{% endblock %}
+{% block metas %}
+    <meta name="description" content="{{ article.summary }}">
+    <meta name="keywords" content="{% keywords_to_str article %}">
+    {#SEO优化#}
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="{{ site_name }}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="{{ article.title }}_{{ article.category }}" />
+    <meta property="og:url" content="{{ site_url }}{{ article.get_absolute_url }}" />
+    {% if article.img_link %}
+    <meta property="og:image" content="{{ site_url }}{{ article.img_link.url }}" />
+    <meta property="og:image:secure_url" content="{{ site_url }}{{ article.img_link.url }}" />
+    {% endif %}
+    <meta property="og:image:width" content="250" />
+    <meta property="og:image:height" content="150" />
+    <meta property="article:published_time" content="{{ article.create_date | date:"Y-m-d" }}T{{ article.create_date | time:"H:i:s" }}+00:00" />
+    <meta property="article:modified_time" content="{{ article.update_date | date:"Y-m-d" }}T{{ article.update_date | time:"H:i:s" }}+00:00" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="{{ article.title }}_{{ article.category }}" />
+    {% if article.img_link %}
+    <meta name="twitter:image" content="{{ site_url }}{{ article.img_link.url }}" />
+    {% endif %}
+    {#SEO优化#}
+{% endblock %}
+
+
+{% block top-file %}
+    {#    <script>var stop_headroom = true;</script>#}
+    <link href="{% static 'public/css/detail.css' %}?v=20260116.01" rel="stylesheet">
+    {% if request.COOKIES.toggleTheme != "dark" %}
+    <link href="{% static 'public/css/monokai-2.css' %}?v=20240206.02" rel="stylesheet">
+    {% endif %}
+    <link href="{% static 'comment/css/base_comment.css' %}?v=20190114.554" rel="stylesheet">
+    {% if user.is_authenticated %}
+        <link href="{% static 'comment/css/simple_editor.css' %}" rel="stylesheet">
+    {% endif %}
+{% endblock %}
+
+{% block base_content %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-9">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                        <li class="breadcrumb-item">
+                            <i class="fa fa-home mr-1"></i><a href="{% url 'blog:index' %}">WIKI空间</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{{ article.category.get_absolute_url }}">{{ article.category }}</a>
+                        </li>
+                        <li class="breadcrumb-item active d-none d-md-block" aria-current="page">
+                            {% if user.is_superuser or user == article.author %}
+                                <a class="edit-blog" href="{% url 'blog:article_edit' article.slug %}"
+                                   target="_blank" title="编辑文章">
+                                    {{ article.title|my_slice:":50" }}</a>
+                            {% else %}
+                                {{ article.title|my_slice:":50" }}
+                            {% endif %}
+
+                        </li>
+                        <li class="breadcrumb-item active d-md-none" aria-current="page">
+                            {% if user.is_superuser or user == article.author %}
+                                <a class="edit-blog" href="{% url 'blog:article_edit' article.slug %}"
+                                   target="_blank" title="编辑文章">当前文章</a>
+                            {% else %}
+                                当前文章
+                            {% endif %}
+                        </li>
+                    </ol>
+                </nav>
+                <div class="card rounded-6 border-0" id="article">
+                    <div class="card-body px-2 px-md-3 pb-0">
+                        <h1 class="card-title text-center font-weight-bold text-info">{{ article.title }}</h1>
+                        <hr>
+                        <div class="text-center f-13">
+                        <span class="mx-2" data-toggle="tooltip" data-placement="bottom"
+                              title="最后编辑于{{ article.update_date|date:'Y年m月d日' }}">发表于 {{ article.create_date|date:'Y年m月d日' }}</span>
+                            <span class="mx-2">阅读 {{ article.views }}</span>
+                            <span class="mx-2">评论 {{ article.article_comments.count }}</span>
+                        </div>
+                        <div class="article-body mt-4 f-17 markdown-content" style="line-height:1.8">
+                            {{ article.body|safe }}
+                        </div>
+                        <div class="tag-cloud my-4">
+                            {% for tag in article.tags.all %}
+                                <a class="tags f-16" href="{{ tag.get_absolute_url }}">#{{ tag.name }}</a>
+                            {% endfor %}
+                        </div>
+                        
+                    </div>
+                </div>
+                <div class="card mt-2 rounded-6 border-0" id="comment-block">
+                    {% include 'comment/comment_form.html' %}
+                    {% get_parent_comments article as comment_list %}
+                    {% include 'comment/comment_list.html' %}
+                </div>
+            </div>
+            <div class="col-lg-3 ">
+                <div class="article-toc d-none d-lg-block f-14 rounded-6">
+                    <div class="toc-title f-15"><strong>大纲</strong></div>
+                    {{ article.toc|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--图片预览-->
+    <div class="modal fade" id="img-to-big" tabindex="-1" role="dialog" aria-labelledby="img-to-bigTitle"
+         aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 90%">
+            <img class="rounded mx-auto d-block" alt="image" style="max-width: 100%">
+        </div>
+    </div>
+    <!--前后文章-->
+    {% if article.get_pre %}
+        <div class="more-blog" id="icon-pre-blog">
+            <a href="{{ article.get_pre.get_absolute_url }}" title="上一篇：{{ article.get_pre.title }}">
+                <i class="fa fa-angle-left fa-3x"></i>
+            </a>
+        </div>
+    {% endif %}
+    {% if article.get_next %}
+        <div class="more-blog" id="icon-next-blog">
+            <a href="{{ article.get_next.get_absolute_url }}" title="下一篇：{{ article.get_next.title }}">
+                <i class="fa fa-angle-right fa-3x"></i>
+            </a>
+        </div>
+    {% endif %}
+    <!--跳转到评论按钮-->
+    <div class="text-center" id="go-to-com" title="查看评论" href="#comment-block"><i class="fa fa-commenting"></i></div>
+{% endblock %}
+
+{% block end_file %}
+    <script src="{% static 'public/js/markdown-code-copy.js' %}?v=20251231.01"></script>
+    <script>
+        {#文章里面的外链单独打开#}
+        const links = document.querySelectorAll('#article a');
+        links.forEach(link => {
+            link.setAttribute('target', '_blank');
+        });
+        {#第一个标题自动激活#}
+        document.addEventListener('DOMContentLoaded', function () {
+            const firstLi = document.querySelector('div.article-toc div.toc > ul > li > a:first-child');
+            if (firstLi) {
+                firstLi.classList.add('active');
+            }
+        });
+    </script>
+    {% if user.is_authenticated %}
+        <script src="{% static 'comment/js/simple_editor_article.js' %}"></script>
+        <script src="{% static 'comment/js/activate-power.js' %}?v=20180120"></script>
+        <script>
+            var sw = window.screen.width;
+            if (sw > 1200) {
+                POWERMODE.colorful = true;
+                POWERMODE.shake = false;
+                document.body.addEventListener('input', POWERMODE)
+            }
+        </script>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,54 @@
+{% load blog_tags oauth_tags comment_tags %}
+{% load humanize static %}
+<div class="summary-list">
+    {% for article in articles %}
+        
+        <div class="article-block">
+            
+            <div class="media mb-1 mb-sm-2 p-2 p-lg-3">
+                <div class="align-self-center rounded-6 mr-2 mr-lg-3 w-25 modal-open">
+                    <a href="{{ article.get_absolute_url }}">
+                        {% if article.img_link %}
+                        <img class="w-100 article-img" src="{{ article.img_link.url }}" alt="{{ article.title }}" onerror="this.src='{% static 'public/img/svg/illustrations/illustration-3.svg' %}'">
+                        {% else %}
+                        <img class="w-100 article-img" src="{% static 'public/img/svg/illustrations/illustration-1.svg' %}" alt="{{ article.title }}">
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="media-body">
+                    {% if article.is_top %}
+                        <img class="float-right top-article-img" src="{% static 'blog/img/TOP.png' %}">{% endif %}
+                    <div class="meta-container mb-2 f-12">
+                        {% get_user_avatar_tag article.author %}
+                        <a href="{% url 'public:profileViews' article.author.uuid %}" data-toggle="tooltip" data-placement="top"
+                        title="前往{{article.author}}个人主页"><span>{{ article.author }}</span></a>
+                        <span class="media-date">{{ article.create_date|naturaltime }}</span>
+                        <span class="media-tag-list">
+                            {% for tag in article.tags.all|slice:":4" %}
+                                <a class="media-tag" href="{{ tag.get_absolute_url }}">{{ tag.name }}</a>
+                                {% if not forloop.last %}<span class="media-tag-i">&#8226;</span>{% endif %}
+                            {% endfor %}
+                        </span>
+                    </div>
+                    <h2 class="mt-0 font-weight-bold text-info f-17">
+                        <a href="{{ article.get_absolute_url }}">{{ article.title }}</a>
+                    </h2>
+                    <p class="d-none d-sm-block mb-2 f-15">
+                        {{ article.summary|my_slice:':130' }}</p>
+                    <p class="d-block d-sm-none mb-2 f-15">
+                        {{ article.summary|my_slice:':64' }}</p>
+                    <div class="meta-container mb-0 f-12">
+                        <a class="cate" href="{{ article.category.get_absolute_url }}" title="查看当前分类下更多文章">
+                            <i class="fa fa-book mr-1"></i>{{ article.category }}</a>
+                        <span><i class="fa fa-eye ml-2 mr-1"></i>{{ article.views }}</span>
+                        <a href="{{ article.get_absolute_url }}#comment-block" title="查看文章评论">
+                            <i class="fa fa-comments ml-2 mr-1"></i>{% get_comment_count article %}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    {% empty %}
+        <div class="p-3 mt-3 bg-white"><p>暂时没有文章!</p></div>
+    {% endfor %}
+</div>

@@ -1,0 +1,30 @@
+{% extends "account/base.html" %}
+
+{% load i18n %}
+{% load static %}
+
+{% block head_title %}{% trans "社交账号登录失败" %}{% endblock %}
+{% block user_title %}{% trans "登录失败" %}{% endblock %}
+
+{% block content %}
+
+
+<div class="alert alert-danger">
+  <p class="mb-1">{% trans "在进行社交账号认证时发生了错误" %}</p>
+</div>
+
+<div class="error-help mt-4">
+  <h5>{% trans "可能的原因：" %}</h5>
+  <ul class="text-left">
+    <li>{% trans "您拒绝了授权请求" %}</li>
+    <li>{% trans "第三方账号权限不足" %}</li>
+    <li>{% trans "账号信息不完整（如缺少邮箱）" %}</li>
+    <li>{% trans "网络连接问题" %}</li>
+    <li>{% trans "认证服务暂时不可用" %}</li>
+  </ul>
+</div>
+
+<div class="text-center mt-4">
+  <a href="{% url 'account_login' %}" class="btn btn-primary btn-sm">{% trans "返回登录页" %}</a>
+</div>
+{% endblock %} 

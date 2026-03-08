@@ -1,0 +1,221 @@
+{% extends "competition/anime/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load blog_tags %}
+{% load com_tags %}
+
+{% block title %}{{ competition.title }} - 双赛道竞赛{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 隐藏导航栏标题（此页面有自己的标题） */
+.tech-competition-title-wrapper {
+    display: none !important;
+}
+
+/* 页面顶部装饰 - 浅色主题 */
+.dual-track-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 300px;
+    background: radial-gradient(ellipse at top, rgba(178, 185, 191, 0.15), transparent);
+    pointer-events: none;
+}
+
+.dual-track-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(178, 185, 191, 0.4), transparent);
+}
+
+/* Edge 浏览器：移除页面装饰渐变 */
+.edge-browser .dual-track-container::before,
+.edge-browser .dual-track-container::after {
+    display: none !important;
+}
+
+/* Edge 浏览器：简化标题样式 */
+.edge-browser .page-main-title {
+    background: none !important;
+    color: #1e293b !important;
+}
+
+/* Edge 浏览器：完全移除性能杀手 */
+.edge-browser .track-icon-wrapper {
+    width: 140px !important;
+    height: 140px !important;
+}
+
+/* 禁用 3D 效果 */
+.edge-browser .track-card,
+.edge-browser .track-icon-wrapper,
+.edge-browser .combined-ranking-section {
+    perspective: none !important;
+    backface-visibility: visible !important;
+    transform: none !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dual-track-container">
+    <!-- 页面标题 -->
+    <div class="page-header-section">
+        <h1 class="page-main-title">{{ competition.title }}</h1>
+        <p class="page-subtitle">选择您的挑战赛道，开启技术之旅</p>
+        <div class="header-divider"></div>
+    </div>
+    
+    <!-- 双赛道选择 -->
+    <div class="tracks-wrapper">
+        <!-- CTF赛道 -->
+        <div class="track-card ctf-track">
+            <!-- 状态标签 -->
+            <div class="track-inner">
+                <div class="track-header">
+                    <div class="track-icon-wrapper">
+                        <div class="track-glow-ring"></div>
+                        <div class="track-glow-ring"></div>
+                        <div class="track-glow-ring"></div>
+                        <div class="track-icon">
+                            <i class="fa fa-flag"></i>
+                        </div>
+                    </div>
+                    <h2 class="track-name">CTF 实操赛道</h2>
+                    <p class="track-description">
+                        实战攻防演练，挑战技术极限
+                    </p>
+                    <div class="track-features">
+                        <div class="feature-item">
+                            <i class="fa fa-code"></i>
+                            <span>真实环境</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fa fa-trophy"></i>
+                            <span>实时排名</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fa fa-puzzle-piece"></i>
+                            <span>多维挑战</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="track-action">
+                    <a href="{% url 'competition:com_index' competition.slug %}" class="track-enter-btn">
+                        <span class="btn-text">
+                            <i class="fa fa-rocket"></i>
+                            进入赛道
+                        </span>
+                        <span class="btn-shine"></span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 理论赛道 -->
+        <div class="track-card theory-track">
+            <!-- 状态标签 -->
+
+            <div class="track-inner">
+                <div class="track-header">
+                    <div class="track-icon-wrapper">
+                        <div class="track-glow-ring"></div>
+                        <div class="track-glow-ring"></div>
+                        <div class="track-glow-ring"></div>
+                        <div class="track-icon">
+                            <i class="fa fa-book"></i>
+                        </div>
+                    </div>
+                    <h2 class="track-name">理论知识赛道</h2>
+                    <p class="track-description">
+                        系统理论学习，构建知识体系
+                    </p>
+                    <div class="track-features">
+                        <div class="feature-item">
+                            <i class="fa fa-lightbulb-o"></i>
+                            <span>知识体系</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fa fa-graduation-cap"></i>
+                            <span>专业认证</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fa fa-line-chart"></i>
+                            <span>进度追踪</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="track-action">
+                    <a href="{% url 'quiz:quiz_detail' competition.related_quiz.slug %}" class="track-enter-btn">
+                        <span class="btn-text">
+                            <i class="fa fa-pencil"></i>
+                            进入赛道
+                        </span>
+                        <span class="btn-shine"></span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 综合排行榜入口 -->
+    {% if competition.end_time < now %}
+    <div class="combined-ranking-section">
+        <div class="ranking-icon-wrapper">
+            <i class="fa fa-trophy"></i>
+        </div>
+        <h3 class="combined-ranking-title">综合排行榜</h3>
+        <p class="combined-ranking-desc">
+            双赛道成绩综合评定，展现您的全面实力
+        </p>
+        <div class="ranking-stats">
+            <div class="stat-item">
+                <i class="fa fa-users"></i>
+                <span>全部参赛者</span>
+            </div>
+            <div class="stat-item">
+                <i class="fa fa-star"></i>
+                <span>综合评分</span>
+            </div>
+            <div class="stat-item">
+                <i class="fa fa-certificate"></i>
+                <span>荣誉排名</span>
+            </div>
+        </div>
+        <a href="{% url 'competition:combined_rankings' competition.slug %}" class="combined-ranking-btn">
+            <span class="btn-text">
+                <i class="fa fa-bar-chart"></i>
+                查看综合排名
+            </span>
+            <span class="btn-shine"></span>
+        </a>
+    </div>
+    {% else %}
+    <div class="combined-ranking-section ranking-locked">
+        <div class="ranking-icon-wrapper">
+            <i class="fa fa-trophy"></i>
+        </div>
+        <h3 class="combined-ranking-title">综合排行榜</h3>
+        <p class="combined-ranking-desc">
+            比赛结束后将开放综合排行榜，敬请期待
+        </p>
+        <button class="combined-ranking-btn" disabled>
+            <span class="btn-text">
+                <i class="fa fa-lock"></i>
+                比赛结束后查看
+            </span>
+        </button>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

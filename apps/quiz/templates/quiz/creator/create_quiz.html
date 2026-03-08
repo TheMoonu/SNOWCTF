@@ -1,0 +1,376 @@
+{% extends 'public/base.html' %}
+{% load static %}
+
+{% block head_title %}创建新竞赛{% endblock %}
+
+{% block top-file %}
+<style>
+/* 图片上传区域样式 */
+.quiz-cover-upload {
+    position: relative;
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    background: #f8f9fa;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.upload-area:hover {
+    border-color: #007bff;
+    background: #f0f7ff;
+}
+
+.upload-area.drag-over {
+    border-color: #007bff;
+    background: #e3f2fd;
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    font-size: 48px;
+    color: #6c757d;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.upload-text {
+    font-size: 15px;
+    color: #495057;
+    margin: 0;
+}
+
+.upload-area input[type="file"] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.upload-content {
+    position: relative;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* 图片预览样式 */
+.image-preview {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #ffffff;
+    max-height: 300px;
+}
+
+.image-preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-height: 300px;
+    object-fit: contain;
+}
+
+.preview-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(137, 188, 255, 0.7);
+    padding: 12px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.image-preview:hover .preview-overlay {
+    opacity: 1;
+}
+
+.preview-overlay .btn {
+    padding: 6px 16px;
+    font-size: 14px;
+}
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container mb-5">
+    <div class="row">
+        <!-- 左侧：创建表单 -->
+        <div class="col-lg-9">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'quiz:quiz_list' %}">知识竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'quiz:my_quizzes' %}">我的竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item active">创建竞赛</li>
+                </ol>
+            </nav>
+            
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h4 class="mb-4">
+                        <i class="bi bi-plus-circle text-primary"></i> 创建新竞赛
+                    </h4>
+                    
+                    <form method="post" id="createQuizForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- 竞赛标题 -->
+                        <div class="form-group mb-3">
+                            <label class="font-weight-bold">{{ form.title.label }}</label>
+                            {{ form.title }}
+                            {% if form.title.help_text %}
+                            <small class="form-text text-muted">{{ form.title.help_text }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 竞赛封面图片 -->
+                        <div class="form-group mb-3">
+                            <label class="font-weight-bold">{{ form.cover_image.label }}</label>
+                            <div class="quiz-cover-upload">
+                                <!-- 拖拽上传区域 -->
+                                <div class="upload-area" id="uploadArea">
+                                    <div class="upload-content">
+                                        <i class="bi bi-cloud-upload upload-icon"></i>
+                                        <p class="upload-text mb-1">拖拽图片到此处，或<span class="text-primary">点击上传</span></p>
+                                        <small class="text-muted">{{ form.cover_image.help_text }}</small>
+                                    </div>
+                                    <!-- 隐藏的文件输入 -->
+                                    {{ form.cover_image }}
+                                </div>
+                                
+                                <!-- 图片预览区域 -->
+                                <div class="image-preview d-none" id="imagePreview">
+                                    <img id="previewImg" src="" alt="封面预览">
+                                    <div class="preview-overlay">
+                                        <button type="button" class="btn btn-sm btn-light" onclick="changeImage()">
+                                            <i class="bi bi-arrow-repeat"></i> 更换
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="removeImage()">
+                                            <i class="bi bi-trash"></i> 删除
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label class="font-weight-bold">{{ form.description.label }}</label>
+                            {{ form.description }}
+                            {% if form.description.help_text %}
+                            <small class="form-text text-muted">{{ form.description.help_text }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 时长和次数 -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="font-weight-bold">{{ form.duration.label }}</label>
+                                    {{ form.duration }}
+                                    {% if form.duration.help_text %}
+                                    <small class="form-text text-muted">{{ form.duration.help_text }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="font-weight-bold">{{ form.max_attempts.label }}</label>
+                                    {{ form.max_attempts }}
+                                    {% if form.max_attempts.help_text %}
+                                    <small class="form-text text-muted">{{ form.max_attempts.help_text }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 验证码 -->
+                        <div class="form-group mb-4">
+                            <label class="font-weight-bold d-block mb-2">验证码</label>
+                            <div class="d-flex align-items-center gap-3" style="gap: 12px;">
+                                <!-- 验证码图片 -->
+                                <div style="flex-shrink: 0;">
+                                    <img id="captcha_image" src="" alt="验证码" 
+                                        class="border rounded" 
+                                        style="height: 40px; min-width: 120px; background: #f8f9fa; cursor: pointer;"
+                                        onclick="refreshCaptcha()"
+                                        title="点击刷新验证码">
+                                </div>
+                                
+                                
+                                
+                                <!-- 验证码输入框 -->
+                                <div style="flex: 1; min-width: 0;">
+                                    <input type="text" 
+                                           name="captcha_value" 
+                                           class="form-control" 
+                                           placeholder="请输入验证码" 
+                                           style="height: 40px;"
+                                           required 
+                                           autocomplete="off">
+                                </div>
+                            </div>
+                            <input type="hidden" id="captcha_key" name="captcha_key">
+                            <small class="form-text text-muted mt-2">
+                                <i class="bi bi-info-circle"></i> 点击验证码图片可更换验证码
+                            </small>
+                        </div>
+                        
+                        <!-- 提交按钮 -->
+                        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                            <a href="{% url 'quiz:my_quizzes' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> 取消
+                            </a>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-check-circle"></i> 创建竞赛
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧：侧边栏 -->
+        <div class="col-lg-3">
+            {% include 'quiz/creator/tags/creator_sidebar.html' %}
+        </div>
+    </div>
+</div>
+
+<script>
+// 加载验证码
+function refreshCaptcha() {
+    fetch('{% url "quiz:get_create_captcha" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('captcha_image').src = data.captcha_image;
+                document.getElementById('captcha_key').value = data.captcha_key;
+            } else {
+                showWarningToast('加载验证码失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            showWarningToast('加载验证码失败，请刷新页面重试');
+        });
+}
+
+// 图片上传功能
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.querySelector('input[type="file"][name="cover_image"]');
+const imagePreview = document.getElementById('imagePreview');
+const previewImg = document.getElementById('previewImg');
+
+// 点击上传区域触发文件选择（fileInput 已通过 CSS 透明覆盖，会自然触发）
+// 但为了兼容性，保留备用触发方式
+uploadArea.addEventListener('click', function(e) {
+    // 如果点击的不是文件输入框本身（已透明覆盖），则手动触发
+    if (!e.target.matches('input[type="file"]')) {
+        fileInput.click();
+    }
+});
+
+// 文件选择事件
+fileInput.addEventListener('change', function(e) {
+    if (this.files.length > 0) {
+        handleFile(this.files[0]);
+    }
+});
+
+// 拖拽事件
+uploadArea.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    uploadArea.classList.add('drag-over');
+});
+
+uploadArea.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+});
+
+uploadArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        // 手动设置文件到 input
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(files[0]);
+        fileInput.files = dataTransfer.files;
+        
+        handleFile(files[0]);
+    }
+});
+
+// 处理文件
+function handleFile(file) {
+    if (!file) {
+        showWarningToast('没有选择文件');
+        return;
+    }
+
+    
+    // 验证文件类型（注意：某些浏览器对 .jpg 文件返回 image/jpeg）
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'svg'];
+    
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+        showWarningToast('请上传 JPG、PNG、WEBP 或 SVG 格式的图片');
+        return;
+    }
+    
+    // 验证文件大小 (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showWarningToast('图片大小不能超过 5MB');
+        return;
+    }
+    
+    // 预览图片
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        previewImg.src = e.target.result;
+        uploadArea.classList.add('d-none');
+        imagePreview.classList.remove('d-none');
+    };
+    reader.onerror = function(e) {
+        showWarningToast('图片读取失败，请重试');
+    };
+    reader.readAsDataURL(file);
+}
+
+// 更换图片
+function changeImage() {
+    fileInput.click();
+}
+
+// 删除图片
+function removeImage() {
+    fileInput.value = '';
+    previewImg.src = '';
+    uploadArea.classList.remove('d-none');
+    imagePreview.classList.add('d-none');
+}
+
+// 页面加载时获取验证码
+document.addEventListener('DOMContentLoaded', function() {
+    refreshCaptcha();
+});
+</script>
+{% endblock %}

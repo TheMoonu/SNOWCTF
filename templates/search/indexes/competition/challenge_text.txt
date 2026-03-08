@@ -1,0 +1,6 @@
+{{ object.title }}
+{{ object.category }}
+{{ object.difficulty }}
+{% for tag in object.tags.all %}
+{{ tag.name }}
+{% endfor %}

@@ -1,0 +1,120 @@
+{% extends 'competition/tech/base.html' %}
+{% load static %}
+
+{% block title %}{{competition.title }} - 团队排行榜{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'practice/css/practice.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="tech-ranking-card">
+            <div class="tech-ranking-header">
+                <div class="tech-header-content">
+                    <h5 class="tech-ranking-title">
+                        <i class="fa fa-trophy"></i> 团队排行榜
+                    </h5>
+                    {% if is_team_competition %}
+                    <div class="tech-tab-group">
+                        <a href="{% url 'competition:rankings' competition.slug 'individual' %}" 
+                           class="tech-tab-btn">
+                            <i class="fa fa-user"></i> 个人排行
+                        </a>
+                        <a href="{% url 'competition:rankings' competition.slug 'team' %}" 
+                           class="tech-tab-btn tech-tab-active">
+                            <i class="fa fa-users"></i> 队伍排行
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="tech-ranking-body">
+                <table class="tech-ranking-table team-ranking">
+                    <thead>
+                        <tr>
+                            <th class="tech-rank-col">排名</th>
+                            <th class="tech-user-col">队伍名称</th>
+                            <th class="tech-score-col">成员数</th>
+                            <th class="tech-score-col">解题数</th>
+                            <th class="tech-score-col">总得分</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rank in rankings %}
+                        <tr>
+                            <td class="tech-rank-col">
+                                <span class="pr-rank-number">{{ forloop.counter }}</span>
+                            </td>
+                            <td class="tech-user-col">
+                                <div class="tech-user-info">
+                                    <div class="tech-user-avatar-placeholder">
+                                        <i class="fa fa-users"></i>
+                                    </div>
+                                    <span class="tech-user-name text-truncate" title="{{ rank.team.name }}">
+                                        {{ rank.team.name }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="tech-score-col">
+                                <i class="fa fa-user mr-1"></i>{{ rank.team.members.count }}
+                            </td>
+                            <td class="tech-score-col tech-solved-count">{{ rank.solved_challenges.count }}</td>
+                            <td class="tech-score-col tech-points">{{ rank.score }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="tech-empty-message">
+                                <i class="fa fa-info-circle"></i> 暂无排名数据
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页 -->
+            {% if is_paginated %}
+            <div class="tech-ranking-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="tech-pagination-info">
+                        共 {{ paginator.count }} 条记录，第 {{ page_obj.number }} / {{ paginator.num_pages }} 页
+                    </div>
+                    <nav aria-label="排行榜分页">
+                        <ul class="pagination pagination-sm mb-0">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page in paginator.page_range %}
+                                {% if page_obj.number == page %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page }}</span>
+                                    </li>
+                                {% elif page == "..." %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page }}">{{ page }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+

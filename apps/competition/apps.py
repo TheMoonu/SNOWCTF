@@ -4,7 +4,7 @@ from django.apps import AppConfig
 class CompetitionConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'competition'
-    verbose_name = '比赛管理'
+    verbose_name = 'CTF竞赛'
 
     def ready(self):
-        import competition.signals
+        from . import signals

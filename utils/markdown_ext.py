@@ -1,0 +1,276 @@
+import re
+import uuid
+
+from markdown.blockprocessors import BlockProcessor
+from markdown.inlinepatterns import InlineProcessor
+from markdown.extensions import Extension
+import xml.etree.ElementTree as etree
+
+
+def get_id():
+    random_value = uuid.uuid4()
+    random_value_str = str(random_value)[-12:]
+    return random_value_str
+
+
+class DelInlineProcessor(InlineProcessor):
+    def handleMatch(self, m, data):
+        el = etree.Element('del')
+        el.text = m.group(1)
+        return el, m.start(0), m.end(0)
+
+
+class DelExtension(Extension):
+    """
+    删除文本
+    匹配：~~删除~~
+    输出：<del>删除</del>
+    """
+
+    def extendMarkdown(self, md):
+        DEL_PATTERN = r'~~(.*?)~~'  # like ~~del~~
+        md.inlinePatterns.register(DelInlineProcessor(DEL_PATTERN, md), 'del', 180)
+
+
+class IconInlineProcessor(InlineProcessor):
+    def handleMatch(self, m, data):
+        text = m.group(1)
+        el = etree.Element('i')
+        el.set('class', 'fa fa-{}'.format(text.replace('icon:', '')))
+        return el, m.start(0), m.end(0)
+
+
+class IconExtension(Extension):
+    """
+    渲染图标
+    匹配：icon:exclamation-triangle
+    输出：<i class="fa fa-exclamation-triangle"></i>
+    """
+
+    def extendMarkdown(self, md):
+        DEL_PATTERN = r'(icon:[a-z-]+)'
+        md.inlinePatterns.register(IconInlineProcessor(DEL_PATTERN, md), 'icon', 179)
+
+
+class AlertBlockProcessor(BlockProcessor):
+    # 匹配 ::: 类型 [标题]（支持前导换行）
+    RE_FENCE_START = r'\n*:{3,}\s*(primary|secondary|success|danger|warning|info)\s*.*'
+    RE_FENCE_END = r'\n*:{3,}\s*$'
+
+    icon_dict = {
+        'primary': 'info-circle',
+        'secondary': 'info-circle',
+        'success': 'info-circle',
+        'danger': 'warning',
+        'warning': 'warning',
+        'info': 'info-circle'
+    }
+
+    def test(self, parent, block):
+        return re.match(self.RE_FENCE_START, block)
+
+    def run(self, parent, blocks):
+        original_block = blocks[0]
+        
+        # 提取类型和标题
+        first_line = original_block.split('\n')[0] if '\n' in original_block else original_block
+        parts = first_line.strip().split(None, 2)  # 按空格分割，最多3部分
+        
+        if len(parts) < 2:
+            return False
+        
+        alert_type = parts[1]  # 类型（primary/warning/等）
+        title = parts[2] if len(parts) == 3 else ''  # 标题（可选）
+        
+        blocks[0] = re.sub(self.RE_FENCE_START, '', blocks[0])
+        # print(blocks[0])
+
+        # Find block with ending fence
+        for block_num, block in enumerate(blocks):
+            if re.search(self.RE_FENCE_END, block):
+                # remove fence
+                blocks[block_num] = re.sub(self.RE_FENCE_END, '', block)
+                # render fenced area inside a new div
+                e = etree.SubElement(parent, 'div')
+                e.set('class', f'alert alert-{alert_type}')
+                e.set('role', 'alert')
+                
+                # 如果有标题，添加标题部分
+                if title:
+                    title_elm = etree.Element('p')
+                    strong_tag = etree.Element('strong')
+                    icon_elm = etree.Element('i')
+                    icon_elm.set('class', f"fa fa-{self.icon_dict.get(alert_type, 'info-circle')} mr-1")
+                    strong_tag.append(icon_elm)
+                    span_elm = etree.Element('span')
+                    span_elm.text = title
+                    strong_tag.append(span_elm)
+                    title_elm.append(strong_tag)
+                    e.insert(0, title_elm)
+                
+                # 解析内容
+                self.parser.parseBlocks(e, blocks[0:block_num + 1])
+                # remove used blocks
+                for i in range(0, block_num + 1):
+                    blocks.pop(0)
+                return True
+        # No closing marker!  Restore and do nothing
+        blocks[0] = original_block
+        return False
+
+
+class AlertExtension(Extension):
+    """
+    生产Alert块
+    """
+
+    def extendMarkdown(self, md):
+        # 优先级设置为 105，高于代码块(100)和引用块(90)，确保先于段落处理器(10)
+        md.parser.blockprocessors.register(AlertBlockProcessor(md.parser), 'alert', 105)
+
+
+class CodeGroupBlockProcessor(BlockProcessor):
+    RE_FENCE_START = r'\n*:{4,}\s*code-group\s*'
+    RE_FENCE_END = r'\n*:{4,}\s*$'
+
+    def test(self, parent, block):
+        return re.match(self.RE_FENCE_START, block)
+
+    def run(self, parent, blocks):
+        original_block = blocks[0]
+        blocks[0] = re.sub(self.RE_FENCE_START, '', blocks[0])
+
+        # Find block with ending fence
+        for block_num, block in enumerate(blocks):
+            # print(re.search(self.RE_FENCE_END, block), block)
+            if re.search(self.RE_FENCE_END, block):
+                # remove fence
+                blocks[block_num] = re.sub(self.RE_FENCE_END, '', block)
+                # render fenced area inside a new div
+                e = etree.SubElement(parent, 'div')
+                e.set('class', 'tab-content code-group')
+                e.set('id', f'nav-{get_id()}')
+                self.parser.parseBlocks(e, blocks[0:block_num + 1])
+                # remove used blocks
+                for i in range(0, block_num + 1):
+                    blocks.pop(0)
+                return True  # or could have had no return statement
+        # No closing marker!  Restore and do nothing
+        blocks[0] = original_block
+        return False  # equivalent to our test() routine returning False
+
+
+class CodeItemBlockProcessor(BlockProcessor):
+    RE_FENCE_START = r'\n*:{3,}\s*code-item\s*.*\s*'
+    RE_FENCE_END = r'\n*:{3,}\s*$'
+
+    def test(self, parent, block):
+        return re.match(self.RE_FENCE_START, block)
+
+    def run(self, parent, blocks):
+        original_block = blocks[0]
+        first_block_list = original_block.split()
+        if len(first_block_list) != 3:
+            return False
+        code_name = first_block_list[2]
+        blocks[0] = re.sub(self.RE_FENCE_START, '', blocks[0])
+
+        # Find block with ending fence
+        for block_num, block in enumerate(blocks):
+            # print(re.search(self.RE_FENCE_END, block), block)
+            if re.search(self.RE_FENCE_END, block):
+                # remove fence
+                blocks[block_num] = re.sub(self.RE_FENCE_END, '', block)
+                # render fenced area inside a new div
+                code_id = get_id()
+                e = etree.SubElement(parent, 'div')
+                e.set('class', 'tab-pane fade')
+                e.set('id', f'nav-{code_id}')
+                e.set('role', 'tabpanel')
+                e.set('data-code-id', code_id)
+                e.set('data-code-name', code_name)
+                e.set('aria-labelledby', f'nav-{code_id}-tab')
+                self.parser.parseBlocks(e, blocks[0:block_num + 1])
+                # remove used blocks
+                for i in range(0, block_num + 1):
+                    blocks.pop(0)
+                return True  # or could have had no return statement
+        # No closing marker!  Restore and do nothing
+        blocks[0] = original_block
+        return False  # equivalent to our test() routine returning False
+
+
+class CodeGroupExtension(Extension):
+
+    def extendMarkdown(self, md):
+        # 优先级设置为 107，高于代码块处理器
+        md.parser.blockprocessors.register(CodeGroupBlockProcessor(md.parser), 'code-group', 107)
+
+
+class CodeItemExtension(Extension):
+
+    def extendMarkdown(self, md):
+        # 优先级设置为 106，高于代码块处理器，但低于 code-group
+        md.parser.blockprocessors.register(CodeItemBlockProcessor(md.parser), 'code-item', 106)
+
+
+if __name__ == '__main__':
+    import markdown
+    from markdown.extensions.codehilite import CodeHiliteExtension
+    from markdown.extensions.toc import TocExtension  # 锚点的拓展
+    from pygments.formatters.html import HtmlFormatter
+
+
+    class CustomHtmlFormatter(HtmlFormatter):
+        def __init__(self, lang_str='', **options):
+            super().__init__(**options)
+            # lang_str has the value {lang_prefix}{lang}
+            # specified by the CodeHilite's options
+            self.lang_str = lang_str
+
+        def _wrap_code(self, source):
+            yield 0, f'<code class="{self.lang_str}">'
+            yield from source
+            yield 0, '</code>'
+
+
+    mkd = markdown.Markdown(extensions=[
+        'markdown.extensions.extra',
+        'markdown_checklist.extension',
+        CodeHiliteExtension(pygments_formatter=CustomHtmlFormatter),
+        DelExtension(),
+        IconExtension(),
+        AlertExtension(),
+        CodeGroupExtension(),
+        CodeItemExtension(),
+    ])
+
+    t = '''
+:::: code-group
+
+::: code-item rule.py
+
+```python
+import requests
+
+def test():
+    return
+```
+:::
+
+::: code-item main.go
+
+```go
+import "fmt"
+
+func main(){
+    return 1 
+}
+```
+:::
+
+::::
+    '''
+
+    html = mkd.convert(t)
+    print(html)

@@ -1,0 +1,228 @@
+{% extends 'public/base.html' %}
+{% load static %}
+
+{% block head_title %}题库添加 - {{ quiz.title }}{% endblock %}
+
+{% block top-file %}
+<!-- 确保引入toast.js -->
+<script src="{% static 'public/js/toast.js' %}"></script>
+{% endblock %}
+{% block base_content %}
+<div class="container mb-5">
+    <div class="row">
+        <!-- 左侧：题库列表 -->
+        <div class="col-lg-9">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'quiz:quiz_list' %}">知识竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'quiz:my_quizzes' %}">我的竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'quiz:creator_edit_quiz' quiz.slug %}">{{ quiz.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">从题库添加</li>
+                </ol>
+            </nav>
+            
+         
+            
+            {% if questions %}
+            <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 dynamic-table" style="table-layout: fixed;">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th style="width: 80px;">类型</th>
+                                    <th style="width: auto;">题目内容</th>
+                                    <th style="width: 80px;" class="text-center">分数</th>
+                                    <th style="width: 80px;" class="text-center">难度</th>
+                                    <th style="width: 100px;" class="text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for question in questions %}
+                                <tr class="question-row" id="question-row-{{ question.id }}">
+                                    <td>
+                                        <span class="text-primary small">{{ question.get_question_type_display }}</span>
+                                    </td>
+                                    <td>
+                                        <div style="max-width: 500px; word-break: break-all; white-space: normal; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                                            {{ question.content|striptags|truncatewords:20 }}
+                                        </div>
+                                        <div class="small text-muted mt-1">
+                                            <i class="bi bi-list"></i> {{ question.options.count }} 个选项
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="text-muted">{{ question.score }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="text-muted small">{{ question.get_difficulty_display }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-success" 
+                                                onclick="addQuestion({{ question.id }}, this)"
+                                                id="btn-{{ question.id }}">
+                                            <i class="bi bi-plus"></i> 添加
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 分页 -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Page navigation" class="mt-3">
+                <ul class="pagination pagination-sm justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">上一页</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if num == 1 or num == page_obj.paginator.num_pages or num == page_obj.number or num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">下一页</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            {% else %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <h5 class="mt-3 mb-2">暂无可添加的题目</h5>
+                    <p class="text-muted mb-0">所有题目都已添加到竞赛中，或题库为空</p>
+                    <a href="{% url 'quiz:create_question' quiz.slug %}" class="btn btn-primary mt-3">
+                        <i class="bi bi-plus-circle"></i> 创建新题目
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- 右侧：侧边栏 -->
+        <div class="col-lg-3">
+            {% include 'quiz/creator/tags/creator_sidebar.html' %}
+        </div>
+    </div>
+</div>
+
+<style>
+.question-row {
+    transition: background-color 0.2s ease;
+}
+.question-row:hover {
+    background-color: #f8f9fa !important;
+}
+.question-row.added {
+    opacity: 0.5;
+    pointer-events: none;
+}
+.table thead th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #495057;
+}
+.table td {
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+}
+</style>
+
+<script>
+function addQuestion(questionId, btn) {
+    const originalHtml = btn.innerHTML;
+    const row = btn.closest('tr');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 添加中...';
+    
+    fetch('{% url "quiz:add_question_to_quiz" quiz.slug %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: 'question_id=' + questionId
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 显示成功提示
+            showSuccessToast('题目已成功添加到竞赛中');
+            
+            // 更新按钮状态
+            btn.innerHTML = '<i class="bi bi-check"></i> 已添加';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-secondary');
+            
+            // 添加已添加样式
+            row.classList.add('added');
+            
+            // 延迟移除行
+            setTimeout(() => {
+                row.style.transition = 'opacity 0.3s ease';
+                row.style.opacity = '0';
+                setTimeout(() => {
+                    row.remove();
+                    
+                    // 如果没有题目了，刷新页面
+                    const tbody = document.querySelector('tbody');
+                    if (tbody && tbody.children.length === 0) {
+                        location.reload();
+                    }
+                }, 300);
+            }, 800);
+        } else {
+            // 显示错误提示
+            showErrorToast(data.message || '添加失败，请重试');
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    })
+    .catch(error => {
+        showErrorToast('网络错误，请检查连接后重试');
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    });
+}
+</script>
+{% endblock %}

@@ -7,10 +7,10 @@
                         <i class="fa fa-clock-o"></i> 即将开始
                     </span>
                     <div class="comp-timer-wrapper" data-start-time="{{ competition.start_time|date:'Y/m/d H:i:s' }}" title="距离比赛开始还有" data-toggle="tooltip" data-placement="top">
-                        <span class="comp-time-group"><span class="comp-time-block days">02</span>天</span>
-                        <span class="comp-time-group"><span class="comp-time-block hours">03</span>时</span>
-                        <span class="comp-time-group"><span class="comp-time-block minutes">10</span>分</span>
-                        <span class="comp-time-group"><span class="comp-time-block seconds">44</span>秒</span>
+                        <span class="comp-time-group"><span class="comp-time-block days">02</span></span>
+                        <span class="comp-time-group"><span class="comp-time-block hours">03</span></span>
+                        <span class="comp-time-group"><span class="comp-time-block minutes">10</span></span>
+                        <span class="comp-time-group"><span class="comp-time-block seconds">44</span></span>
                     </div>
                 </div>
             {% elif competition_status == 'ongoing' %}
@@ -19,10 +19,10 @@
                         <i class="fa fa-play-circle"></i> 进行中
                     </span>
                     <div class="comp-timer-wrapper" data-end-time="{{ competition.end_time|date:'Y/m/d H:i:s' }}" title="距离比赛结束还有" data-toggle="tooltip" data-placement="top">
-                        <span class="comp-time-group"><span class="comp-time-block days">02</span>天</span>
-                        <span class="comp-time-group"><span class="comp-time-block hours">03</span>时</span>
-                        <span class="comp-time-group"><span class="comp-time-block minutes">10</span>分</span>
-                        <span class="comp-time-group"><span class="comp-time-block seconds">44</span>秒</span>
+                        <span class="comp-time-group"><span class="comp-time-block days">02</span></span>
+                        <span class="comp-time-group"><span class="comp-time-block hours">03</span></span>
+                        <span class="comp-time-group"><span class="comp-time-block minutes">10</span></span>
+                        <span class="comp-time-group"><span class="comp-time-block seconds">44</span></span>
                     </div>
                 </div>
             {% else %}
@@ -41,75 +41,83 @@
 </div>
 
 <style>
-/* 比赛倒计时 */
 .comp-countdown-flex {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 15px;
-    width: 100%;
+    gap: 12px;
 }
 
 .comp-status-badge {
-    background-color: #e6efff;
-    color: #4775FF;
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 4px;
     font-size: 13px;
     font-weight: 500;
-    padding: 5px 12px;
-    border-radius: 20px;
-    white-space: nowrap;
+    background-color: #edf2ff;
+    color: #4263eb;
 }
 
-.comp-status-ongoing {
-    background-color: #e3fcef;
-    color: #10b981;
+.comp-status-badge.comp-status-ongoing {
+    background-color: #e6fcf5;
+    color: #12b886;
 }
 
-.comp-status-ended {
-    background-color: #e6efff;
-    color: #4775FF;
+.comp-status-badge.comp-status-ended {
+    background-color: #f1f3f5;
+    color: #495057;
 }
 
 .comp-timer-wrapper {
-    display: flex;
+    display: inline-flex;
+    justify-content: center;
     align-items: center;
     gap: 8px;
-    cursor: default;
+    flex-wrap: wrap;
+    width: auto;
+    max-width: 100%;
 }
 
 .comp-time-group {
-    font-size: 13px;
-    color: #666;
-    
-    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: #868e96;
 }
 
 .comp-time-block {
-    display: inline-block;
-    background-color: #e6f0ff;
-    color: #333;
-    min-width: 32px;
-    height: 32px;
+    background-color: #f8f9fa;
+    color: #343a40;
+    min-width: 36px;
+    width: auto;
+    padding: 0 10px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 4px;
     font-size: 16px;
     font-weight: 600;
-    text-align: center;
-    line-height: 32px;
-    margin-right: 2px;
+    border: 1px solid #e9ecef;
+    box-sizing: border-box;
+    white-space: nowrap;
+    margin-bottom: 4px;
 }
 
-@media (max-width: 400px) {
-    .comp-countdown-flex {
-        flex-direction: column;
-        gap: 8px;
+@media (max-width: 340px) {
+    .comp-timer-wrapper {
+        gap: 5px;
     }
     
-    .comp-timer-wrapper {
-        justify-content: center;
+    .comp-time-block {
+        min-width: 32px;
+        padding: 0 8px;
+        height: 32px;
+        font-size: 14px;
     }
 }
-/* 结束 */
-
 </style>
 
 <script>
@@ -139,16 +147,54 @@ document.addEventListener('DOMContentLoaded', function() {
             const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-            timerElement.querySelector('.days').textContent = String(days).padStart(2, '0');
-            timerElement.querySelector('.hours').textContent = String(hours).padStart(2, '0');
-            timerElement.querySelector('.minutes').textContent = String(minutes).padStart(2, '0');
-            timerElement.querySelector('.seconds').textContent = String(seconds).padStart(2, '0');
+            const daysEl = timerElement.querySelector('.days');
+            const hoursEl = timerElement.querySelector('.hours');
+            const minutesEl = timerElement.querySelector('.minutes');
+            const secondsEl = timerElement.querySelector('.seconds');
+            
+            daysEl.textContent = String(days).padStart(2, '0');
+            hoursEl.textContent = String(hours).padStart(2, '0');
+            minutesEl.textContent = String(minutes).padStart(2, '0');
+            secondsEl.textContent = String(seconds).padStart(2, '0');
+            
+            // 动态调整宽度以适应内容
+            [daysEl, hoursEl, minutesEl, secondsEl].forEach(el => {
+                el.style.width = 'auto';
+                const text = el.textContent.trim();
+                const textWidth = text.length;
+                // 根据字符数动态设置最小宽度
+                if (textWidth > 2) {
+                    el.style.minWidth = (textWidth * 10 + 20) + 'px';
+                } else {
+                    el.style.minWidth = '36px';
+                }
+            });
         }
 
         update();
         return setInterval(update, 1000);
     }
 
+    // 初始化宽度调整函数
+    function adjustTimerWidths() {
+        document.querySelectorAll('.comp-time-block').forEach(el => {
+            el.style.width = 'auto';
+            const text = el.textContent.trim();
+            const textWidth = text.length;
+            if (textWidth > 2) {
+                el.style.minWidth = (textWidth * 10 + 20) + 'px';
+            } else {
+                el.style.minWidth = '36px';
+            }
+        });
+    }
+    
+    // 页面加载时调整一次
+    adjustTimerWidths();
+    
+    // 延迟调整，确保DOM完全渲染
+    setTimeout(adjustTimerWidths, 100);
+    
     document.querySelectorAll('.comp-timer-wrapper').forEach(timer => {
         updateCountdown(timer);
     });

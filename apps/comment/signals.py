@@ -1,11 +1,14 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import ChallengeComment, Notification
+from comment.models import ArticleComment, ChallengeComment, Notification
 
-
+@receiver(post_save, sender=ArticleComment)
 @receiver(post_save, sender=ChallengeComment)
 def notify_handler(sender, instance, created, **kwargs):
-    if sender == ChallengeComment:
+    if sender == ArticleComment:
+        the_object = instance.belong
+        object_author = the_object.author
+    elif sender == ChallengeComment:
         the_object = instance.belong  # 假设字段名是 'belong'
         object_author = the_object.author 
     create_p = instance.author

@@ -1,0 +1,118 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load blog_tags %}
+{% load com_tags %}
+{% block head_title %}{{ competition.title }} - 双赛道竞赛{% endblock %}
+
+{% block metas %}
+<meta name="description" content="{{ site_description }}">
+<meta name="keywords" content="{{ site_keywords }}">
+{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'public/css/ctf.css' %}?v=20260131.01" rel="stylesheet">
+<style>
+
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container dual-track-container">
+ 
+
+    <!-- 双赛道选择 -->
+    <div class="tracks-wrapper">
+        <!-- CTF赛道 -->
+        <div class="track-card ctf-track">
+            <!-- 状态标签 -->
+            {% if competition.start_time > now %}
+                <span class="track-status status-upcoming">未开始</span>
+            {% elif competition.end_time < now %}
+                <span class="track-status status-ended">已结束</span>
+            {% else %}
+                <span class="track-status status-ongoing">进行中</span>
+            {% endif %}
+
+            <div class="track-header">
+                <div class="track-icon">
+                    <i class="fa fa-flag"></i>
+                </div>
+                <h2 class="track-name">CTF竞赛赛道</h2>
+                <p class="track-description">
+                    实战攻防，挑战你的技术极限
+                </p>
+            </div>
+
+            <div class="track-content">
+                <div class="track-action">
+                    <a href="{% url 'competition:com_index' competition.slug %}" class="track-enter-btn">
+                        <i class="fa fa-rocket mr-2"></i>进入CTF赛道
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 理论赛道 -->
+        {% if competition.related_quiz %}
+        <div class="track-card theory-track">
+            <!-- 状态标签 -->
+            {% if competition.related_quiz.start_time > now %}
+                <span class="track-status status-upcoming">未开始</span>
+            {% elif competition.related_quiz.end_time < now %}
+                <span class="track-status status-ended">已结束</span>
+            {% else %}
+                <span class="track-status status-ongoing">进行中</span>
+            {% endif %}
+
+            <div class="track-header">
+                <div class="track-icon">
+                    <i class="fa fa-book"></i>
+                </div>
+                <h2 class="track-name">理论知识赛道</h2>
+                <p class="track-description">
+                    理论基础，巩固你的知识体系
+                </p>
+            </div>
+
+            <div class="track-content">
+                <div class="track-action">
+                    <a href="{% url 'quiz:quiz_detail' competition.related_quiz.slug %}" class="track-enter-btn">
+                        <i class="fa fa-pencil mr-2"></i>进入理论赛道
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 综合排行榜入口（比赛结束后显示） -->
+    {% if competition.related_quiz %}
+    {% if competition.end_time < now %}
+    <div class="combined-ranking-section">
+        <h3 class="combined-ranking-title">
+            <i class="fa fa-trophy mr-2"></i>综合排行榜
+        </h3>
+        <p class="combined-ranking-desc">
+            综合CTF竞赛和理论知识的成绩，计算最终排名
+        </p>
+        <a href="{% url 'competition:combined_rankings' competition.slug %}" class="combined-ranking-btn">
+            <i class="fa fa-bar-chart mr-2"></i>查看综合排行榜
+        </a>
+    </div>
+    {% else %}
+    <div class="combined-ranking-section">
+        <h3 class="combined-ranking-title">
+            <i class="fa fa-trophy mr-2"></i>综合排行榜
+        </h3>
+        <p class="combined-ranking-desc">
+            综合排行榜将在比赛结束后开放
+        </p>
+        <button class="combined-ranking-btn" disabled>
+            <i class="fa fa-lock mr-2"></i>比赛结束后查看
+        </button>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

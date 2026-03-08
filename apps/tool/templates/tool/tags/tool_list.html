@@ -1,0 +1,174 @@
+{% load tool_tags %}
+{% load dashboard %}
+
+<style>
+    .tool-sidebar-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .tool-sidebar-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #f3f4f6;
+    }
+    
+    .tool-sidebar-header i {
+        font-size: 18px;
+        color: #6b7280;
+        margin-right: 8px;
+    }
+    
+    .tool-sidebar-header strong {
+        font-size: 15px;
+        color: #111827;
+        font-weight: 600;
+    }
+    
+    .tool-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    /* 响应式：小屏幕单列显示 */
+    @media (max-width: 576px) {
+        .tool-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .tool-item {
+        position: relative;
+        min-width: 0; /* 防止 grid item 溢出 */
+    }
+    
+    .tool-item-link {
+        display: block;
+        padding: 10px 12px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 13px;
+        color: #374151;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        /* 文本溢出处理 */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        /* 确保长单词也会换行 */
+        word-break: break-word;
+        /* 最小宽度为0，防止内容撑开容器 */
+        min-width: 0;
+    }
+    
+    .tool-item-link:hover {
+        background: #ffffff;
+        border-color: #3b82f6;
+        color: #2563eb;
+        text-decoration: none;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* 带外部链接的工具项 */
+    .tool-item-link-external {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+    }
+    
+    .tool-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+        flex: 1;
+    }
+    
+    .tool-hot-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: #ef4444;
+        color: white;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 600;
+        z-index: 1;
+    }
+    
+    .tool-external-icon {
+        font-size: 10px;
+        opacity: 0.6;
+        margin-left: 4px;
+        /* 防止图标被截断 */
+        display: inline-block;
+        flex-shrink: 0;
+    }
+    
+    /* 空状态 */
+    .tool-empty {
+        text-align: center;
+        padding: 20px;
+        color: #9ca3af;
+        font-size: 13px;
+    }
+</style>
+
+{% get_toollist_by_key as tool_list %}
+{% if tool_list %}
+<div class="tool-sidebar-card">
+    <div class="tool-sidebar-header">
+        <i class="fa fa-wrench"></i>
+        <strong>自定义工具</strong>
+    </div>
+    <div class="tool-grid">
+        {% for tool in tool_list %}
+        <div class="tool-item">
+            <a class="tool-item-link" href="{{ tool.url }}" title="{{ tool.desc }}">
+                {{ tool.name }}
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
+
+{% get_toolcates as cates %}
+{% for each_cate in cates %}
+    {% get_toollinks each_cate as tools %}
+    {% if tools %}
+    <div class="tool-sidebar-card">
+        <div class="tool-sidebar-header">
+            <i class="{{ each_cate.icon }}"></i>
+            <strong>{{ each_cate.name }}</strong>
+        </div>
+        <div class="tool-grid">
+            {% for tool in tools %}
+            <div class="tool-item">
+                <a class="tool-item-link tool-item-link-external" 
+                   href="{{ tool.link }}" 
+                   title="{{ tool.description }}"
+                   target="_blank">
+                    <span class="tool-name">{{ tool.name }}</span>
+                    <i class="fa fa-external-link tool-external-icon"></i>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}

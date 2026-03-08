@@ -1,0 +1,341 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}附件配置管理{% endblock %}
+
+{% block top-file %}
+<style>
+    .container-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        padding: 30px;
+        margin-bottom: 25px;
+        border: none;
+    }
+    
+    .container-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+        color: #333;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 15px;
+    }
+    
+    .container-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-align: center;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .container-btn-primary {
+        background-color: #6591f1;
+        color: white;
+    }
+    
+    .container-btn-primary:hover {
+        background-color: #5080e0;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(101, 145, 241, 0.2);
+    }
+    
+    .container-btn-sm {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+    }
+    
+    .container-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .container-table th,
+    .container-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .container-table th {
+        font-weight: 600;
+        color: #444;
+        background-color: #f9f9f9;
+    }
+    
+    .container-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .container-table tr:hover td {
+        background-color: #f5f7ff;
+    }
+    
+    .container-empty {
+        text-align: center;
+        padding: 40px 20px;
+        color: #777;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+    }
+    
+    .container-empty-icon {
+        font-size: 40px;
+        margin-bottom: 15px;
+        color: #ccc;
+    }
+    
+    .container-pagination {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }
+    
+    .container-pagination .page-item .page-link {
+        color: #6591f1;
+        border: none;
+        border-radius: 4px;
+        margin: 0 3px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .container-pagination .page-item.active .page-link {
+        background-color: #6591f1;
+        color: white;
+    }
+    
+    .container-file-size {
+        color: #777;
+        font-size: 0.85rem;
+    }
+    
+    .container-file-date {
+        color: #777;
+        font-size: 0.85rem;
+    }
+    
+    .container-file-author {
+        color: #777;
+        font-size: 0.85rem;
+    }
+    
+    .container-file-actions {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .container-btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .container-btn-danger:hover {
+        background-color: #c82333;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.2);
+    }
+    
+    .container-btn-danger[disabled] {
+        background-color: #f5c6cb;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    /* 模态框样式 */
+    .modal-content {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .modal .close {
+        background: transparent;
+        border: none !important;
+        outline: none !important;
+        font-size: 1.5rem;
+        opacity: 0.5;
+        transition: all 0.2s ease;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .modal .close:hover {
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-12 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-user mr-1"></i><a href="{% url 'public:profileViews' user.uuid %}">个人中心</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">附件配置管理</li>
+                </ol>
+            </nav>
+
+            <!-- 列表卡片 -->
+            <div class="container-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="container-title mb-0">附件配置列表</h2>
+                    <a href="{% url 'container:static_file_create' %}" class="container-btn container-btn-primary">
+                        <i class="fa fa-plus mr-1"></i> 上传文件
+                    </a>
+                </div>
+                
+                {% if static_files %}
+                    <div class="table-responsive">
+                        <table class="container-table">
+                            <thead>
+                                <tr>
+                                    <th>文件名称</th>
+                                    <th>文件大小</th>
+                                    <th>审核状态</th>
+                                    <th>上传时间</th>
+                                    <th>上传者</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in static_files %}
+                                    <tr>
+                                        <td>{{ file.name }}</td>
+                                        <td class="container-file-size">{{ file.file_size|filesizeformat }}</td>
+                                        <td>
+                                            {% if file.review_status == 'PENDING' %}
+                                                <span class="state-label state-label-warning">待审核</span>
+                                            {% elif file.review_status == 'APPROVED' %}
+                                                <span class="state-label state-label-success">已通过</span>
+                                            {% elif file.review_status == 'REJECTED' %}
+                                                <span class="state-label state-label-danger">已拒绝</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="container-file-date">{{ file.upload_time|date:"Y-m-d H:i" }}</td>
+                                        <td class="container-file-author">{{ file.author.username }}</td>
+                                        <td class="container-file-actions">
+                                            
+                                            <button class="container-btn container-btn-danger container-btn-sm" 
+                                                    onclick="showDeleteFileConfirmModal('{{ file.id }}', '{{ file.name }}')"
+                                                    {% if not user.is_staff and file.author != user %}disabled{% endif %}>
+                                                <i class="fa fa-trash"></i> 删除
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页 -->
+                    {% if is_paginated %}
+                        <div class="container-pagination">
+                            <ul class="pagination">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1" aria-label="First">
+                                            <span aria-hidden="true">&laquo;&laquo;</span>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                                            <span aria-hidden="true">&laquo;</span>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                                            <span aria-hidden="true">&raquo;</span>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
+                                            <span aria-hidden="true">&raquo;&raquo;</span>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="container-empty">
+                        <div class="container-empty-icon">
+                            <i class="fa fa-file-archive"></i>
+                        </div>
+                        <p>暂无文件，请上传文件</p>
+                        
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteFileConfirmModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-weight-bold" style="font-size: 1.1rem;">确认删除</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="mb-0">确定要删除 <span id="delete-file-name" class="font-weight-bold"></span> 吗？</p>
+                <p class="text-danger mt-2 mb-0"><small>此操作不可恢复</small></p>
+                <form id="deleteFileForm" method="post">
+                    {% csrf_token %}
+                </form>
+            </div>
+            <div class="modal-footer border-0 pt-0 justify-content-center">
+                <button type="button" class="btn btn-light btn-sm px-4" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger btn-sm px-4" onclick="confirmFileDelete()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 显示删除确认模态框
+    function showDeleteFileConfirmModal(fileId, fileName) {
+        document.getElementById('delete-file-name').textContent = fileName;
+        // 设置表单的action属性
+        document.getElementById('deleteFileForm').action = `/container/api/v1/static-files/${fileId}/delete/`;
+        $('#deleteFileConfirmModal').modal('show');
+    }
+    
+    // 确认删除
+    function confirmFileDelete() {
+        // 提交表单
+        document.getElementById('deleteFileForm').submit();
+    }
+</script>
+{% endblock %} 

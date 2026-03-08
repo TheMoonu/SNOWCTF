@@ -1,0 +1,959 @@
+/* ==================== 右边栏样式优化 ==================== */
+
+/* 右边栏卡片基础样式 */
+.pr-sidebar-card {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #fafafa;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+/* 卡片头部 */
+.pr-card-header {
+    background: #fff;
+    border-top-left-radius: 0.75rem !important;
+    border-top-right-radius: 0.75rem !important;
+    border-bottom: none !important;  /* 去掉底部边框 */
+    padding: 1rem 1.25rem 0.5rem !important;  /* 调整内边距，减少底部空间 */
+}
+
+/* 更轻的阴影效果 */
+.shadow-lighter {
+    box-shadow: 0 0.02rem 0.1rem rgba(0, 0, 0, 0.05) !important;
+}
+
+.pr-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0 !important;  /* 去掉底部外边距 */
+    margin-top: 0 !important;  /* 去掉顶部外边距 */
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.pr-card-title i {
+    color: #1890ff;
+    font-size: 18px;
+}
+
+/* 卡片内容 */
+.pr-card-body {
+    padding: 10px 18px;
+}
+
+/* 调整卡片body的顶部间距（当有pr-card-header时） */
+.pr-card-header + .card-body {
+    padding-top: 1rem !important;
+}
+
+/* 我的空间 - 图标网格 */
+.pr-action-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 3px;
+}
+
+.pr-action-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1px 3px;
+    border-radius: 6px;
+
+}
+
+.pr-action-item:hover {
+    text-decoration: none;
+}
+
+.pr-action-item img {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 10px;
+}
+
+.pr-action-item p {
+    margin: 0;
+    font-size: 13px;
+    color: #495057;
+    font-weight: 500;
+}
+
+/* 统计数据 */
+.pr-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #fafafa;
+}
+
+.pr-stat-item {
+    text-align: center;
+}
+
+.pr-stat-value {
+    display: inline-block;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1890ff;
+    margin-bottom: 4px;
+}
+
+.pr-stat-label {
+    font-size: 12px;
+    color: #6c757d;
+    margin: 0;
+}
+
+/* 解题记录轮播 */
+.pr-solve-carousel {
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pr-solve-record {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    margin: 0;
+}
+
+.pr-solve-user {
+    color: #1890ff;
+    font-weight: 600;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pr-solve-text {
+    color: #495057;
+    font-size: 14px;
+}
+
+.pr-solve-time {
+    color: #6c757d;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* 学习岛标签 */
+.pr-tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pr-tag-item {
+    display: inline-block;
+    padding: 6px 14px;
+    background: #f0f7ff;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #1890ff;
+    text-decoration: none;
+    border: 1px solid #d6e9ff;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.pr-tag-item:hover {
+    text-decoration: none;
+    background: #e6f4ff;
+    border-color: #91caff;
+    color: #0958d9;
+}
+
+/* 学习岛列表 */
+.pr-island-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.pr-island-item {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    text-decoration: none;
+    border: 1px solid #e9ecef;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.pr-island-item:hover {
+    background: #e9ecef;
+    border-color: #1890ff;
+    text-decoration: none;
+    transform: translateX(2px);
+}
+
+.pr-island-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.pr-island-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2c3e50;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pr-island-item:hover .pr-island-name {
+    color: #1890ff;
+}
+
+.pr-island-count {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.pr-island-progress {
+    height: 4px;
+    margin-top: 8px;
+    background: #e9ecef;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.pr-island-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #1890ff 0%, #0958d9 100%);
+    transition: width 0.3s ease;
+    border-radius: 2px;
+}
+
+/* 已完成学习岛 */
+.pr-island-completed {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-color: #1890ff;
+}
+
+.pr-island-completed:hover {
+    background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+}
+
+.pr-island-badge {
+    color: #52c41a;
+    font-size: 14px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.pr-island-completed-tag {
+    color: #52c41a;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+/* 题目分类列表 */
+.pr-category-list {
+    margin: -9px 0 0 0;
+    min-width: 0;
+}
+
+.pr-category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #fafafa;
+    transition: background 0.2s ease;
+}
+
+.pr-category-item:last-child {
+    border-bottom: none;
+}
+
+.pr-category-item:hover {
+    background: transparent;
+}
+
+.pr-category-link {
+    color: #495057;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.pr-category-link:hover {
+    text-decoration: none;
+}
+
+.pr-category-badge {
+    background: #1890ff;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 32px;
+    text-align: center;
+}
+
+/* 排行榜 */
+.pr-rank-list {
+    list-style: none;
+    padding: 0;
+    margin: -15px 0 0 0;
+}
+
+.pr-rank-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #ebebec;
+    transition: all 0.2s ease;
+}
+
+.pr-rank-item:last-child {
+    border-bottom: none;
+}
+
+.pr-rank-item:hover {
+    background: transparent;
+}
+
+.pr-rank-number {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6c757d;
+    border: 1px solid #e8ecef;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.pr-rank-item:nth-child(1) .pr-rank-number {
+    color: #fff;
+    background: #1890ff;
+    border-color: #1890ff;
+}
+
+.pr-rank-item:nth-child(2) .pr-rank-number {
+    color: #1890ff;
+    border-color: #1890ff;
+}
+
+.pr-rank-item:nth-child(3) .pr-rank-number {
+    color: #1890ff;
+    border-color: #1890ff;
+}
+
+.pr-rank-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.pr-rank-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.pr-rank-name {
+    color: #495057;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pr-rank-name:hover {
+    text-decoration: none;
+    color: #1890ff;
+}
+
+.pr-rank-score {
+    flex-shrink: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1890ff;
+}
+
+/* 题目动态时间线 */
+.pr-timeline {
+    list-style: none;
+    padding: 0;
+    margin: -9px 0 0 0;
+}
+
+.pr-timeline-item {
+    position: relative;
+    padding-left: 32px;
+    padding-bottom: 20px;
+}
+
+.pr-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 20px;
+    bottom: -8px;
+    width: 2px;
+    background: linear-gradient(180deg, #e0e0e0 0%, transparent 100%);
+}
+
+.pr-timeline-item:last-child::before {
+    display: none;
+}
+
+.pr-timeline-icon {
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 16px;
+    height: 16px;
+    background: #1890ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: #fff;
+}
+
+.pr-timeline-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow: hidden;
+}
+
+.pr-timeline-user {
+    font-weight: 600;
+    color: #1890ff;
+    flex-shrink: 0;
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pr-timeline-text {
+    color: #495057;
+    flex-shrink: 0;
+}
+
+.pr-timeline-category {
+    color: #52c41a;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.pr-timeline-link {
+    color: #495057;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.pr-timeline-link:hover {
+    text-decoration: none;
+    color: #1890ff;
+}
+
+.pr-timeline-time {
+    color: #6c757d;
+    font-size: 12px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* 空状态 */
+.pr-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.pr-empty-icon {
+    font-size: 48px;
+    color: #dee2e6;
+    margin-bottom: 12px;
+}
+
+.pr-empty-text {
+    font-size: 14px;
+    color: #adb5bd;
+}
+
+/* 响应式 */
+@media (max-width: 991px) {
+    .pr-sidebar-card {
+        display: none;
+    }
+}
+
+/* ==================== Practice 页面特有样式 ==================== */
+/* 注意：通用 CTF 样式已在 ctf.css 中定义，此处仅保留 practice 页面特有的样式 */
+
+/* ==================== 排行榜表格中的排名序号样式 ==================== */
+
+/* 表格中前3名的序号样式 */
+.ctf-ranking-table tbody tr:nth-child(1) .pr-rank-number {
+    color: #fff;
+    background: #1890ff;
+    border-color: #1890ff;
+}
+
+.ctf-ranking-table tbody tr:nth-child(2) .pr-rank-number {
+    color: #1890ff;
+    border-color: #1890ff;
+}
+
+.ctf-ranking-table tbody tr:nth-child(3) .pr-rank-number {
+    color: #1890ff;
+    border-color: #1890ff;
+}
+
+/* 排行榜卡片样式 */
+.ctf-ranking-card {
+    background: white;
+    border: 1px solid #f0f0f0;
+}
+
+.ctf-ranking-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.ctf-ranking-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.ctf-ranking-body {
+    padding: 0;
+}
+
+.ctf-ranking-table {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.ctf-ranking-table th,
+.ctf-ranking-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.ctf-ranking-table thead th {
+    background: #f8f9fa;
+    color: #2c3e50;
+    font-weight: 600;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.ctf-ranking-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+/* 排行榜表格底部分页样式 */
+.ctf-ranking-footer {
+    padding: 1rem 1.5rem;
+    background: #f8f9fa;
+    border-top: 1px solid #e5e7eb;
+    border-radius: 0 0 12px 12px;
+}
+
+.ctf-ranking-footer .pagination-sm .page-link {
+    min-width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 0.875rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 4px;
+}
+
+.ctf-ranking-footer .pagination-sm .page-item {
+    margin: 0 2px;
+}
+
+.ctf-ranking-footer .pagination-sm .page-item:first-child .page-link,
+.ctf-ranking-footer .pagination-sm .page-item:last-child .page-link {
+    border-radius: 20px;
+    padding: 0 1rem;
+    width: auto;
+    min-width: auto;
+}
+
+
+
+
+
+
+
+/* ==================== 学习岛标签详情页样式 ==================== */
+
+.tag-detail-title {
+    position: relative;
+    display: inline-block;
+}
+
+.tag-description {
+    line-height: 1.8;
+}
+
+.tag-description h1,
+.tag-description h2,
+.tag-description h3 {
+    color: #2c3e50;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.tag-description p {
+    margin-bottom: 0.8rem;
+}
+
+/* Markdown 图片样式 */
+.tag-description img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 12px auto;
+    border-radius: 8px;
+}
+
+/* 响应式图片 */
+@media (min-width: 768px) {
+    .tag-description img {
+        max-height: 400px;
+        width: auto;
+    }
+}
+
+
+
+.tag-description a {
+    color: #65b0fe;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(101, 176, 254, 0.3);
+    transition: all 0.2s ease;
+}
+
+.tag-description a:hover {
+    color: #4a9fef;
+    border-bottom-color: #4a9fef;
+}
+
+.tag-description blockquote {
+    border-left: none;
+    background: rgba(101, 176, 254, 0.05);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 4px;
+}
+
+.tag-description ul,
+.tag-description ol {
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.tag-description li {
+    margin-bottom: 0.5rem;
+}
+
+
+
+
+.challenge-hint-mask {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+
+
+
+
+
+
+.pr-action-grid .pr-action-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 10px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #495057;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.pr-action-grid .pr-action-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(0, 123, 255, 0.05), rgba(0, 123, 255, 0.02));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 12px;
+}
+
+.pr-action-grid .pr-action-item:hover::before {
+    opacity: 1;
+}
+
+.pr-action-grid .pr-action-item:hover {
+    background-color: rgba(248, 249, 250, 0.8);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.pr-action-grid .pr-action-item i {
+    transition: all 0.3s ease;
+}
+
+.pr-action-grid .pr-action-item:hover i {
+    transform: scale(1.15) rotate(5deg);
+}
+
+.pr-action-grid .pr-action-item p {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* ==================== 我的容器样式 ==================== */
+
+/* 容器列表 */
+.pr-container-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.pr-container-item {
+    padding: 12px;
+    margin-top: -10px;
+    margin-bottom: 0;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pr-container-item:hover {
+    background: #e9ecef;
+}
+
+/* 容器头部 */
+.pr-container-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.pr-container-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #212529;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.pr-container-title:hover {
+    color: #0056b3;
+    text-decoration: none;
+}
+
+.pr-container-title i {
+    flex-shrink: 0;
+}
+
+.pr-container-time {
+    font-size: 11px;
+    color: #6c757d;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.pr-container-time i {
+    font-size: 10px;
+}
+
+/* 容器 URL 列表 */
+.pr-container-urls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+.pr-container-url {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #495057;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.pr-container-url:hover {
+    background: #007bff;
+    border-color: #007bff;
+    color: #fff;
+    text-decoration: none;
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.25);
+}
+
+.pr-container-url i {
+    font-size: 11px;
+}
+
+/* 当前题目标识 */
+.pr-container-current {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #155724;
+    margin-top: 8px;
+}
+
+.pr-container-current i {
+    font-size: 13px;
+}
+
+/* 空状态 */
+.pr-container-empty {
+    text-align: center;
+    padding: 20px;
+    color: #6c757d;
+    font-size: 13px;
+}
+
+.pr-container-empty i {
+    font-size: 32px;
+    color: #dee2e6;
+    margin-bottom: 8px;
+    display: block;
+}
+
+/* ==================== 学习岛分页样式 ==================== */
+.pr-island-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.pr-page-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid #dee2e6;
+    background: #fff;
+    color: #495057;
+    font-size: 11px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.pr-page-btn:hover {
+    background: #f8f9fa;
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.pr-page-btn.active {
+    background: #007bff;
+    border-color: #007bff;
+    color: #fff;
+}
+
+.pr-page-btn i {
+    font-size: 10px;
+}
+
+.pr-page-dots {
+    color: #6c757d;
+    font-size: 11px;
+    padding: 0 2px;
+}

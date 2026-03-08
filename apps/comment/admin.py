@@ -1,18 +1,32 @@
 from django.contrib import admin
-from .models import (ChallengeComment, Notification, SystemNotification)
+from comment.models import (ArticleComment, ChallengeComment, Notification, SystemNotification)
 
 
+@admin.register(ArticleComment)
+class CommentAdmin(admin.ModelAdmin):
+    date_hierarchy = 'create_date'
+    list_display = ('id', 'author', 'belong', 'ip_address','create_date', 'show_content')
+    list_filter = ('author', 'belong',)
+    ordering = ('-id',)
+    # 设置需要添加a标签的字段
+    list_display_links = ('id', 'show_content')
+    search_fields = ('author__username', 'belong__title')
 
+    # 使用方法来自定义一个字段，并且给这个字段设置一个名称
+    def show_content(self, obj):
+        return obj.content if len(obj.content) < 30 else f'{obj.content[:30]}...'
+
+    show_content.short_description = '评论内容'
 
 @admin.register(ChallengeComment)
 class CommentAdmin(admin.ModelAdmin):
     date_hierarchy = 'create_date'
-    list_display = ('id', 'author', 'belong', 'competition', 'create_date', 'show_content')
-    list_filter = ('author', 'belong', 'competition')
+    list_display = ('id', 'author', 'belong', 'ip_address','create_date', 'show_content')
+    list_filter = ('author', 'belong',)
     ordering = ('-id',)
     # 设置需要添加a标签的字段
     list_display_links = ('id', 'show_content')
-    search_fields = ('author__username', 'belong__title', 'competition__title')
+    search_fields = ('author__username', 'belong__title')
 
     # 使用方法来自定义一个字段，并且给这个字段设置一个名称
     def show_content(self, obj):

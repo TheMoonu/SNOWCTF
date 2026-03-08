@@ -1,0 +1,358 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load recruit_tags %}
+{% block head_title %}安全岗位{% endblock %}
+
+{% block base_content %}
+
+
+
+
+<div class="container">
+
+  <!-- 筛选栏 -->
+  <div class="card recruit-filter-card border-0 rounded-6 mb-3 p-3">
+  <form method="get" id="filterForm">
+    <div class="form-row align-items-center">
+      <!-- 类型 -->
+      <div class="col-md-2 mb-2">
+        <select class="form-control f-15 " name="type">
+          <option value="">全部类型</option>
+          {% for type, l in RecruitmentType %}
+            <option value="{{ type }}" {% if request.GET.type == type %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <!-- 方向 -->
+      <div class="col-md-2 mb-2">
+        <select class="form-control f-15" name="track">
+          <option value="">全部方向</option>
+          {% for val,label in job_track_choices %}
+            <option value="{{ val }}" {% if request.GET.track == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <!-- 城市 -->
+      <div class="col-md-2 mb-2">
+        <select class="form-control f-15" name="city">
+          <option value="">全部城市</option>
+          {% for c in cities %}
+            <option value="{{ c }}" {% if request.GET.city == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <!-- 关键词 -->
+      <div class="col-md-3 mb-2 f-15">
+        <input type="text" class="form-control" name="q" value="{{ request.GET.q|default:'' }}" placeholder="职位 / 技能 / 公司 关键词">
+      </div>
+      <!-- 按钮 -->
+      <div class="col-md-3 mb-2 f-15">
+        <div class="d-flex">
+          <button type="submit" class="btn btn-primary recruit-btn-primary flex-fill mr-2">
+            <i class="bi bi-search mr-1"></i>筛选
+          </button>
+          <a href="{% url 'recruit:job_list' %}" class="btn btn-outline-secondary recruit-btn-reset flex-fill" title="清除所有筛选条件">
+            <i class="bi bi-x-circle mr-1"></i>重置
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 保留排序参数 -->
+    {% if request.GET.sort %}
+    <input type="hidden" name="sort" value="{{ request.GET.sort }}">
+    {% endif %}
+  </form>
+</div>
+
+<script>
+// 自定义下拉框初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化所有select为自定义下拉框
+    initCustomSelects();
+    
+    // 表单提交前移除空值参数
+    var form = document.getElementById('filterForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault(); // 阻止默认提交
+            
+            // 收集所有非空参数
+            var params = new URLSearchParams();
+            var inputs = this.querySelectorAll('input, select');
+            var hasValue = false;
+            
+            inputs.forEach(function(input) {
+                if (input.type !== 'hidden' && input.name && input.value && input.value.trim() !== '') {
+                    params.append(input.name, input.value.trim());
+                    hasValue = true;
+                }
+            });
+            
+            // 构建新URL
+            var baseUrl = window.location.pathname;
+            var newUrl = hasValue ? baseUrl + '?' + params.toString() : baseUrl;
+            
+            // 跳转到新URL
+            window.location.href = newUrl;
+        });
+    }
+    
+    // 岗位卡片点击事件
+    const jobCards = document.querySelectorAll('.recruit-job-card-clickable');
+    jobCards.forEach(function(card) {
+        card.addEventListener('click', function(e) {
+            // 如果点击的是链接，不触发卡片跳转
+            if (e.target.tagName === 'A' || e.target.closest('a')) {
+                return;
+            }
+            
+            const url = this.dataset.url;
+            if (url) {
+                window.location.href = url;
+            }
+        });
+        
+        // 添加hover效果
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-4px)';
+            this.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)';
+            this.style.transition = 'all 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+});
+
+function initCustomSelects() {
+    const selects = document.querySelectorAll('.recruit-filter-card select.form-control');
+    
+    selects.forEach(select => {
+        // 创建自定义下拉框包装器
+        const wrapper = document.createElement('div');
+        wrapper.className = 'recruit-select-wrapper';
+        
+        // 创建显示区域
+        const display = document.createElement('div');
+        display.className = 'recruit-select-display';
+        
+        // 创建显示文本
+        const displayText = document.createElement('span');
+        displayText.className = 'recruit-select-text';
+        const selectedOption = select.options[select.selectedIndex];
+        displayText.textContent = selectedOption.text;
+        display.appendChild(displayText);
+        
+        // 创建箭头
+        const arrow = document.createElement('span');
+        arrow.className = 'recruit-select-arrow';
+        display.appendChild(arrow);
+        
+        // 创建下拉列表
+        const dropdown = document.createElement('div');
+        dropdown.className = 'recruit-select-dropdown';
+        
+        // 添加选项
+        Array.from(select.options).forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'recruit-select-option';
+            if (option.selected) {
+                optionDiv.classList.add('selected');
+            }
+            optionDiv.textContent = option.text;
+            optionDiv.dataset.value = option.value;
+            optionDiv.dataset.index = index;
+            
+            // 点击选项
+            optionDiv.addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                // 更新原生select
+                select.selectedIndex = index;
+                select.value = option.value;
+                
+                // 触发change事件
+                select.dispatchEvent(new Event('change'));
+                
+                // 更新显示
+                displayText.textContent = option.text;
+                
+                // 更新选中状态
+                dropdown.querySelectorAll('.recruit-select-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                optionDiv.classList.add('selected');
+                
+                // 关闭下拉
+                dropdown.classList.remove('show');
+                display.classList.remove('active');
+            });
+            
+            dropdown.appendChild(optionDiv);
+        });
+        
+        // 插入到DOM
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(display);
+        wrapper.appendChild(dropdown);
+        
+        // 点击显示区域切换下拉
+        display.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            // 关闭其他下拉框
+            document.querySelectorAll('.recruit-select-dropdown.show').forEach(dd => {
+                if (dd !== dropdown) {
+                    dd.classList.remove('show');
+                    dd.previousElementSibling.classList.remove('active');
+                }
+            });
+            
+            // 切换当前下拉框
+            dropdown.classList.toggle('show');
+            display.classList.toggle('active');
+        });
+    });
+    
+    // 点击页面其他地方关闭所有下拉框
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.recruit-select-dropdown.show').forEach(dropdown => {
+            dropdown.classList.remove('show');
+            dropdown.previousElementSibling.classList.remove('active');
+        });
+    });
+}
+</script>
+
+  <!-- 免责声明 -->
+  <div class="recruit-disclaimer-box mb-3">
+    <i class="bi bi-info-circle-fill mr-2"></i>
+    <span>
+      <strong>声明：</strong>本平台收集的岗位数据，数据均来源于互联网公开渠道，仅供个人参考，请仔细甄别。
+      平台不提供招聘相关的人力资源服务或其它第三方服务，如有疑问请直接联系招聘方。
+    </span>
+  </div>
+
+  <!-- 排序标签 -->
+  <div class="recruit-sort-tabs border-0 rounded-6">
+    <a class="{% if not request.GET.sort %}active{% endif %}"
+       href="{% build_query_url request sort='' %}">
+      <i class="fa fa-clock mr-1"></i>最新发布
+    </a>
+
+    <a class="{% if request.GET.sort == 'views' %}active{% endif %}"
+       href="{% build_query_url request sort='views' %}">
+      <i class="fa fa-fire mr-1"></i>热门职位
+    </a>
+
+    <a class="{% if request.GET.sort == 'salary' %}active{% endif %}"
+       href="{% build_query_url request sort='salary' %}">
+      <i class="fa fa-money-bill-wave mr-1"></i>高薪优先
+    </a>
+  </div>
+
+
+
+
+
+  <!-- 岗位卡片 -->
+  <div class="row">
+    {% for job in job_list %}
+      <div class="col-lg-6 mb-4 {% if job.expire_at < now %}recruit-expired{% endif %}">
+        <div class="h-100 card recruit-job-card border-0 rounded-6 recruit-job-card-clickable" 
+             data-url="{% url 'recruit:jobdetail' job.slug %}" 
+             style="cursor: pointer;">
+
+          <div class="card-body d-flex flex-column">
+
+            <!-- 标题 + 薪资 -->
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="card-title mb-0" style="flex: 1; padding-right: 1rem;">{{ job.title }}</h5>
+              <span class="badge recruit-salary-badge">{{ job.salary_desc }}</span>
+            </div>
+
+            <!-- 方向 / 城市 / 公司 / 类型 -->
+            <div class="recruit-job-meta mb-3">
+              <span>{{ job.get_RecruitmentType_display }}</span>
+              <span class="recruit-job-meta-separator">|</span>
+              <span>{{ job.get_track_display }}</span>
+              
+              {% for company in job.companyname.all %}
+              <span class="recruit-job-meta-separator">|</span>
+              <span>
+                <i class="fa fa-building mr-1"></i>
+                <a href="{{ company.get_absolute_url }}" class="recruit-link-hover" title="查看{{ company.company_name }}的所有岗位" onclick="event.stopPropagation();">
+                  {{ company.company_name }}
+                </a>
+              </span>
+              {% endfor %}
+              
+              {% for city in job.cityname.all %}
+              <span class="recruit-job-meta-separator">|</span>
+              <span>
+                <i class="bi bi-geo-alt"></i>
+                <a href="{{ city.get_absolute_url }}" class="recruit-link-hover" title="查看{{ city.name }}的所有岗位" onclick="event.stopPropagation();">
+                  {{ city.name }}
+                </a>
+              </span>
+              {% endfor %}
+              
+              {% if job.address %}
+              <span class="recruit-job-meta-separator">|</span>
+              <span><i class="fa fa-link mr-1"></i>{{ job.address }}</span>
+              {% endif %}
+            </div>
+
+            <!-- 技能关键词 -->
+            <div class="mb-3">
+              {% for tag in job.page_keywords.all %}
+                <span class="recruit-skill-tag mr-2 mb-2">
+                  {{ tag.name }}
+                </span>
+              {% empty %}
+                <span class="text-muted small">暂无标签</span>
+              {% endfor %}
+            </div>
+
+            <!-- 描述 -->
+            <p class="card-text text-muted flex-grow-1 small mb-3">
+              {{ job.description|striptags|truncatechars:120 }}
+            </p>
+
+            <!-- 底部 -->
+            <div class="mt-auto">
+              <small class="recruit-deadline">
+                <i class="far fa-clock mr-1"></i>截止：{{ job.expire_at|date:'Y-m-d' }}
+              </small>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    {% empty %}
+    <div class="col-12 text-center">
+      <div class="recruit-empty-state">
+          <i class="fa fa-inbox mb-3"></i>
+          <div class="recruit-empty-text">暂无符合条件的岗位</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 分页 -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="mt-2 mb-3">
+    {% include 'public/tags/pagecut.html' %}
+  </div>
+  {% endif %}
+
+</div>
+
+
+{% endblock %}
+
+
+   

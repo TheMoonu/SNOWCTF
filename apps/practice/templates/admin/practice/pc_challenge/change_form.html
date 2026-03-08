@@ -1,0 +1,53 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<script type="text/javascript">
+(function() {
+    // 等待页面加载完成
+    if (typeof django !== 'undefined' && django.jQuery) {
+        django.jQuery(document).ready(function($) {
+            var flagTypeField = $('#id_flag_type');
+            var flagTemplateRow = $('.form-row.field-flag_template');
+            var flagCountRow = $('.form-row.field-flag_count');
+            
+            if (flagTypeField.length === 0) {
+                return;
+            }
+            
+            function toggleFlagFields() {
+                var flagType = flagTypeField.val();
+                
+                if (flagType === 'STATIC') {
+                    // 静态Flag：显示flag_template，隐藏flag_count
+                    flagTemplateRow.show();
+                    flagCountRow.hide();
+                } else if (flagType === 'DYNAMIC') {
+                    // 动态Flag：隐藏flag_template，显示flag_count
+                    flagTemplateRow.hide();
+                    flagCountRow.show();
+                } else {
+                    // 默认：根据当前值决定
+                    flagTemplateRow.hide();
+                    flagCountRow.show();
+                }
+            }
+            
+            // 页面加载时初始化
+            toggleFlagFields();
+            
+            // 监听flag_type变化
+            flagTypeField.on('change', toggleFlagFields);
+        });
+    }
+})();
+</script>
+
+<style type="text/css">
+/* 平滑过渡动画 */
+.form-row {
+    transition: opacity 0.2s ease-in-out;
+}
+</style>
+{% endblock %}
+

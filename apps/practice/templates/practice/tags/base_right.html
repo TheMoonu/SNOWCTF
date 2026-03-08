@@ -1,0 +1,381 @@
+{% load blog_tags static %}
+{% load dashboard %}
+{% load pre_tags %}
+{% load humanize %}
+<!--个人空间-->
+<div class="card border-0 shadow-lighter mb-3 rounded-6">
+    <div class="card-header pr-card-header f-15">
+        <h6 class="pr-card-title ">
+            <i class="bi bi-person-workspace"></i>
+            {% if user.is_authenticated %}我的空间{% else %}个人空间{% endif %}
+        </h6>
+    </div>
+    <div class="card-body">
+        <!-- 操作网格 -->
+        <div class="pr-action-grid">
+            {% if user.is_authenticated %}
+                {% if user.is_valid_member or user.is_superuser %}
+                    <a href="{% url 'practice:challenge_create' %}" class="pr-action-item" title="创建题目">
+                        <i class="fa fa-plus-circle fa-2x mb-2" style="color: #28a745;"></i>
+                        <p>创建题目</p>
+                    </a>
+                {% else %}
+                    <a role="button" class="pr-action-item" style="cursor: pointer;" onclick="showWarningToast('高级会员才能创建题目')" title="创建题目">
+                        <i class="fa fa-plus-circle fa-2x mb-2" style="color: #28a745;"></i>
+                        <p>创建题目</p>
+                    </a>
+                {% endif %}
+            {% else %}
+                <a href="{% url 'account_login' %}?next={{ request.path }}" class="pr-action-item" title="创建题目">
+                    <i class="fa fa-plus-circle fa-2x mb-2" style="color: #28a745;"></i>
+                    <p>创建题目</p>
+                </a>
+            {% endif %}
+
+            
+
+            {% if user.is_authenticated %}
+                {% if user.is_valid_member or user.is_superuser %}
+                    <a href="{% url 'competition:competition_create' %}" class="pr-action-item" title="创建比赛">
+                        <i class="fa fa-calendar-plus-o fa-2x mb-2" style="color: #007bff;"></i>
+                        <p>创建竞赛</p>
+                    </a>
+                {% else %}
+                    <a role="button" class="pr-action-item" style="cursor: pointer;" onclick="showWarningToast('高级会员才能创建比赛')" title="创建比赛">
+                        <i class="fa fa-calendar-plus-o fa-2x mb-2" style="color: #17a2b8;"></i>
+                        <p>创建竞赛</p>
+                    </a>
+                {% endif %}
+            {% else %}
+                <a href="{% url 'account_login' %}?next={{ request.path }}" class="pr-action-item" title="创建比赛">
+                    <i class="fa fa-calendar-plus-o fa-2x mb-2" style="color: #007bff;"></i>
+                    <p>创建竞赛</p>
+                </a>
+            {% endif %}
+
+            {% if user.is_authenticated %}
+                <a href="{% url 'public:profileViews' user.uuid %}?type=collects" class="pr-action-item" title="我的收藏">
+                    <i class="fa fa-archive   fa-2x mb-2" style="color: #5bc3ff;"></i>
+                    <p>我的收藏</p>
+                </a>
+            {% else %}
+                <a href="{% url 'account_login' %}?next={{ request.path }}" class="pr-action-item" title="我的收藏">
+                    <i class="fa fa-archive  fa-2x mb-2" style="color: #52bdfa;"></i>
+                    <p>我的收藏</p>
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- 统计数据 -->
+        {% get_user_ctf_stats user as stats %}
+        <div class="pr-stats-grid">
+            
+            <div class="pr-stat-item">
+                <div class="pr-stat-value">{{ stats.user_solves }}</div>
+                <p class="pr-stat-label">解题</p>
+            </div>
+            <div class="pr-stat-item">
+                <div class="pr-stat-value">{{ stats.user_score }}</div>
+                <p class="pr-stat-label">分数</p>
+            </div>
+            <div class="pr-stat-item">
+                <div class="pr-stat-value">{{ stats.user_coins }}</div>
+                <p class="pr-stat-label">金币</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 我的容器 -->
+{% if user.is_authenticated %}
+{% get_user_active_container user as container %}
+{% if container and not container.is_current %}
+<div class="card border-0 shadow-lighter mb-3 rounded-6">
+    <div class="card-header pr-card-header f-15">
+        <h6 class="pr-card-title">
+            <i class="bi bi-box"></i>
+            我的容器
+        </h6>
+    </div>
+    <div class="card-body pr-card-body py-3">
+        <div class="pr-container-item">
+            <div class="pr-container-header">
+                <a href="{{ container.challenge_url }}" class="pr-container-title" title="查看{{ container.challenge_title }}">
+                    <i class="bi bi-flag-fill" style="color: #28a745;"></i>
+                    <span>{{ container.challenge_title|truncatechars:20 }}</span>
+                </a>
+                <span class="pr-container-time">
+                    <i class="bi bi-clock"></i>
+                    剩余{{ container.expires_at|timeuntil }}
+                </span>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+{%  if challenge.uuid %}
+{% get_challenge_solve_records challenge limit=10 as recent_solves %}
+<div class="card border-0 shadow-lighter mb-3 rounded-6">
+    <div class="card-header pr-card-header f-15">
+        <h6 class="pr-card-title">
+            <i class="bi bi-trophy"></i>
+            最近解题
+        </h6>
+    </div>
+    <div class="card-body">
+        <ul class="pr-timeline">
+            {% for record in recent_solves %}
+                <li class="pr-timeline-item">
+                    <span class="pr-timeline-icon">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </span>
+                    <div class="pr-timeline-content">
+                        <a href="{% url 'public:profileViews' record.user.user.uuid %}" class="pr-timeline-user" title="前往 {{ record.user.user.username }} 的个人主页">
+                            {{ record.user.user.username|my_slice:":12" }}
+                        </a>
+                        <span class="pr-timeline-text">在</span>
+                        <span class="pr-timeline-time">{{ record.solved_at|compact_time }}</span>
+                        <span class="pr-timeline-text">解出了该题</span>
+                    </div>
+                </li>
+            {% empty %}
+                <div class="pr-empty-state">
+                    <div class="pr-empty-icon">
+                        <i class="bi bi-inbox"></i>
+                    </div>
+                    <p class="pr-empty-text">暂无解题记录</p>
+                </div>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+
+
+
+
+
+<!--学习岛标签-->
+<div class="card border-0 shadow-lighter mb-3 rounded-6 ">
+    <div class="card-header pr-card-header f-15">
+        <h6 class="pr-card-title ">
+            <i class="bi bi-book-half"></i>
+            学习岛
+        </h6>
+    </div>
+    <div class="card-body pr-category-list">
+        <div class="pr-island-list" id="islandList">
+            {% get_all_challenge_tags user as challenge_tags %}
+            {% for item in challenge_tags %}
+                <a href="{{ item.tag.get_absolute_url }}" class="pr-island-item" data-island-item title="查看 {{ item.tag.name }} 学习岛">
+                    <div class="pr-island-header">
+                        <span class="pr-island-name">
+                            {{ item.tag.name }}
+                            
+                        </span>
+                        <span class="pr-island-count">
+                            {% if user.is_authenticated %}
+                                {% if item.progress == 100 %}
+                                <span class="state-label state-label-success" style="white-space: nowrap;">已全部攻克</span>
+                                {% elif item.progress == 0 %}
+                                <span class="state-label state-label-secondary" style="white-space: nowrap;">未开始</span>
+                                {% else %}
+                                <span style="white-space: nowrap;">完成进度 {{ item.progress }}%</span>
+                                {% endif %}
+                            {% else %}
+                            {{ item.total }}题
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if user.is_authenticated and item.progress > 0 %}
+                    <div class="pr-island-progress">
+                        <div class="pr-island-progress-bar" style="width: {{ item.progress }}%"></div>
+                    </div>
+                    {% endif %}
+                </a>
+            {% empty %}
+                <div class="pr-empty-state">
+                    <div class="pr-empty-icon">
+                        <i class="bi bi-inbox"></i>
+                    </div>
+                    <p class="pr-empty-text">暂无学习岛</p>
+                </div>
+            {% endfor %}
+        </div>
+        <!-- 分页 -->
+        <div class="pr-island-pagination" id="islandPagination"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const itemsPerPage = 8;
+    let currentPage = 1;
+    
+    const listContainer = document.getElementById('islandList');
+    const paginationContainer = document.getElementById('islandPagination');
+    
+    if (!listContainer || !paginationContainer) return;
+    
+    const items = Array.from(listContainer.querySelectorAll('[data-island-item]'));
+    const totalPages = Math.ceil(items.length / itemsPerPage);
+    
+    if (totalPages <= 1) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
+    
+    function showPage(page) {
+        currentPage = page;
+        const start = (page - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        
+        items.forEach((item, index) => {
+            item.style.display = (index >= start && index < end) ? 'block' : 'none';
+        });
+        
+        renderPagination();
+    }
+    
+    function renderPagination() {
+        let html = '';
+        
+        // 上一页按钮
+        if (currentPage > 1) {
+            html += `<button class="pr-page-btn" data-page="${currentPage - 1}"><i class="bi bi-chevron-left"></i></button>`;
+        }
+        
+        // 页码按钮
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === currentPage) {
+                html += `<button class="pr-page-btn active" data-page="${i}">${i}</button>`;
+            } else if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                html += `<button class="pr-page-btn" data-page="${i}">${i}</button>`;
+            } else if (i === currentPage - 2 || i === currentPage + 2) {
+                html += `<span class="pr-page-dots">...</span>`;
+            }
+        }
+        
+        // 下一页按钮
+        if (currentPage < totalPages) {
+            html += `<button class="pr-page-btn" data-page="${currentPage + 1}"><i class="bi bi-chevron-right"></i></button>`;
+        }
+        
+        paginationContainer.innerHTML = html;
+        
+        // 绑定事件
+        paginationContainer.querySelectorAll('.pr-page-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const page = parseInt(this.dataset.page);
+                showPage(page);
+            });
+        });
+    }
+    
+    // 初始化
+    showPage(1);
+})();
+</script>
+
+
+
+
+
+<!--分数排行-->
+{% get_users_ranked_by_solves limit=10 as top_solvers %}
+<div class="card border-0 shadow-lighter mb-3 rounded-6 ">
+    <div class="card-header pr-card-header f-15">
+        <div class="d-flex justify-content-between align-items-center">
+            <h6 class="pr-card-title mb-0">
+                <i class="bi bi-fire"></i>
+                分数排行
+            </h6>
+            {% if top_solvers %}
+            <a href="{% url 'practice:leaderboard' %}" class="text-muted d-inline-flex align-items-center" style="font-size: 12px; text-decoration: none; gap: 2px;" title="查看完整排行榜">
+                更多 <i class="bi bi-chevron-right" style="font-size: 11px;"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body ">
+        <ul class="pr-rank-list ">
+            {% for user in top_solvers %}
+            <li class="pr-rank-item">
+                <span class="pr-rank-number">{{ forloop.counter }}</span>
+                <div class="pr-rank-user">
+                    {% if user.avatar %}
+                        <img src="{{ user.avatar }}" alt="{{ user.user }}" class="pr-rank-avatar">
+                    {% endif %}
+                    <a href="{% url 'public:profileViews' user.uuid %}" class="pr-rank-name" title="前往 {{ user.user }} 的个人主页">
+                        {{ user.user }}
+                    </a>
+                </div>
+                <span class="pr-rank-score">{{ user.score }}</span>
+            </li>
+            {% empty %}
+                <div class="carousel-item active">
+                    <div class="pr-empty-state">
+                        <div class="pr-empty-icon">
+                            <i class="bi bi-inbox"></i>
+                        </div>
+                        <p class="pr-empty-text">暂无排行数据</p>
+                    </div>
+                </div>  
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!--题目动态-->
+{%  if not challenge.uuid %}
+<div class="pr-card card border-0 shadow-lighter mb-3 rounded-6 ">
+    <div class="card-header pr-card-header f-15">
+        <h6 class="pr-card-title">
+            <i class="bi bi-clock-history"></i>
+            题目动态
+        </h6>
+    </div>
+    <div class="card-body">
+        {% latest_challenges 6 as challenges %}
+        <ul class="pr-timeline">
+            {% for challenge in challenges %}
+                <li class="pr-timeline-item">
+                    <span class="pr-timeline-icon">
+                        <i class="bi bi-pin-angle"></i>
+                    </span>
+                        <div class="pr-timeline-content">
+                        {% if challenge.author and challenge.author.uuid %}
+                        <a href="{% url 'public:profileViews' challenge.author.uuid %}" class="pr-timeline-user" title="前往 {{ challenge.author.username }} 的个人主页">
+                            {{ challenge.author.username|my_slice:":8" }}
+                        </a>
+                        {% elif challenge.author %}
+                        <span class="pr-timeline-user">{{ challenge.author.username|my_slice:":8" }}</span>
+                        {% endif %}
+                        <span class="pr-timeline-text">上线了</span>
+                        <span class="pr-timeline-category">{{ challenge.category }}</span>
+                        <a href="{{ challenge.get_absolute_url }}" class="pr-timeline-link" title="{{ challenge.title }}">
+                            {{ challenge.title }}
+                        </a>
+                        <span class="pr-timeline-time">{{ challenge.created_at|compact_time }}</span>
+                    </div>
+                </li>
+            {% empty %}
+                <div class="carousel-item active">
+                    <div class="pr-empty-state">
+                        <div class="pr-empty-icon">
+                            <i class="bi bi-inbox"></i>
+                        </div>
+                        <p class="pr-empty-text">暂无动态</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+{% endif %}
+

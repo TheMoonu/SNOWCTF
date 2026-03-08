@@ -1,0 +1,277 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load blog_tags %}
+{% load humanize %}
+{% load com_tags %}
+{% block head_title %}{{competition_title}}{% endblock %}
+{% block metas %}
+
+<meta name="description" content="{{ site_description }}">
+<meta name="keywords" content="{{ site_keywords }}">
+
+{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'public/css/ctf.css' %}?v=20260125.01" rel="stylesheet">
+<link href="{% static 'practice/css/practice.css' %}?v=20260125.01" rel="stylesheet">
+
+{% endblock %}
+
+{% block base_content %}
+
+<div class="container">
+    <div class="row">
+        <div class="col-lg-9">
+
+
+            <!-- 题目矩阵标题和搜索 -->
+            <div class="card border-0 rounded-6 mb-3 shadow-sm">
+                <div class="card-body p-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-5 mb-2 mb-md-0">
+                            <h5 class="mb-0 font-weight-bold" style="color: #2c3e50;">
+                                <i class="bi bi-grid-3x3-gap-fill mr-2" style="color: #65b0fe;"></i>题目矩阵
+                            </h5>
+                        </div>
+                        <div class="col-md-7">
+                            <form method="get" action="" id="search-form">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text bg-white border-right-0" style="border-radius: 10px 0 0 10px; border-color: #e5e7eb;">
+                                            <i class="bi bi-search" style="color: #6b7280;"></i>
+                                        </span>
+                                    </div>
+                                    <input type="text" 
+                                           class="form-control border-left-0" 
+                                           id="searchInput" 
+                                           name="q" 
+                                           value="{{ search_query }}"
+                                           placeholder="搜索题目..." 
+                                           aria-label="搜索" 
+                                           autocomplete="off"
+                                           style="border-radius: 0 10px 10px 0; border-color: #e5e7eb;">
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div class="card border-0 rounded-6 mb-md-3">
+                <div class="card-body p-3">
+                    <ul class="list-unstyled m-0">
+                        <li class="mb-3">
+                            <div class="d-flex align-items-center flex-wrap">
+                                <h6 class="mr-2 mb-0 font-weight-bold f-16" style="min-width: 60px; flex-shrink: 0;"><i class="bi bi-stars mr-1"></i>类型</h6>
+                                <div class="d-flex flex-wrap align-items-center" style="flex: 1; row-gap: 8px;">
+                                    <a href="#" data-filter="type" data-value=""
+                                        class="mr-2 mb-0 {% if not request.GET.type %}active-type {% endif %}" data-no-loading>
+                                        ALL
+                                    </a>
+                                    {% for type in challenge_types %}
+                                    <a href="#" data-filter="type" data-value="{{ type }}"
+                                        class="mr-2 mb-0 {% if request.GET.type == type %}active-type {% endif %}" data-no-loading>
+                                        {{ type }}
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </li>
+                        <li class="mb-0 {% if user.is_authenticated %}mb-3{% endif %}">
+                            <div class="d-flex align-items-center flex-wrap">
+                                <h6 class="mr-2 mb-0 font-weight-bold f-16" style="min-width: 60px; flex-shrink: 0;"><i class="bi bi-stack mr-1"></i>难度</h6>
+                                <div class="d-flex flex-wrap align-items-center" style="flex: 1; row-gap: 8px;">
+                                    <a href="#" data-filter="difficulty" data-value=""
+                                        class="mr-2 mb-0 {% if not request.GET.difficulty %}active-type {% endif %}" data-no-loading>
+                                        ALL
+                                    </a>
+                                    {% for difficulty in difficulties %}
+                                    <a href="#" data-filter="difficulty" data-value="{{ difficulty }}"
+                                        class="mr-2 mb-0 {% if request.GET.difficulty == difficulty %} active-type {% endif %}" data-no-loading>
+                                        {{ difficulty }}
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </li>
+                        {% if user.is_authenticated %}
+                        <li>
+                            <div class="d-flex align-items-center flex-wrap">
+                                <h6 class="mr-2 mb-0 font-weight-bold f-16" style="min-width: 60px; flex-shrink: 0;"><i
+                                        class="bi bi-lightbulb-fill mr-1"></i>解决</h6>
+                                <div class="d-flex flex-wrap align-items-center" style="flex: 1; row-gap: 8px;">
+                                    <a href="#" data-filter="status" data-value=""
+                                        class="mr-2 mb-0 {% if not request.GET.status %}active-type{% endif %}" data-no-loading>ALL</a>
+                                    <a href="#" data-filter="status" data-value="solved"
+                                        class="mr-2 mb-0 {% if request.GET.status == 'solved' %}active-type{% endif %}" data-no-loading>已解决</a>
+                                    <a href="#" data-filter="status" data-value="unsolved"
+                                        class="mr-2 mb-0 {% if request.GET.status == 'unsolved' %}active-type{% endif %}" data-no-loading>未解决</a>
+                                </div>
+                            </div>
+                        </li>
+                        {% endif %}
+
+                        
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 排序标签 -->
+            <div class="recruit-sort-tabs border-0 rounded-6">
+                <a href="?sort_by=id{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+                   class="{% if request.GET.sort_by == 'id' or not request.GET.sort_by %}active{% endif %}">
+                    <i class="bi bi-list-ol mr-1"></i>默认排序
+                </a>
+                <a href="?sort_by=solve_count{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+                   class="{% if request.GET.sort_by == 'solve_count' %}active{% endif %}">
+                    <i class="bi bi-list-ol mr-1"></i>解题次数排序
+                </a>
+                <a href="?sort_by=points{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+                   class="{% if request.GET.sort_by == 'points' %}active{% endif %}">
+                    <i class="bi bi-list-ol mr-1"></i>分数排序
+                </a>
+            </div>
+
+
+            <div class="position-relative mt-2" style="min-height: 200px;">
+                <!-- <div id="loading-spinner" class="position-absolute" style="top: 50%; left: 50%; transform: translate(-50%, -50%); display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">加载中...</span>
+                    </div>
+                </div> -->
+
+                <div id="challenge-list">
+                    <div class="row mx-n2">
+                        {% for challenge in challenges %}
+
+                        <div class="col-sm-6 col-md-4 col-lg-3 px-2 mb-3">
+                            <div class="card challenge-card border-0 rounded-6 h-100 position-relative d-flex flex-column">
+                                {% if challenge.is_solved %}
+                                <div class="position-absolute" style="top: 0; right: 0; width: 50px; height: 50px; background-color: #007bff; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
+                                    <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">已完成</span>
+                                </div>
+                                {% endif %}
+                                <div class="d-flex flex-column p-3 flex-grow-1">
+                                    <a href="{% url 'competition:challenge_detail' competition_slug challenge.uuid %}"
+                                        class="text-decoration-none d-flex flex-column flex-grow-1">
+                                        <!-- 题目标题 -->
+                                        <h6 class=" mb-2 f-16">{{ challenge.title }}</h6>
+                                        <!-- 题目描述 -->
+                                        <div class="flex-grow-1" >
+                                            <p class="text-muted f-12" style="height: 56px;">{{ challenge.description|my_slice:':43' }}</p>
+                                        </div>
+                                        <!-- 类型和难度 -->
+                                        <!-- 类型和难度 -->
+                                        <div class="d-flex justify-content-end align-items-center mb-2">
+                                            <p class="mb-0">
+                                                <span class="state-label state-label-primary f-10 state-label-sm" title="题目类型" data-toggle="tooltip" data-placement="top">{{ challenge.category }}</span>
+
+                                                <span class="topic-difficulty-stars topic-difficulty-{{ challenge.difficulty|lower }}" title="难度：{{ challenge.get_difficulty_display }}" data-toggle="tooltip" data-placement="top">
+                                                    {% if challenge.difficulty == 'Easy' %}
+                                                        <i class="fa fa-star"></i>
+                                                        <i class="fa fa-star-o"></i>
+                                                        <i class="fa fa-star-o"></i>
+                                                    {% elif challenge.difficulty == 'Medium' %}
+                                                        <i class="fa fa-star"></i>
+                                                        <i class="fa fa-star"></i>
+                                                        <i class="fa fa-star-o"></i>
+                                                    {% elif challenge.difficulty == 'Hard' %}
+                                                        <i class="fa fa-star"></i>
+                                                        <i class="fa fa-star"></i>
+                                                        <i class="fa fa-star"></i>
+                                                    {% endif %}
+                                                </span>
+                                            </p>
+                                        </div>
+                                        <!-- 解决和用户头像 -->
+                                        <div class="d-flex justify-content-between align-items-center mt-auto">
+                                            <div class="d-flex align-items-center">
+                                                <span class="point-display" title="剩余分数" data-toggle="tooltip" data-placement="top">
+                                                    <i class="fa fa-star"></i> {{ challenge.points }} pts
+                                                </span>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <small class="text-info" title="解题次数{{ challenge.solves }}" data-toggle="tooltip" data-placement="bottom">
+                                                    <i class="fa fa-flag-checkered"></i> {{ challenge.solves|format_k }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="card border-0 rounded-6">
+                                <div class="card-body">
+                                    <p class="mb-0">没有找到符合条件的题目。</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            
+            {% if is_paginated %}
+            <nav aria-label="题目分页" class="mt-4 base_pagination">
+                <ul class="pagination pagination-sm justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
+                                上一页
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">上一页</span>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page in paginator.page_range %}
+                        {% if page_obj.number == page %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page }}</span>
+                            </li>
+                        {% elif page == "..." %}
+                            <li class="page-item disabled">
+                                <span class="page-link">{{ page }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
+                                    {{ page }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
+                                下一页
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">下一页</span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-3 d-none d-lg-block">
+            {% include 'competition/tags/base_right.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'public/js/ctf.js'%}"></script>
+
+{% endblock %}

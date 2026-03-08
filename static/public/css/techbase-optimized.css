@@ -1,0 +1,824 @@
+
+.tech-bg::before {
+    animation: none !important;
+}
+
+@keyframes gridMove {
+
+    0% { transform: translateY(0); }
+    100% { transform: translateY(0); }
+}
+
+.tech-navbar,
+.tech-sidebar-card,
+.tech-filter-panel,
+.tech-challenge-card,
+.tech-ranking-card,
+.tech-dynamic-card,
+.tech-empty-state,
+.tech-dropdown-menu,
+.tech-user-info-card,
+.tech-info-card,
+.ctf-nav-card,
+.ctf-detail-card,
+.ctf-info-card,
+.tech-modal-content {
+    backdrop-filter: none !important;
+}
+
+.tech-dynamic-title i,
+.tech-user-info-title i,
+.tech-blood-first,
+.tech-blood-second,
+.tech-blood-third,
+.tech-podium-trophy,
+.tech-status-dot {
+    animation: none !important;
+}
+
+/* 4. 简化阴影效果 - 减少渲染负担 */
+.tech-navbar,
+.tech-sidebar-card,
+.tech-challenge-card,
+.tech-ranking-card,
+.tech-dynamic-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.tech-competition-title,
+.tech-challenge-title,
+.tech-ranking-title {
+    text-shadow: none !important;
+}
+
+/* 5. 简化过渡效果 - 提升响应速度 */
+* {
+    transition-duration: 0.15s !important;
+}
+
+/* 6. 禁用不必要的 transform 优化 */
+.tech-bg,
+.tech-navbar,
+.tech-dropdown-menu,
+.tech-challenge-card,
+.tech-sidebar {
+    will-change: auto !important;
+    transform: none !important;
+    backface-visibility: visible !important;
+    perspective: none !important;
+}
+
+/* 7. 简化渐变效果 */
+.tech-ranking-header,
+.tech-dynamic-header,
+.tech-title-section {
+    background: rgba(0, 30, 60, 0.3) !important;
+}
+
+/* 8. 移除复杂的伪元素效果 */
+.tech-navbar::before,
+.tech-challenge-card::before,
+.tech-competition-title::before,
+.tech-competition-title::after {
+    display: none !important;
+}
+
+/* 9. 优化血榜徽章 - 移除动画和复杂效果 */
+.tech-blood-first,
+.tech-blood-second,
+.tech-blood-third {
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+/* 10. 禁用 Toast 入场动画 */
+.tech-toast {
+    transition: opacity 0.2s ease !important;
+    transform: translateX(0) !important;
+}
+
+/* 11. 简化模态框效果 */
+.tech-modal-content {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 12. 移除进度条动画 */
+.tech-progress-spinner {
+    animation-duration: 1.2s !important; /* 减慢旋转速度 */
+}
+
+/* 13. 简化按钮悬停效果 */
+.tech-btn,
+.tech-nav-link,
+.tech-quick-link,
+.ctf-action-btn {
+    transform: none !important;
+}
+
+/* ==================== 侧边栏倒计时优化 ==================== */
+
+/* 倒计时数字使用等宽字体，避免宽度跳动 */
+.tech-time-value {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+/* 侧边栏卡片性能优化 */
+.tech-sidebar-card {
+    will-change: auto !important;
+}
+
+/* 排行榜项悬停简化 */
+.tech-rank-item:hover {
+    background: rgba(0, 255, 255, 0.05) !important;
+}
+
+/* 快速链接悬停简化 */
+.tech-quick-link:hover {
+    transform: none !important;
+}
+
+/* 侧边栏链接简化 */
+.tech-link:hover {
+    transform: none !important;
+}
+
+/* ==================== 模态框性能优化 ==================== */
+
+/* 禁用模态框复杂动画 */
+.tech-modal-scanline {
+    display: none !important;
+}
+
+.tech-modal-header-line {
+    display: none !important;
+}
+
+/* 简化按钮动画 */
+.tech-modal-btn::before {
+    display: none !important;
+}
+
+.tech-modal-btn:hover {
+    transform: none !important;
+}
+
+/* 优化模态框过渡 */
+.tech-modal-overlay {
+    backdrop-filter: none !important;
+}
+
+.tech-modal-close:hover {
+    transform: none !important;
+}
+
+/* 表单控件优化 */
+.tech-modal-body .form-control {
+    transition: border-color 0.15s ease, background-color 0.15s ease !important;
+}
+
+/* ==================== 拖拽区域优化 ==================== */
+
+#dropZone {
+    transition: border-color 0.15s ease, background-color 0.15s ease !important;
+}
+
+/* ==================== 降级方案（针对低性能设备）==================== */
+
+/* 可选：为低性能设备完全禁用所有动画和过渡 */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* ==================== 综合排行榜性能优化 ==================== */
+
+/* 加载遮罩层 - 简化版 */
+.tech-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(0, 19, 36, 0.98), rgba(0, 25, 45, 0.95)) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.tech-loading-content {
+    text-align: center;
+    color: #0ff !important;
+}
+
+.tech-loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(0, 255, 255, 0.2) !important;
+    border-top-color: #0ff !important;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+.tech-loading-text {
+    font-size: 15px;
+    margin-top: 10px;
+    color: #0ff !important;
+}
+
+.tech-loading-progress {
+    width: 200px;
+    height: 3px;
+    background: rgba(0, 255, 255, 0.15) !important;
+    border-radius: 2px;
+    margin: 15px auto;
+    overflow: hidden;
+}
+
+.tech-loading-progress-bar {
+    height: 100%;
+    background: #0ff !important;
+    width: 0;
+    animation: progress 30s linear forwards;
+    box-shadow: none !important;
+}
+
+/* 刷新按钮 - 简化 */
+.tech-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.15), rgba(0, 200, 200, 0.1)) !important;
+    border: 1px solid rgba(0, 255, 255, 0.35) !important;
+    border-radius: 6px;
+    color: #0ff !important;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease !important;
+    margin-left: 10px;
+    box-shadow: 0 2px 8px rgba(0, 255, 255, 0.15) !important;
+}
+
+.tech-refresh-btn:hover {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.25), rgba(0, 220, 220, 0.2)) !important;
+    border-color: #0ff !important;
+    transform: none !important;
+    box-shadow: 0 4px 12px rgba(0, 255, 255, 0.25) !important;
+}
+
+.tech-refresh-btn.refreshing {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.tech-refresh-btn.refreshing i {
+    animation: spin 1s linear infinite;
+}
+
+/* 禁用综合排行榜的所有transform动画 */
+.tech-combined-score-item:hover,
+.tech-calc-method-btn:hover,
+.tech-combined-pagination .page-link:hover {
+    transform: none !important;
+}
+
+/* 简化综合排行榜过渡 */
+.tech-combined-table tbody tr,
+.tech-combined-score-item,
+.tech-calc-method-btn {
+    transition: all 0.15s ease !important;
+}
+
+/* 综合排行榜阴影已在 techbase.css 中定义 */
+
+/* 优化表格渲染 */
+.tech-combined-table {
+    contain: layout style paint;
+    will-change: auto !important;
+}
+
+.tech-combined-table tbody tr {
+    contain: layout;
+}
+
+/* 优化分页渲染 */
+.tech-combined-pagination {
+    contain: layout style paint;
+}
+
+.tech-combined-pagination .page-link {
+    transition: all 0.15s ease !important;
+}
+
+/* 模态框背景已在 techbase.css 中定义 */
+
+/* 减少重绘 */
+.tech-combined-rank,
+.tech-combined-score-value,
+.tech-combined-score-final {
+    backface-visibility: hidden;
+}
+
+
+
+/* 隐藏排行榜滚动条 - WebKit浏览器 */
+.tech-ranking-list::-webkit-scrollbar,
+.ctf-solves-list::-webkit-scrollbar {
+    display: none !important;
+}
+
+/* 隐藏排行榜滚动条 - Firefox */
+.tech-ranking-list,
+.ctf-solves-list {
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+/* ==================== 针对低端设备的额外优化 ==================== */
+@media (max-width: 768px) {
+    /* 移动设备禁用所有transform */
+    .tech-challenge-card:hover,
+    .tech-btn:hover,
+    .tech-quick-link:hover,
+    .tech-combined-score-item:hover,
+    .tech-calc-method-btn:hover {
+        transform: none !important;
+    }
+    
+    /* 减少移动端阴影 */
+    .tech-navbar,
+    .tech-sidebar-card,
+    .tech-challenge-card,
+    .tech-combined-header,
+    .tech-combined-my-score,
+    .tech-combined-main-card {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    }
+    
+    /* 简化移动端表格 */
+    .tech-combined-table th,
+    .tech-combined-table td {
+        padding: 12px 8px !important;
+    }
+}
+
+/* 减少 backdrop-filter 模糊值 */
+.tech-navbar {
+    backdrop-filter: blur(6px); /* 从 12px 降低到 6px */
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.tech-dropdown-menu,
+.tech-sidebar-card,
+.tech-challenge-card {
+    backdrop-filter: blur(5px); /* 从 10px 降低到 5px */
+    -webkit-backdrop-filter: blur(5px);
+}
+
+/* 优化文字阴影 - 减少模糊半径 */
+.tech-competition-title {
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5); /* 从 10px 降低到 5px */
+}
+
+.tech-challenge-title {
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3); /* 从 10px 降低到 5px */
+}
+
+.tech-ranking-title,
+.tech-stat-value {
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3); /* 从 10px 降低到 5px */
+}
+
+/* 优化盒子阴影 */
+.tech-navbar {
+    box-shadow: 0 2px 10px rgba(0, 255, 255, 0.15); /* 简化阴影 */
+}
+
+.tech-challenge-card:hover {
+    box-shadow: 0 4px 15px rgba(0, 255, 255, 0.25); /* 减少阴影复杂度 */
+}
+
+/* 禁用某些非关键动画 */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Edge 专用优化 */
+@supports (-ms-ime-align: auto) {
+    /* 移除 backdrop-filter */
+    .tech-navbar,
+    .tech-dropdown-menu,
+    .tech-sidebar-card,
+    .tech-challenge-card,
+    .tech-filter-panel,
+    .tech-dynamic-card,
+    .tech-ranking-card {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        background: rgba(0, 30, 60, 0.9); /* 增加不透明度补偿 */
+    }
+    
+    /* 简化阴影效果 */
+    .tech-competition-title,
+    .tech-challenge-title,
+    .tech-ranking-title,
+    .tech-stat-value {
+        text-shadow: none;
+    }
+    
+    /* 禁用复杂的box-shadow */
+    .tech-navbar,
+    .tech-challenge-card:hover,
+    .tech-sidebar-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* Edge 浏览器专用样式 (通过 JavaScript 添加的 class) */
+body.edge-browser .tech-bg::before {
+    animation: none !important; /* 禁用背景动画 */
+}
+
+body.edge-browser .tech-navbar,
+body.edge-browser .tech-dropdown-menu,
+body.edge-browser .tech-sidebar-card,
+body.edge-browser .tech-challenge-card,
+body.edge-browser .tech-filter-panel,
+body.edge-browser .tech-dynamic-card,
+body.edge-browser .tech-ranking-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(0, 30, 60, 0.92) !important;
+}
+
+body.edge-browser .tech-container-info-card,
+body.edge-browser .tech-info-card,
+body.edge-browser .flag-submit-enhanced {
+    backdrop-filter: none !important;
+    background: rgba(0, 20, 40, 0.9) !important;
+}
+
+/* 简化 Edge 浏览器中的阴影 */
+body.edge-browser [class*="text-shadow"] {
+    text-shadow: none !important;
+}
+
+body.edge-browser .tech-navbar {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.edge-browser .tech-challenge-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 255, 255, 0.2) !important;
+}
+
+/* 优化 transition 性能 - 只变换 transform 和 opacity */
+.tech-nav-link,
+.tech-btn,
+.tech-challenge-card,
+.tech-quick-link,
+.tech-filter-option {
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* 减少 hover 时的 transform 幅度 */
+.tech-nav-link:hover,
+.tech-btn:hover {
+    transform: translateY(-1px); /* 从 -2px 减少到 -1px */
+}
+
+.tech-challenge-card:hover {
+    transform: translateY(-3px); /* 从 -5px 减少到 -3px */
+}
+
+/* 优化动画性能 */
+@keyframes gridMove {
+    0% { 
+        transform: translate3d(0, 0, 0); /* 使用 3D transform */
+    }
+    100% { 
+        transform: translate3d(0, 40px, 0); /* 使用 3D transform */
+    }
+}
+
+/* 优化滚动性能 */
+.tech-solve-records,
+.tech-ranking-list,
+.tech-dynamic-body {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    contain: paint; /* CSS containment 优化 */
+}
+
+/* 减少重绘区域 */
+.tech-sidebar {
+    contain: layout style paint;
+}
+
+.tech-challenge-card {
+    contain: layout paint;
+}
+
+/* 优化图片和头像渲染 */
+.tech-user-avatar,
+.tech-avatar,
+img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+
+/* 防止布局抖动 */
+.tech-navbar {
+    contain: layout;
+}
+
+/* 优化表格渲染 */
+.tech-ranking-table,
+.tech-dynamic-table {
+    table-layout: fixed;
+    contain: layout;
+}
+
+/* 降低复杂动画的帧率要求 */
+.tech-blood-first,
+.tech-blood-second,
+.tech-blood-third {
+    animation-timing-function: steps(30); /* 使用 steps 代替 ease */
+}
+
+/* 禁用标题闪烁时的性能密集型操作 */
+@keyframes techFadeIn {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -10px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+/* 性能监控提示 */
+/* 如果仍然卡顿，可以添加以下 class 到 body 标签来启用极简模式 */
+body.performance-mode .tech-bg::before {
+    animation: none !important;
+    background-image: none !important;
+}
+
+body.performance-mode [class*="backdrop-filter"] {
+    backdrop-filter: none !important;
+}
+
+body.performance-mode [class*="text-shadow"] {
+    text-shadow: none !important;
+}
+
+body.performance-mode [class*="box-shadow"] {
+    box-shadow: none !important;
+}
+
+/* ==================== 科技风格加载动画 ==================== */
+.tech-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 19, 36, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.tech-loading-overlay.active {
+    display: flex;
+}
+
+.tech-loading-content {
+    text-align: center;
+}
+
+/* 科技风格旋转环 - 精致小巧版 */
+.tech-loading-spinner {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 15px;
+}
+
+.tech-spinner-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 2px solid transparent;
+    border-top-color: #0ff;
+    border-radius: 50%;
+    animation: techSpinnerRotate 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+}
+
+.tech-spinner-ring:nth-child(1) {
+    width: 100%;
+    height: 100%;
+    border-width: 2px;
+    animation-duration: 1.5s;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+}
+
+.tech-spinner-ring:nth-child(2) {
+    width: 70%;
+    height: 70%;
+    top: 15%;
+    left: 15%;
+    border-width: 1.5px;
+    border-top-color: rgba(0, 255, 255, 0.6);
+    animation-duration: 2s;
+    animation-direction: reverse;
+}
+
+.tech-spinner-ring:nth-child(3) {
+    width: 40%;
+    height: 40%;
+    top: 30%;
+    left: 30%;
+    border-width: 1.5px;
+    border-top-color: rgba(0, 255, 255, 0.4);
+    animation-duration: 2.5s;
+}
+
+.tech-spinner-core {
+    position: absolute;
+    width: 20%;
+    height: 20%;
+    top: 40%;
+    left: 40%;
+    background: #0ff;
+    border-radius: 50%;
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.8),
+                0 0 24px rgba(0, 255, 255, 0.3);
+    animation: techCorePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes techSpinnerRotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes techCorePulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 0.6;
+    }
+}
+
+/* 加载文字 */
+.tech-loading-text {
+    color: #0ff;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.tech-loading-dot {
+    animation: techDotBlink 1.4s infinite;
+    opacity: 0;
+}
+
+.tech-loading-dot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.tech-loading-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.tech-loading-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes techDotBlink {
+    0%, 20% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* 加载消息文字 */
+.tech-loading-message {
+    color: #0ff;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.tech-loading-message i {
+    font-size: 18px;
+    animation: techTerminalBlink 1s infinite;
+}
+
+@keyframes techTerminalBlink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0.3;
+    }
+}
+
+/* 加载进度条 */
+.tech-loading-progress {
+    width: 220px;
+    height: 4px;
+    background: rgba(0, 255, 255, 0.15);
+    border-radius: 2px;
+    margin: 15px auto 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.tech-loading-progress::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.3), transparent);
+    animation: techProgressShine 1.5s infinite;
+}
+
+@keyframes techProgressShine {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.tech-progress-bar {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #0ff, #00ff88);
+    border-radius: 2px;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+    transition: width 0.3s ease-out;
+}
+
+/* 性能优化 */
+.tech-loading-spinner,
+.tech-spinner-ring,
+.tech-spinner-core {
+    will-change: transform;
+}
+
+/* 防止滚动条抖动 - 优化版 */
+body.tech-no-scroll {
+    overflow: hidden !important;
+}
+
+/* 为有滚动条的页面添加额外的 padding 补偿（通过 JS 动态添加） */
+body.tech-no-scroll.has-scrollbar {
+    padding-right: var(--scrollbar-width, 0) !important;
+}
+
+/* 导航栏也需要同步调整，避免抖动 */
+body.tech-no-scroll.has-scrollbar .tech-navbar {
+    padding-right: calc(var(--scrollbar-width, 0) + 40px) !important;
+}
+

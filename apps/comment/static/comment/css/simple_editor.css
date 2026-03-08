@@ -1,0 +1,169 @@
+/* 简化版评论编辑器样式 */
+
+/* 评论输入框 */
+#comment-form {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    font-size: 14px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#comment-form:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* 表情按钮容器 */
+.editor-btns {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+/* 表情按钮 */
+.emoji-btn {
+    transition: transform 0.15s ease, background-color 0.15s ease;
+    border: none;
+    background: transparent;
+    padding: 4px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.emoji-btn:hover {
+    transform: scale(1.15);
+    background-color: #e9ecef !important;
+}
+
+.emoji-btn:active {
+    transform: scale(1.05);
+    background-color: #dee2e6 !important;
+}
+
+.emoji-btn:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+/* 表情下拉菜单 */
+#emoji-list {
+    max-height: 320px;
+    min-width: 308px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* 自定义滚动条样式 - Webkit 浏览器 */
+#emoji-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+#emoji-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#emoji-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+#emoji-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Firefox 滚动条样式 */
+#emoji-list {
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+#emoji-list img {
+    cursor: pointer;
+}
+
+/* 编辑器底部工具栏 */
+#editor-footer {
+    background-color: #ffffff !important;
+}
+
+#editor-footer .btn {
+    transition: all 0.15s ease;
+}
+
+#editor-footer .btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Markdown 帮助面板 */
+#md-help code {
+    background-color: #fff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #e83e8c;
+}
+
+#md-help strong {
+    color: #495057;
+    display: inline-block;
+    margin-bottom: 5px;
+}
+
+/* 评论高亮动画 */
+.comment-highlight {
+    animation: highlight 2s ease-in-out;
+}
+
+@keyframes highlight {
+    0%, 100% {
+        background-color: transparent;
+    }
+    50% {
+        background-color: #fff3cd;
+    }
+}
+
+/* 回复提示 */
+#rep-to {
+    color: #007bff;
+    font-weight: 500;
+}
+
+/* 评论中的图片样式 */
+.comment-body img {
+    cursor: pointer;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.comment-body img:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    #emoji-list {
+        min-width: 320px !important;
+        max-width: calc(100vw - 40px) !important;
+    }
+    
+    .emoji-btn img {
+        width: 22px !important;
+        height: 22px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    #emoji-list {
+        min-width: 280px !important;
+    }
+}
+

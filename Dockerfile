@@ -1,36 +1,72 @@
-FROM python:3.11-slim
+# ============ 第一阶段：构建阶段（编译 Python 包） ============
+FROM python:3.11-slim AS builder
+
 ARG debian_host=mirrors.ustc.edu.cn
 ARG pip_index_url=https://mirrors.tencent.com/pypi/simple
 ARG pip_trusted_host=mirrors.tencent.com
-ENV PYTHONUNBUFFERED=1
-WORKDIR /opt/cloud/snowctf
 
-# 替换系统源并安装依赖（合并多个RUN命令减少层数）
 RUN sed -i "s/deb.debian.org/${debian_host}/g" /etc/apt/sources.list.d/debian.sources \
-    && pip install --upgrade pip supervisor gunicorn --index-url $pip_index_url --trusted-host $pip_trusted_host --root-user-action=ignore \
-    && apt-get update && apt-get install -y \
-       default-libmysqlclient-dev \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       libpq-dev \
        build-essential \
-    && rm -rf /var/lib/apt/lists/* \
-    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+       pkg-config \
+       python3-dev \
+       libffi-dev \
+       libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# 安装Python依赖
-COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt --index-url $pip_index_url --trusted-host $pip_trusted_host --root-user-action=ignore
 
-# 创建日志目录
-RUN mkdir -p log && \
-    chmod -R 755 log && \
-    chown -R www-data:www-data log
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    --index-url $pip_index_url --trusted-host $pip_trusted_host --root-user-action=ignore
 
-# 复制项目文件到容器中
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --prefix=/install \
+    -r /tmp/requirements.txt \
+    supervisor gunicorn \
+    --index-url $pip_index_url --trusted-host $pip_trusted_host --root-user-action=ignore
+
+
+FROM python:3.11-slim
+
+ARG debian_host=mirrors.ustc.edu.cn
+ENV PYTHONUNBUFFERED=1
+WORKDIR /opt/cloud/secsnow
+
+RUN sed -i "s/deb.debian.org/${debian_host}/g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       libpq5 \
+       libssl3t64 \
+       ca-certificates \
+       fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+    && apt-get clean \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
+COPY --from=builder /install /usr/local
+
 COPY . .
 
-# 设置文件和目录权限（合并多个权限设置减少层数）
-RUN chmod -R 755 /opt/cloud/snowctf \
-    && chown -R www-data:www-data /opt/cloud/snowctf \
-    && find /opt/cloud/snowctf -name "*.py" -exec chmod 644 {} \; \
-    && chmod 600 /opt/cloud/snowctf/snowctf/settings.py \
-    && chown www-data:www-data /opt/cloud/snowctf/snowctf/settings.py
+RUN set -ex \
+    && mkdir -p log static media whoosh_index \
+    && find /opt/cloud/secsnow -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true \
+    && find /opt/cloud/secsnow -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete \
+    && find /usr/local -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true \
+    && find /usr/local -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete \
+    && find /opt/cloud/secsnow -type d \( -name "*.egg-info" -o -name ".git" -o -name ".pytest_cache" -o -name ".mypy_cache" \) -exec rm -rf {} + 2>/dev/null || true \
+    && rm -rf /opt/cloud/secsnow/.coverage /opt/cloud/secsnow/htmlcov \
+    && find /opt/cloud/secsnow -type f -name "test_*.py" -delete 2>/dev/null || true \
+    && find /opt/cloud/secsnow -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true \
+    && rm -rf /opt/cloud/secsnow/docs 2>/dev/null || true \
+    && find /opt/cloud/secsnow -name "*.py" -exec chmod 644 {} + \
+    && chmod 600 /opt/cloud/secsnow/secsnow/settings.py 2>/dev/null || true \
+    && chmod -R 755 log whoosh_index \
+    && chmod -R 755 static media \
+    && chown -R www-data:www-data /opt/cloud/secsnow
 
+
+# 切换到非root用户
+USER root
+
+# 默认命令（Web 服务）
 CMD ["supervisord", "-n", "-c", "supervisord.conf"]

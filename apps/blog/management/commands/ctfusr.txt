@@ -1,0 +1,221 @@
+# Generated manually to restore CTFUser complete structure
+# 恢复 CTFUser 的完整表结构（user_id 字段 + ManyToMany 关联表）
+
+from django.conf import settings
+from django.db import migrations, connection
+
+
+def restore_ctfuser_structure(apps, schema_editor):
+    """恢复 CTFUser 的完整结构"""
+    with connection.cursor() as cursor:
+        print("=" * 60)
+        print("开始恢复 CTFUser 表结构...")
+        print("=" * 60)
+        
+        # ===== 1. 恢复 user_id 字段 =====
+        print("\n[1/4] 检查 user_id 列...")
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser' 
+            AND COLUMN_NAME = 'user_id'
+        """)
+        col_exists = cursor.fetchone()[0]
+        
+        if not col_exists:
+            print("  → 添加 user_id 列")
+            cursor.execute("ALTER TABLE practice_ctfuser ADD COLUMN user_id bigint NOT NULL DEFAULT 0")
+        else:
+            print("  ✓ user_id 列已存在")
+        
+        # ===== 2. 清理数据并添加唯一索引 =====
+        print("\n[2/4] 检查 user_id 索引...")
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.STATISTICS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser' 
+            AND INDEX_NAME = 'user_id'
+        """)
+        idx_exists = cursor.fetchone()[0]
+        
+        if not idx_exists:
+            print("  → 清理测试数据并添加唯一索引")
+            cursor.execute("TRUNCATE TABLE practice_ctfuser")
+            cursor.execute("ALTER TABLE practice_ctfuser ADD UNIQUE INDEX user_id (user_id)")
+        else:
+            print("  ✓ user_id 索引已存在")
+        
+        # ===== 3. 添加外键约束 =====
+        print("\n[3/4] 检查 user_id 外键...")
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser' 
+            AND COLUMN_NAME = 'user_id'
+            AND REFERENCED_TABLE_NAME IS NOT NULL
+        """)
+        fk_exists = cursor.fetchone()[0]
+        
+        if not fk_exists:
+            print("  → 添加 user_id 外键约束")
+            cursor.execute("""
+                ALTER TABLE practice_ctfuser 
+                ADD CONSTRAINT practice_ctfuser_user_id_fk 
+                FOREIGN KEY (user_id) REFERENCES oauth_ouser(id) ON DELETE CASCADE
+            """)
+        else:
+            print("  ✓ user_id 外键已存在")
+        
+        # ===== 4. 创建 ManyToMany 关联表 =====
+        print("\n[4/4] 创建 ManyToMany 关联表...")
+        
+        # 4.1 已解题目关联表
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser_solved_challenges'
+        """)
+        if cursor.fetchone()[0] == 0:
+            print("  → 创建 practice_ctfuser_solved_challenges 表")
+            cursor.execute("""
+                CREATE TABLE practice_ctfuser_solved_challenges (
+                    id bigint AUTO_INCREMENT PRIMARY KEY,
+                    ctfuser_id bigint NOT NULL,
+                    pc_challenge_id bigint NOT NULL,
+                    UNIQUE KEY practice_ctfuser_solve_unique (ctfuser_id, pc_challenge_id),
+                    KEY practice_ctfuser_solve_ctfuser_idx (ctfuser_id),
+                    KEY practice_ctfuser_solve_challenge_idx (pc_challenge_id),
+                    CONSTRAINT practice_ctfuser_solve_ctfuser_fk 
+                        FOREIGN KEY (ctfuser_id) REFERENCES practice_ctfuser(id) ON DELETE CASCADE,
+                    CONSTRAINT practice_ctfuser_solve_challenge_fk 
+                        FOREIGN KEY (pc_challenge_id) REFERENCES practice_pc_challenge(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+        else:
+            print("  ✓ practice_ctfuser_solved_challenges 表已存在")
+        
+        # 4.2 收藏题目关联表
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser_collect_challenges'
+        """)
+        if cursor.fetchone()[0] == 0:
+            print("  → 创建 practice_ctfuser_collect_challenges 表")
+            cursor.execute("""
+                CREATE TABLE practice_ctfuser_collect_challenges (
+                    id bigint AUTO_INCREMENT PRIMARY KEY,
+                    ctfuser_id bigint NOT NULL,
+                    pc_challenge_id bigint NOT NULL,
+                    UNIQUE KEY practice_ctfuser_collect_chal_unique (ctfuser_id, pc_challenge_id),
+                    KEY practice_ctfuser_collect_chal_ctfuser_idx (ctfuser_id),
+                    KEY practice_ctfuser_collect_chal_challenge_idx (pc_challenge_id),
+                    CONSTRAINT practice_ctfuser_collect_chal_ctfuser_fk 
+                        FOREIGN KEY (ctfuser_id) REFERENCES practice_ctfuser(id) ON DELETE CASCADE,
+                    CONSTRAINT practice_ctfuser_collect_chal_challenge_fk 
+                        FOREIGN KEY (pc_challenge_id) REFERENCES practice_pc_challenge(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+        else:
+            print("  ✓ practice_ctfuser_collect_challenges 表已存在")
+        
+        # 4.3 收藏岗位关联表
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser_collect_jobs'
+        """)
+        if cursor.fetchone()[0] == 0:
+            print("  → 创建 practice_ctfuser_collect_jobs 表")
+            cursor.execute("""
+                CREATE TABLE practice_ctfuser_collect_jobs (
+                    id bigint AUTO_INCREMENT PRIMARY KEY,
+                    ctfuser_id bigint NOT NULL,
+                    job_id bigint NOT NULL,
+                    UNIQUE KEY practice_ctfuser_collect_job_unique (ctfuser_id, job_id),
+                    KEY practice_ctfuser_collect_job_ctfuser_idx (ctfuser_id),
+                    KEY practice_ctfuser_collect_job_job_idx (job_id),
+                    CONSTRAINT practice_ctfuser_collect_job_ctfuser_fk 
+                        FOREIGN KEY (ctfuser_id) REFERENCES practice_ctfuser(id) ON DELETE CASCADE,
+                    CONSTRAINT practice_ctfuser_collect_job_job_fk 
+                        FOREIGN KEY (job_id) REFERENCES recruit_job(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+        else:
+            print("  ✓ practice_ctfuser_collect_jobs 表已存在")
+        
+        print("\n" + "=" * 60)
+        print("✓ CTFUser 表结构恢复完成！")
+        print("=" * 60)
+
+
+def rollback_ctfuser_structure(apps, schema_editor):
+    """回滚：移除所有恢复的结构"""
+    with connection.cursor() as cursor:
+        print("回滚 CTFUser 表结构...")
+        
+        # 删除 ManyToMany 关联表
+        cursor.execute("DROP TABLE IF EXISTS practice_ctfuser_collect_jobs")
+        cursor.execute("DROP TABLE IF EXISTS practice_ctfuser_collect_challenges")
+        cursor.execute("DROP TABLE IF EXISTS practice_ctfuser_solved_challenges")
+        
+        # 删除外键
+        cursor.execute("""
+            SELECT CONSTRAINT_NAME 
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser' 
+            AND COLUMN_NAME = 'user_id'
+            AND REFERENCED_TABLE_NAME IS NOT NULL
+        """)
+        result = cursor.fetchone()
+        if result:
+            cursor.execute(f"ALTER TABLE practice_ctfuser DROP FOREIGN KEY {result[0]}")
+        
+        # 删除索引
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.STATISTICS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser' 
+            AND INDEX_NAME = 'user_id'
+        """)
+        if cursor.fetchone()[0]:
+            cursor.execute("ALTER TABLE practice_ctfuser DROP INDEX user_id")
+        
+        # 删除列
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'practice_ctfuser' 
+            AND COLUMN_NAME = 'user_id'
+        """)
+        if cursor.fetchone()[0]:
+            cursor.execute("ALTER TABLE practice_ctfuser DROP COLUMN user_id")
+        
+        print("✓ 回滚完成")
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('public', '0003_ctfuser'),
+        ('practice', '0015_alter_solverecord_user_delete_ctfuser'),
+        ('recruit', '0015_alter_city_options_alter_job_options'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.RunPython(
+            restore_ctfuser_structure,
+            rollback_ctfuser_structure,
+        ),
+    ]
+

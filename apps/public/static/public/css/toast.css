@@ -1,0 +1,289 @@
+/* 现代简约风格 Toast 提示框 - 卡片设计 */
+.custom-toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.custom-toast {
+    width: 100%;
+    max-width: 420px;
+    min-width: 320px;
+    background: rgba(179, 185, 191, 0.85);
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.12),
+        0 2px 8px rgba(0, 0, 0, 0.08);
+    border-radius: 14px;
+    pointer-events: auto;
+    position: relative;
+    transform: translateX(calc(100% + 20px));
+    opacity: 0;
+    will-change: transform, opacity, max-height;
+    transition: box-shadow 0.2s ease;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.custom-toast:hover {
+    box-shadow: 
+        0 12px 32px rgba(0, 0, 0, 0.16),
+        0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: translateX(0) translateY(-2px) !important;
+}
+
+.custom-toast-header {
+    padding: 4px 9px;
+    background-color: transparent;
+    border-bottom: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 36px;
+}
+
+.custom-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.custom-toast-body {
+    padding: 5px 16px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1f2937;
+    word-break: break-word;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+/* 关闭按钮 - 现代简约设计 */
+.custom-toast .custom-close {
+    color: #374151;
+    opacity: 1;
+    font-size: 18px;
+    font-weight: 400;
+    padding: 0;
+    background: transparent;
+    border: none;
+    outline: none !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    cursor: pointer;
+    flex-shrink: 0;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.custom-toast .custom-close:hover {
+    color: #111827;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.custom-toast .custom-close:active {
+    background: rgba(0, 0, 0, 0.1);
+    transform: scale(0.92);
+}
+
+/* 顶部彩色条纹指示器 - 已禁用 */
+.custom-toast::before {
+    display: none;
+}
+
+/* 不同类型的 Toast 样式 - 现代配色 */
+.custom-toast-header.custom-bg-success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.03) 100%);
+}
+
+.custom-toast-header.custom-bg-success .custom-title {
+    color: #10b981 !important;
+}
+
+.custom-toast-header.custom-bg-warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.03) 100%);
+}
+
+.custom-toast-header.custom-bg-warning .custom-title {
+    color: #f59e0b !important;
+}
+
+.custom-toast-header.custom-bg-danger {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.03) 100%);
+}
+
+.custom-toast-header.custom-bg-danger .custom-title {
+    color: #ef4444 !important;
+}
+
+.custom-toast-header.custom-bg-info {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.03) 100%);
+}
+
+.custom-toast-header.custom-bg-info .custom-title {
+    color: #3b82f6 !important;
+}
+
+/* 顶部条纹颜色 - 已禁用 */
+.custom-toast.custom-toast-success::before,
+.custom-toast.custom-toast-warning::before,
+.custom-toast.custom-toast-danger::before,
+.custom-toast.custom-toast-info::before {
+    display: none;
+}
+
+/* 标题和时间样式 */
+.custom-toast-header .custom-title {
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    letter-spacing: 0.01em;
+    line-height: 1.4;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.custom-toast-header .custom-title i {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.custom-toast-header .custom-time {
+    color: #374151;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+/* 响应式设计 - 移动设备优化 */
+@media (max-width: 768px) {
+    .custom-toast-container {
+        right: 12px;
+        left: 12px;
+        top: 12px;
+    }
+    
+    .custom-toast {
+        max-width: 100%;
+        min-width: auto;
+    }
+}
+
+@media (max-width: 576px) {
+    .custom-toast-container {
+        right: 10px;
+        left: 10px;
+        top: 10px;
+        gap: 8px;
+    }
+    
+    .custom-toast {
+        border-radius: 12px;
+        min-width: auto;
+    }
+    
+    .custom-toast-header {
+        padding: 10px 14px;
+        min-height: 34px;
+    }
+    
+    .custom-toast-body {
+        padding: 0 14px 10px;
+        font-size: 13px;
+    }
+    
+    .custom-toast-header .custom-title {
+        font-size: 13px;
+    }
+    
+    .custom-toast-header .custom-time {
+        font-size: 11px;
+    }
+    
+    .custom-toast .custom-close {
+        font-size: 16px;
+        width: 20px;
+        height: 20px;
+    }
+}
+
+@media (max-width: 360px) {
+    .custom-toast-container {
+        gap: 8px;
+    }
+    
+    .custom-toast-header .custom-time {
+        display: none;
+    }
+}
+
+/* 显示动画 - 弹性效果 */
+.custom-toast.show {
+    transform: translateX(0);
+    opacity: 1;
+    animation: slideInBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideInBounce {
+    0% {
+        transform: translateX(calc(100% + 20px));
+        opacity: 0;
+    }
+    60% {
+        transform: translateX(-6px);
+        opacity: 1;
+    }
+    80% {
+        transform: translateX(3px);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+/* 隐藏动画 - 流畅退出 */
+.custom-toast.removing {
+    animation: toastRemove 0.35s ease-out forwards;
+}
+
+@keyframes toastRemove {
+    0% {
+        transform: translateX(0) scale(1);
+        opacity: 1;
+        max-height: 300px;
+        margin-bottom: 10px;
+    }
+    60% {
+        transform: translateX(calc(100% + 20px)) scale(0.95);
+        opacity: 0;
+        max-height: 300px;
+        margin-bottom: 10px;
+    }
+    100% {
+        transform: translateX(calc(100% + 20px)) scale(0.95);
+        opacity: 0;
+        max-height: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+}
+

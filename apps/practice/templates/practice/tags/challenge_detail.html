@@ -1,0 +1,984 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load blog_tags %}
+{% load comment_tags %}
+{% load pre_tags %}
+{% block head_title %}{{ challenge.title }} - 漏洞靶场{% endblock %}
+{% block metas %}
+<!-- SEO 基础标签 -->
+{% if seo_flag %}
+
+<meta name="description" content="{{ challenge.title }} - {{ challenge.category }} | {{ site_description }}">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ challenge.get_absolute_url }}">
+
+<!-- 百度专用标签 -->
+<meta name="baidu-site-verification" content="">
+<meta name="mobile-agent" content="format=html5; url={{ request.scheme }}://{{ request.get_host }}{{ challenge.get_absolute_url }}">
+<meta name="applicable-device" content="pc,mobile">
+
+<!-- Google 专用标签 -->
+<meta name="google-site-verification" content="">
+<meta name="googlebot" content="index, follow">
+
+<!-- Bing 专用标签 -->
+<meta name="msvalidate.01" content="">
+
+<!-- Open Graph 社交媒体标签 -->
+<meta property="og:locale" content="zh_CN">
+<meta property="og:site_name" content="{{ site_name }}">
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ challenge.title }} - {{ challenge.category }}">
+<meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ challenge.get_absolute_url }}">
+<meta property="article:published_time" content="{{ challenge.create_date|date:'Y-m-d' }}T{{ challenge.create_date|time:'H:i:s' }}+08:00">
+<meta property="article:modified_time" content="{{ challenge.update_date|date:'Y-m-d' }}T{{ challenge.update_date|time:'H:i:s' }}+08:00">
+<meta property="article:section" content="{{ challenge.category }}">
+
+
+<!-- 结构化数据 -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Course",
+  "name": "{{ challenge.title }}",
+  "description": "{{ challenge.title }} - {{ challenge.category }} CTF 挑战题目",
+  "provider": {
+    "@type": "Organization",
+    "name": "{{ site_name }}",
+    "url": "{{ request.scheme }}://{{ request.get_host }}"
+  },
+  "courseCode": "{{ challenge.uuid }}",
+  "educationalLevel": "{{ challenge.get_difficulty_display }}",
+  "inLanguage": "zh-CN",
+  "datePublished": "{{ challenge.create_date|date:'Y-m-d' }}",
+  "dateModified": "{{ challenge.update_date|date:'Y-m-d' }}",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "CNY",
+    "availability": "https://schema.org/InStock"
+  }
+}
+</script>
+{% else %}
+<meta name="description" content="{{ site_description }}">
+<meta name="keywords" content="{{ site_keywords }}">
+{% endif %}
+{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'practice/css/practice.css' %}?v=20260126.01" rel="stylesheet">
+<link href="{% static 'public/css/ctf.css' %}?v=20251228.01" rel="stylesheet">
+
+    {#    <script>var stop_headroom = true;</script>#}
+    <link href="{% static 'public/css/detail.css' %}?v=20260116.02" rel="stylesheet">
+    <link href="{% static 'public/css/monokai-2.css' %}?v=20260116.02" rel="stylesheet">
+    <link href="{% static 'comment/css/base_comment.css' %}?v=20190114.554" rel="stylesheet">
+    {% if user.is_authenticated %}
+        <link href="{% static 'comment/css/simple_editor.css' %}" rel="stylesheet">
+    {% endif %}
+
+<style>
+    /* 蓝色简约进度条 */
+    .progress-card {
+        background: #fff;
+        border: 1px solid #e3f2fd;
+        border-radius: 8px;
+        padding: 18px 20px;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.08);
+    }
+
+    .progress-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        color: #495057;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    /* 更小更流畅的转圈圈 */
+    .progress-header .spinner-border-sm {
+        width: 16px;
+        height: 16px;
+        border-width: 2px;
+        color: #007bff !important;
+    }
+
+    .progress {
+        background: #f0f4f8;
+        border-radius: 10px;
+        overflow: hidden;
+        height: 8px !important;
+    }
+
+    .progress-bar {
+        background: linear-gradient(90deg, #0056b3 0%, #007bff 100%) !important;
+        color: white;
+        font-size: 11px;
+        font-weight: 600;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        line-height: 8px;
+    }
+
+    /* 🆕 多入口容器样式 */
+    .multi-entry-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .entry-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 6px;
+        border: 1px solid rgba(0, 123, 255, 0.15);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .entry-item strong {
+        color: #495057;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .entry-item code {
+        font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+        font-size: 12px;
+        user-select: all;
+    }
+
+    .entry-item .container-link {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .entry-item .container-link:hover {
+        color: #0056b3;
+        text-decoration: underline;
+    }
+
+    /* 隐藏题解按钮 - 大气简洁风格 */
+    .btn-hide-writeup {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 16px;
+        background-color: #f8f9fa;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    }
+    
+    .btn-hide-writeup:hover {
+        background-color: #e9ecef;
+        color: #212529;
+        border-color: #ced4da;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        transform: translateY(-1px);
+    }
+    
+    .btn-hide-writeup:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+    
+    .btn-hide-writeup i {
+        font-size: 13px;
+    }
+</style>
+
+{% endblock %}
+{% block base_content %}
+
+
+<div class="container">
+    <div class="row">
+        <div class="col-lg-9">
+
+            <div style="min-width: 0;">
+                <nav aria-label="breadcrumb" style="min-width: 0;">
+                    <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15" style="display: flex; flex-wrap: nowrap; min-width: 0;">
+                        <li class="breadcrumb-item" style="flex-shrink: 0;">
+                            <i class="fa fa-home mr-1"></i><a href="{% url 'practice:challenge_list' %}">漏洞靶场</a>
+                        </li>
+                        
+                        <!-- 主题标签 -->
+                        {% get_challenge_tags challenge.uuid as challenge_tags %}
+                        {% for tag in challenge_tags %}
+                            <li class="breadcrumb-item" style="flex-shrink: 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <i class="fa fa-tag mr-1"></i><a href="{{ tag.get_absolute_url }}" title="查看 {{ tag.name }} 的所有题目">{{ tag.name }}</a>
+                            </li>
+                        {% endfor %}
+
+                        <li class="breadcrumb-item active" aria-current="page" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ challenge.title }}</li>
+
+                    </ol>
+                </nav>
+            </div>
+
+
+
+
+
+            <div class="card border-0 rounded-6 px-3 mb-md-3 order-1 mb-2 mt-2 mt-md-3 mt-lg-3">
+                <div class="card-header bg-none mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="invisible" style="width: 70px">
+                            <!-- 用于平衡左侧空间的占位符 -->
+                        </div>
+                        <h5 class="mt-2 mb-0 text-center f-18 text-primary">
+                            {{ challenge.title }}
+                        </h5>
+                        {% if user.is_superuser or user.uuid == challenge.author.uuid %}
+                            <div class="ml-2" style="width: 70px; text-align: right;">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-link p-0" data-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-gear"></i>
+                                    </button>
+                                    <div class="dropdown-menu dropdown-menu-right py-1" style="min-width: 100px; font-size: 14px;">
+                                        <a class="dropdown-item px-3 py-1" href="javascript:void(0)" onclick="openEditModal('{{ challenge.uuid }}', '{{ challenge.title }}', '{{ challenge.description|escapejs }}', '{{ challenge.hint|escapejs }}')" data-no-loading>
+                                            <i class="bi bi-pencil-square"></i> 修改题目
+                                        </a>
+                                        
+                                        <a class="dropdown-item px-3 py-1" href="#" onclick="openDeleteModal('{{ challenge.uuid }}'); return false;" data-no-loading>
+                                            <i class="bi bi-trash"></i> 删除题目
+                                        </a>
+                                        
+                                        <a class="dropdown-item px-3 py-1" href="#" onclick="toggleVisibility('{{ challenge.uuid }}'); return false;" data-no-loading>
+                                            <i class="bi bi-{% if challenge.is_active %}eye{% else %}eye-slash{% endif %}"></i>
+                                            {% if challenge.is_active %}设为私有{% else %}设为公开{% endif %}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div style="width: 70px">
+                                <!-- 非管理员时的占位符 -->
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body p-0 mb-2">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <div class="challenge-detail-tags">
+                                <div class="tag-cloud d-flex flex-wrap align-items-center">
+                                    <!-- 难度和分类标签 -->
+                                    <a class="tags f-16 challenge-category-badge mr-2 mb-2">
+                                        <i class="fa fa-folder-open mr-1"></i>{{ challenge.get_category_display }}
+                                    </a>
+                                    <a class="tags f-16 challenge-difficulty-badge mr-2 mb-2">
+                                        <i class="fa fa-signal mr-1"></i>{{ challenge.get_difficulty_display }}
+                                    </a>
+                                    
+                                    <!-- 状态标签 -->
+                                    {% if challenge.is_member %}
+                                        <a class="tags f-16 challenge-member-badge mr-2 mb-2">
+                                            <i class="fa fa-user-plus mr-1"></i>会员题目
+                                        </a>
+                                    {% endif %}
+                                    {% if not challenge.is_active %}
+                                        <a class="tags f-16 challenge-inactive-badge mr-2 mb-2">
+                                            <i class="fa fa-eye-slash mr-1"></i>未公开
+                                        </a>
+                                    {% endif %}
+
+                                    <span class="state-label state-label-success state-label-rounded "><i class="fa fa-fire mr-1"></i> 访问量 {{ challenge.views }}</span>
+
+                                    <button class="btn btn-sm js-challenge-collect ml-2"
+                                        data-uuid="{{ challenge.uuid }}"
+                                        data-collected="{{ is_collected|lower }}">
+                                        <i class="bi {% if is_collected %}bi-heart-fill text-dark{% else %}bi-heart{% endif %}" title="{% if is_collected %}取消收藏{% else %}收藏{% endif %}" data-toggle="tooltip" data-placement="top" ></i>
+                                    </button>
+
+                                    
+                                        
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+
+                    </div>
+                    <!-- 题目描述卡片 -->
+                    <div class="custom-info-card border-left-info">
+                        <div class="custom-info-card-body">
+                            <h5 class="custom-info-card-title"><i class="fa fa-file-text"></i> 题目描述：</h5>
+                            <div class="mb-0 custom-info-card-text challenge-description markdown-content"> {{ challenge.description|markdown|safe }}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 题目解析卡片 -->
+                    <div class="custom-info-card border-left-warning">
+                        <div class="custom-info-card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3" style="min-height: 32px;">
+                                <h5 class="custom-info-card-title mb-0">
+                                    <i class="fa fa-book"></i> 题目解析
+                                </h5>
+                                <button type="button" class="btn-hide-writeup" id="hide-writeup-btn" onclick="hideWriteup()" style="visibility: hidden;">
+                                    <i class="fa fa-eye-slash"></i>
+                                    <span>隐藏题解</span>
+                                </button>
+                            </div>
+                            
+                            {% if challenge.hint %}
+                                <!-- 题解遮罩层 -->
+                                <div id="writeup-mask" class="text-center py-4 px-3 challenge-hint-mask" >
+                                    {% if user.is_authenticated %}
+                                        {% if can_view_writeup %}
+                                            <!-- 已有权限，可以查看 -->
+                                            {% if challenge.writeup_is_public %}
+                                                <span class="state-label state-label-success mb-3">公开题解</span>
+                                            {% else %}
+                                                <span class="state-label state-label-info mb-3">已解锁</span>
+                                            {% endif %}
+                                            <p class="text-muted mb-3" style="font-size: 14px;">
+                                                点击按钮查看题解内容
+                                            </p>
+                                            <button type="button" class="btn btn-primary btn-sm" onclick="showWriteup()">
+                                                <i class="fa fa-eye"></i> 查看题解
+                                            </button>
+                                        {% else %}
+                                            <!-- 需要购买 -->
+                                            <span class="state-label state-label-warning mb-3">需要解锁</span>
+                                            <p class="mb-3" style="font-size: 13px; color: #868e96;">
+                                                需要 <strong class="text-warning">{{ challenge.writeup_cost }}</strong> 金币 · 当前 {{ user_coins }} 金币
+                                            </p>
+                                            <button type="button" class="btn btn-warning btn-sm" onclick="showPurchaseModal()">
+                                                <i class="fa fa-coins"></i> 解锁题解
+                                            </button>
+                                        {% endif %}
+                                    {% else %}
+                                        <!-- 未登录 -->
+                                        <p class="text-muted mb-3" style="font-size: 14px;">
+                                            <i class="fa fa-user"></i> 登录后查看题解
+                                        </p>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- 题解内容（默认隐藏） -->
+                                <div id="writeup-content" class="custom-info-card-text challenge-hint markdown-content" style="display: none;">
+                                    {{ challenge.hint|markdown|safe }}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center py-4 mb-0">
+                                    <i class="fa fa-info-circle"></i> 该题目暂无题解内容
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row text-center ">
+                        <div class="col">
+                            <div>
+                                <p class="mt-1">作者</p>
+                                {% if challenge.author and challenge.author.uuid %}
+                                <a href="{% url 'public:profileViews' challenge.author.uuid %}" data-toggle="tooltip" data-placement="top" title="前往{{challenge.author.username }}个人主页"><span class="state-label state-label-primary state-label-rounded state-label-hover">{{ challenge.author.username }}</span></a>
+                                {% elif challenge.author %}
+                                <span class="state-label state-label-primary state-label-rounded">{{ challenge.author.username }}</span>
+                                {% endif %}
+                                
+                            </div>
+                            
+                        </div>
+                        <div class="col">
+                            <div>
+                                <p class="mt-1">一血</p>
+                                {% if challenge.first_blood_user %}
+                                    <a href="{% url 'public:profileViews' challenge.first_blood_user.uuid %}" data-toggle="tooltip" data-placement="top" title="前往{{challenge.first_blood_user.username }}个人主页"><span class="state-label state-label-primary state-label-rounded">{{ challenge.first_blood_user.username }}</span></a>
+                                    
+                                {% else %}
+                                    <p class="mt-1 state-label state-label-secondary state-label-rounded">暂无</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div>
+                                <p class="mt-1">解题次数</p>
+                                <p class="mt-1 state-label state-label-success state-label-rounded">{{ challenge.solves }}</p>
+                               
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div>
+                                <p class="mt-1">分数</p>
+                                <p class="mt-1 state-label state-label-success state-label-rounded">{{ challenge.points}}</p>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="col">
+                            <div>
+                                <p class="mt-1">消耗金币</p>
+                                <p class="mt-1 state-label state-label-warning state-label-rounded">{{ challenge.coins }}</p>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="col">
+                            <div>
+                                <p class="mt-1">最高奖励</p>
+                                <p class="mt-1 state-label state-label-warning state-label-rounded">{{ challenge.reward_coins }}</p>
+                                
+                            </div>
+                        </div>
+                        
+                       
+                    </div>
+                    
+
+                    <div class="mt-4 text-center mt-5 mb-3">
+                        {% if user.is_authenticated %}
+                            {% if challenge.docker_image and challenge.docker_image.review_status == 'APPROVED' or challenge.network_topology_config %}
+                                {% if challenge.is_member %}
+                                    
+                                    {% if user.is_valid_member or user.is_superuser %}
+                                        <button type="button" id="createContainerBtn" class="btn btn-primary btn-sm" style="display: none;"
+                                            data-csrf="{{ csrf_token }}" data-challenge-uuid="{{ challenge.uuid }}"
+                                            data-ajax-url="{% url 'practice:create_web_container' %}">
+                                            创建题目环境
+                                        </button>
+                                        <!-- 添加加载占位符 -->
+                                        <div id="containerLoadingPlaceholder" style="height: 31px;"></div>
+                                    {% else %}
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="showWarningToast('高级会员才能创建题目环境。')">
+                                            <i class="fa fa-info-circle mr-1"></i> 创建题目环境
+                                        </button>
+                                    {% endif %}
+                                {% else %}
+                                    
+                                    <button type="button" id="createContainerBtn" class="btn btn-primary btn-sm" style="display: none;"
+                                        data-csrf="{{ csrf_token }}" data-challenge-uuid="{{ challenge.uuid }}"
+                                        data-ajax-url="{% url 'practice:create_web_container' %}">
+                                        创建题目环境
+                                    </button>
+                                    <!-- 添加加载占位符 -->
+                                    <div id="containerLoadingPlaceholder" style="height: 31px;"></div>
+                                {% endif %}
+                            
+                            {% endif %}
+
+                            <button type="button" id="destroyContainerBtn" class="btn btn-danger btn-sm" style="display: none;"
+                                data-csrf="{{ csrf_token }}" data-challenge-uuid="{{ challenge.uuid }}"
+                                data-ajax-url="{% url 'practice:destroy_web_container' %}">
+                                摧毁题目环境
+                            </button>
+
+                            {# 下载附件按钮 #}
+                            {% if challenge.static_files or challenge.static_file_url %}
+                                {% if challenge.is_member %}
+                                    
+                                    {% if user.is_valid_member or user.is_superuser %}
+                                        {% if challenge.static_files and challenge.static_files.review_status == 'APPROVED' or challenge.static_file_url %}
+                                            {% if file_url %}
+                                                <a href="{{ file_url }}" class="btn btn-primary btn-sm challenge-file-download" download data-no-loading>
+                                                    <i class="fa fa-download mr-1"></i> 下载附件
+                                                </a>
+                                            {% else %}
+                                                <button type="button" class="btn btn-primary btn-sm" onclick="showWarningToast('下载资源不存在。')">
+                                                    <i class="fa fa-info-circle mr-1"></i> 下载附件
+                                                </button>
+                                            {% endif %}
+                                        {% else %}
+                                            <button type="button" class="btn btn-primary btn-sm" onclick="showWarningToast('该附件未审核通过，无法下载。')">
+                                                <i class="fa fa-info-circle mr-1"></i> 下载附件
+                                            </button>
+                                        {% endif %}
+                                    {% else %}
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="showWarningToast('高级会员才能下载题目附件。')">
+                                            <i class="fa fa-info-circle mr-1"></i> 下载附件
+                                        </button>
+                                    {% endif %}
+                                {% else %}
+                                    
+                                    {% if file_url %}
+                                        <a href="{{ file_url }}" class="btn btn-primary btn-sm challenge-file-download" download data-no-loading>
+                                            <i class="fa fa-download mr-1"></i> 下载附件
+                                        </a>
+                                    {% else %}
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="showWarningToast('下载资源不存在。')">
+                                            <i class="fa fa-info-circle mr-1"></i> 下载附件
+                                        </button>
+                                    {% endif %}
+                                {% endif %}
+                            {% endif %}
+                            
+                        {% else %}
+                            <a href="{% url 'account_login' %}?next={{ request.path }}" class="btn btn-primary btn-sm">
+                                创建题目环境
+                            </a>
+                            
+                        {% endif %}
+                        
+                    </div>
+
+
+                    <div id="results" class="mt-3"></div>
+
+                    
+                </div>
+                <div class="mb-3">
+                    
+                    <div class="d-flex ">
+                        <div class="flex-grow-1 me-2 h-50">
+                            <input type="text" id="flag-input" class="form-control f-14" required placeholder="FLAG提交">
+                        </div>
+                        <div>
+                            {% if user.is_authenticated %}
+                                <button type="button" class="btn btn-primary f-14"
+                                    id="submit-flag" 
+                                    data-challenge-uuid="{{ challenge.uuid }}" 
+                                    data-verify-url="{% url 'practice:verify_flag' %}" 
+                                    data-csrf="{{ csrf_token }}"
+                                    data-has-static-file="{% if file_url %}True{% else %}False{% endif %}">
+                                    <span class="button-text">提交</span>
+                                    <span class="button-loading d-none">
+                                        <i class="fa fa-spinner fa-spin"></i> 提交中...
+                                    </span>
+                                </button>
+                            {% else %}
+                                <a href="{% url 'account_login' %}?next={{ request.path }}" >
+                                    <span class="btn btn-primary  f-14 ">提交</span>
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                
+
+
+
+                <div class=" text-center f-14" id="result"></div>
+                
+                <div class="modal fade challenge-edit-modal f-15" id="editChallengeModal" tabindex="-1" role="dialog" aria-labelledby="editChallengeModalLabel">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header border-0">
+                                <h5 class="modal-title" id="editChallengeModalLabel">编辑题目</h5>
+                                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body px-4">
+                                <form id="edit-challenge-form" method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="uuid" id="edit-challenge-uuid">
+                                    <div class="form-group mb-3">
+                                        <label for="challenge-title" class="form-label">标题</label>
+                                        <input type="text" class="form-control" id="challenge-title" 
+                                               name="title" required>
+                                    </div>
+                                    <div class="form-group mb-3">
+                                        <label for="challenge-description" class="form-label">描述</label>
+                                        <textarea class="form-control" id="challenge-description" 
+                                                  name="description" rows="3"></textarea>
+                                    </div>
+                                    <div class="form-group mb-4">
+                                        <label for="challenge-hint" class="form-label">题目解析</label>
+                                        <textarea class="form-control" id="challenge-hint" 
+                                                  name="hint" rows="2"></textarea>
+                                    </div>
+                                    <div class="text-end">
+                                        <button type="submit" class="btn btn-primary btn-sm" style="font-size: 0.875rem;"> 保存修改</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="modal fade challenge-delete-modal" id="deleteChallengeModal" tabindex="-1" role="dialog" aria-labelledby="deleteChallengeModalLabel">
+                    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header border-0">
+                                <h5 class="modal-title" id="deleteChallengeModalLabel">确认删除</h5>
+                                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body text-center pb-4">
+                                <p class="mb-4">确定要删除这个题目吗？<br>此操作不可恢复。</p>
+                                <input type="hidden" id="delete-challenge-uuid">
+                                <button type="button" class="btn btn-danger py-1 px-3" style="font-size: 0.875rem;" onclick="confirmDelete()">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+            </div>
+
+
+
+
+
+
+
+            <div class="card mt-2 rounded-6 border-0" id="comment-block">
+                {% include 'comment/comment_form_Challenge.html' %}
+                {% get_challenge_parent_comments challenge as comment_list %}
+                {% include 'comment/comment_list_Challenge.html' %}
+            </div>
+            
+            <!--图片预览-->
+            <div class="modal fade" id="img-to-big" tabindex="-1" role="dialog" aria-labelledby="img-to-bigTitle"
+                 aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 90%">
+                    <img class="rounded mx-auto d-block" alt="image" style="max-width: 100%; object-fit: contain;">
+                </div>
+            </div>
+        </div>
+
+
+
+
+
+
+        <div class="col-lg-3 d-none d-lg-block" style="min-width: 0;">
+            {% include 'practice/tags/base_right.html' %}
+        </div>
+
+
+        
+    </div>
+
+
+</div>
+{% endblock %}
+
+
+
+{% block end_file %}
+    <script src="{% static 'public/js/markdown-code-copy.js' %}?v=20251231.01"></script>
+
+    {% if user.is_authenticated %}
+    <script src="{% static 'practice/js/practice_detail.js' %}?v=20260126.04"></script>
+    
+    <script src="{% static 'practice/js/flag.js' %}?v=20260126.03"></script>
+        <script src="{% static 'comment/js/simple_editor.js' %}"></script>
+        <script src="{% static 'comment/js/add_comment.js' %}?v=20230516.1"></script>
+        <script src="{% static 'comment/js/activate-power.js' %}?v=20180120"></script>
+        
+
+        <script>
+            var sw = window.screen.width;
+            if (sw > 1200) {
+                POWERMODE.colorful = true;
+                POWERMODE.shake = false;
+                document.body.addEventListener('input', POWERMODE)
+            }
+
+
+            function openDeleteModal(uuid) {
+    document.getElementById('delete-challenge-uuid').value = uuid;
+    $('#deleteChallengeModal').modal('show');
+}
+
+        function confirmDelete() {
+            const challengeUuid = document.getElementById('delete-challenge-uuid').value;
+            
+            $.ajax({
+                url: "{% url 'practice:challenge_delete' %}",
+                type: 'POST',
+                data: {
+                    'challenge_uuid': challengeUuid,
+                },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                success: function(response) {
+                    $('#deleteChallengeModal').modal('hide');
+                    if (response.redirect) {
+                        window.location.href = response.redirect;
+                    }
+                },
+                error: function(xhr) {
+                    $('#deleteChallengeModal').modal('hide');
+                    if (xhr.responseJSON && xhr.responseJSON.redirect) {
+                        window.location.href = xhr.responseJSON.redirect;
+                    } else {
+                        let message = '删除失败';
+                        if (xhr.status === 404) {
+                            message = '题目不存在';
+                        } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                            message = xhr.responseJSON.error;
+                        }
+                        showWarningToast(message);  // 这里可以再改成一个更好看的提示
+                    }
+                }
+            });
+        }
+    
+        function toggleVisibility(challengeUuid) {
+            $.ajax({
+                url: "{% url 'practice:challenge_toggle_active' %}",
+                type: 'POST',
+                data: {
+                    'challenge_uuid': challengeUuid,
+                },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                success: function(response) {
+                    if (response.redirect) {
+                        window.location.href = response.redirect;
+                    } else {
+                        window.location.reload();
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.responseJSON && xhr.responseJSON.redirect) {
+                        window.location.href = xhr.responseJSON.redirect;
+                    } else {
+                        let message = '操作失败';
+                        if (xhr.status === 404) {
+                            message = '题目不存在';
+                        } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                            message = xhr.responseJSON.error;
+                        }
+                        showWarningToast(message);
+                    }
+                }
+            });
+        }
+    
+    // 获取CSRF Token的辅助函数
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+
+
+
+
+
+</script>
+        
+    {% endif %}
+
+
+    <script>
+        // 题解显示状态的 localStorage key
+        const writeupStateKey = 'writeup_visible_{{ challenge.uuid }}';
+        
+        // 页面加载时检查题解显示状态
+        document.addEventListener('DOMContentLoaded', function() {
+            const isWriteupVisible = localStorage.getItem(writeupStateKey) === 'true';
+            if (isWriteupVisible && document.getElementById('writeup-content')) {
+                showWriteup();
+            }
+        });
+        
+        // 显示题解内容
+        function showWriteup() {
+            document.getElementById('writeup-mask').style.display = 'none';
+            document.getElementById('writeup-content').style.display = 'block';
+            document.getElementById('hide-writeup-btn').style.visibility = 'visible';
+            // 保存状态到 localStorage
+            localStorage.setItem(writeupStateKey, 'true');
+        }
+        
+        // 隐藏题解内容
+        function hideWriteup() {
+            document.getElementById('writeup-mask').style.display = 'block';
+            document.getElementById('writeup-content').style.display = 'none';
+            document.getElementById('hide-writeup-btn').style.visibility = 'hidden';
+            // 更新 localStorage
+            localStorage.setItem(writeupStateKey, 'false');
+        }
+        
+        // 显示购买确认模态框
+        function showPurchaseModal() {
+            $('#purchaseWriteupModal').modal('show');
+        }
+        
+        // 确认购买题解
+        function confirmPurchase() {
+            const challengeUuid = '{{ challenge.uuid }}';
+            const button = document.getElementById('confirm-purchase-btn');
+            const originalText = button.innerHTML;
+            
+            // 禁用按钮，显示加载状态
+            button.disabled = true;
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 购买中...';
+            
+            fetch(`/snowlab/${challengeUuid}/purchase-writeup/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 关闭模态框
+                    $('#purchaseWriteupModal').modal('hide');
+                    // 显示成功消息
+                    showSuccessToast(data.message);
+                    
+                    // 更新遮罩层内容为"已解锁"状态
+                    const maskElement = document.getElementById('writeup-mask');
+                    maskElement.innerHTML = `
+                        <span style="display: inline-block; padding: 2px 10px; background: #d1ecf1; color: #0c5460; border-radius: 3px; font-size: 12px; margin-bottom: 12px;">已解锁</span>
+                        <p class="text-muted mb-3" style="font-size: 14px;">
+                            点击按钮查看题解内容
+                        </p>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="showWriteup()">
+                            <i class="fa fa-eye"></i> 查看题解
+                        </button>
+                    `;
+                    
+                    // 直接显示题解
+                    showWriteup();
+                } else {
+                    showWarningToast(data.message || '购买失败');
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showWarningToast('购买失败，请稍后重试');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            });
+        }
+        
+        // 获取CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        function openEditModal(uuid, title, description, hint) {
+            // 填充表单数据
+            document.getElementById('edit-challenge-uuid').value = uuid;
+            document.getElementById('challenge-title').value = title;
+            document.getElementById('challenge-description').value = description;
+            document.getElementById('challenge-hint').value = hint;
+            
+            // 显示模态框
+            $('#editChallengeModal').modal('show');
+        }
+        
+        // 当文档加载完成后初始化
+        $(document).ready(function() {
+            const editForm = document.getElementById('edit-challenge-form');
+            if (editForm) {
+                editForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+                    
+                    $.ajax({
+                        url: "{% url 'practice:challenge_edit' %}",
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        success: function(response) {
+                            // 如果有重定向URL，就跳转
+                            if (response.redirect) {
+                                window.location.href = response.redirect;
+                            } else {
+                                window.location.reload();
+                            }
+                        },
+                        error: function(xhr) {
+                            // 如果有重定向URL，就跳转
+                            if (xhr.responseJSON && xhr.responseJSON.redirect) {
+                                window.location.href = xhr.responseJSON.redirect;
+                            } else {
+                                // 显示错误消息
+                                let message = '操作失败';
+                                if (xhr.responseJSON && xhr.responseJSON.error) {
+                                    message = xhr.responseJSON.error;
+                                }
+                                showWarningToast(message);
+                            }
+                        }
+                    });
+                });
+            }
+        });
+        </script>
+
+    <!-- 购买题解确认模态框 -->
+    <div class="modal fade" id="purchaseWriteupModal" tabindex="-1" role="dialog" aria-labelledby="purchaseWriteupModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-white border-bottom">
+                    <h5 class="modal-title" id="purchaseWriteupModalLabel">
+                        <i class="fa fa-coins text-warning"></i> 题解解锁确认
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="fa fa-book fa-3x text-warning mb-3"></i>
+                        <h5 class="mb-3">确认解锁《{{ challenge.title }}》的题解？</h5>
+                        <p class="text-muted mb-0">
+                            需要消耗 <strong class="text-warning">{{ challenge.writeup_cost }}</strong> 金币
+                        </p>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        <i class="fa fa-info-circle"></i> 解锁后可永久查看该题解
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">
+                        <i class="fa fa-times"></i> 取消
+                    </button>
+                    <button type="button" class="btn btn-warning btn-sm" id="confirm-purchase-btn" onclick="confirmPurchase()">
+                        <i class="fa fa-check"></i> 确认解锁
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

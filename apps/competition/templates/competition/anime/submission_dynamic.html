@@ -1,0 +1,262 @@
+{% extends 'competition/anime/base.html' %}
+{% load static %}
+{% load comment_tags %}
+
+{% block title %}{{ competition.title }}_解题动态{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 移除排名徽章边框 - 更简洁的样式 */
+
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 当前用户信息卡片 -->
+{% if current_user_info %}
+<div class="tech-user-info-card">
+    <h5 class="tech-user-info-title">
+        <i class="fa fa-user-circle"></i>
+        我的比赛信息
+    </h5>
+    <div class="tech-user-info-grid">
+        <div class="tech-user-info-item">
+            <div class="tech-user-info-label">参赛者</div>
+            <div class="tech-user-info-value">{{ current_user_info.user_name }}</div>
+        </div>
+        {% if is_team_competition and current_user_info.team_name %}
+        <div class="tech-user-info-item">
+            <div class="tech-user-info-label">所属队伍</div>
+            <div class="tech-user-info-value" title="队伍成员：{{ current_user_info.members|join:', ' }}">
+                {{ current_user_info.team_name }}
+            </div>
+        </div>
+        {% endif %}
+        <div class="tech-user-info-item">
+            <div class="tech-user-info-label">当前得分</div>
+            <div class="tech-user-info-value score">{{ current_user_info.score }}</div>
+        </div>
+        <div class="tech-user-info-item">
+            <div class="tech-user-info-label">当前名次</div>
+            <div class="tech-user-info-value rank">
+                {% if current_user_info.rank == 0 %}
+                    <span class="tech-user-rank-badge tech-user-rank-other">未上榜</span>
+                {% elif current_user_info.rank == 1 %}
+                    <span class="tech-user-rank-badge tech-user-rank-1">🥇 {{ current_user_info.rank }}</span>
+                {% elif current_user_info.rank == 2 %}
+                    <span class="tech-user-rank-badge tech-user-rank-2">🥈 {{ current_user_info.rank }}</span>
+                {% elif current_user_info.rank == 3 %}
+                    <span class="tech-user-rank-badge tech-user-rank-3">🥉 {{ current_user_info.rank }}</span>
+                {% else %}
+                    <span class="tech-user-rank-badge tech-user-rank-other">{{ current_user_info.rank }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="tech-user-info-item">
+            <div class="tech-user-info-label">已解题数</div>
+            <div class="tech-user-info-value">{{ current_user_info.solved_count }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="tech-dynamic-card">
+    <div class="tech-dynamic-header">
+        <h5 class="tech-dynamic-title">
+            <i class="fa fa-bolt"></i> 解题动态
+        </h5>
+        {% if paginator.num_pages > 1 %}
+        <div style="color: #7fd9f0; font-size: 13px; margin-top: 10px;">
+            <i class="fa fa-users"></i> 
+            共 <strong style="color: #0ff;">{{ paginator.count }}</strong> 个{{ is_team_competition|yesno:"队伍,选手" }} | 
+            第 <strong style="color: #0ff;">{{ page_obj.number }}</strong>/{{ paginator.num_pages }} 页
+        </div>
+        {% endif %}
+    </div>
+    <div class="tech-dynamic-body">
+        <table class="tech-dynamic-table">
+            <thead>
+                <tr>
+                    <th>{{ is_team_competition|yesno:"队伍,选手" }}</th>
+                    {% for challenge in challenges %}
+                        <th title="{{ challenge.title }}">{{ challenge.title|truncatechars:12 }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td title="{{ player.name }}">{{ player.name|truncatechars:20 }}</td>
+                    {% for challenge in challenges %}
+                        {% if challenge.id in player.submissions %}
+                            {% with status=player.submissions|dict_get:challenge.id %}
+                            <td>
+                                {% if status == "一血" %}
+                                    <span class="tech-blood-first" title="第一个解出此题 - 一血">
+                                        <i class="fa fa-trophy"></i>
+                                        <span>一血</span>
+                                    </span>
+                                {% elif status == "二血" %}
+                                    <span class="tech-blood-second" title="第二个解出此题 - 二血">
+                                        <i class="fa fa-trophy"></i>
+                                        <span>二血</span>
+                                    </span>
+                                {% elif status == "三血" %}
+                                    <span class="tech-blood-third" title="第三个解出此题 - 三血">
+                                        <i class="fa fa-trophy"></i>
+                                        <span>三血</span>
+                                    </span>
+                                {% else %}
+                                    <span class="tech-solved" title="已成功解出">
+                                        <i class="fa fa-check-circle"></i>
+                                        <span>已解</span>
+                                    </span>
+                                {% endif %}
+                            </td>
+                            {% endwith %}
+                        {% else %}
+                            <td>
+                                <span class="tech-unsolved" title="尚未解出">
+                                    -
+                                </span>
+                            </td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ challenges|length|add:1 }}" class="tech-empty-message text-center">
+                        <i class="fa fa-inbox"></i>
+                        <div>暂无解题记录</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- 分页导航 -->
+    {% if paginator.num_pages > 1 %}
+    <div class="tech-pagination">
+        <nav aria-label="解题动态分页">
+            <ul class="pagination mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">首页</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">首页</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">上一页</span>
+                </li>
+                {% endif %}
+                
+                {% for num in paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ paginator.num_pages }}">末页</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">下一页</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">末页</span>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // 表格滚动优化
+        var $tableWrapper = $('.tech-dynamic-body');
+        if ($tableWrapper.length) {
+            // 检测是否需要横向滚动
+            function checkScroll() {
+                var hasScroll = $tableWrapper[0].scrollWidth > $tableWrapper[0].clientWidth;
+                if (hasScroll) {
+                    $tableWrapper.addClass('has-scroll');
+                    $tableWrapper.css('cursor', 'grab');
+                    
+                    // 添加拖拽滚动功能
+                    var isDown = false;
+                    var startX;
+                    var scrollLeft;
+                    
+                    $tableWrapper.on('mousedown', function(e) {
+                        isDown = true;
+                        $tableWrapper.css('cursor', 'grabbing');
+                        startX = e.pageX - $tableWrapper.offset().left;
+                        scrollLeft = $tableWrapper.scrollLeft();
+                    });
+                    
+                    $tableWrapper.on('mouseleave mouseup', function() {
+                        if (isDown) {
+                            isDown = false;
+                            $tableWrapper.css('cursor', 'grab');
+                        }
+                    });
+                    
+                    $tableWrapper.on('mousemove', function(e) {
+                        if (!isDown) return;
+                        e.preventDefault();
+                        var x = e.pageX - $tableWrapper.offset().left;
+                        var walk = (x - startX) * 2; // 滚动速度
+                        $tableWrapper.scrollLeft(scrollLeft - walk);
+                    });
+                    
+                    // 滚动时隐藏/显示右侧阴影
+                    $tableWrapper.on('scroll', function() {
+                        var scrollWidth = this.scrollWidth - this.clientWidth;
+                        var scrolled = this.scrollLeft;
+                        if (scrolled >= scrollWidth - 10) {
+                            $tableWrapper.removeClass('has-scroll');
+                        } else {
+                            $tableWrapper.addClass('has-scroll');
+                        }
+                    });
+                } else {
+                    $tableWrapper.removeClass('has-scroll');
+                }
+            }
+            
+            // 初始检查
+            checkScroll();
+            
+            // 窗口大小改变时重新检查
+            $(window).on('resize', checkScroll);
+            
+            // 显示题目数量提示
+            var challengeCount = $('.tech-dynamic-table thead th').length - 1;
+            if (challengeCount > 10) {
+                console.log('提示：当前有 ' + challengeCount + ' 道题目，可以横向拖动查看更多题目');
+            }
+        }
+    });
+</script>
+{% endblock %}

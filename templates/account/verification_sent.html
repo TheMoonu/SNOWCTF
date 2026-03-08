@@ -2,10 +2,26 @@
 
 {% load i18n %}
 
-{% block head_title %}{% trans "Verify Your E-mail Address" %}{% endblock %}
-{% block user_title %}{% trans "Verify Your E-mail Address" %}{% endblock %}
+{% block head_title %}验证邮件已发送{% endblock %}
+{% block user_title %}验证邮件已发送{% endblock %}
+{% block form_description %}请查收您的邮箱完成验证{% endblock %}
 
 {% block content %}
-    <p>{% blocktrans %}我们已向您发送了一封电子邮件以供验证。请点击提供的链接完成注册过程。如果您在几分钟内没有收到，请与我们联系。{% endblocktrans %}</p>
+    <div class="alert alert-success" role="alert">
+        <i class="bi bi-check-circle me-2"></i>
+        我们已向您发送验证邮件！
+    </div>
+
+    <div class="alert alert-info" role="alert">
+        <i class="bi bi-envelope me-2"></i>
+        请点击邮件中的链接完成注册。如果您在几分钟内没有收到邮件，请检查垃圾邮件文件夹或联系我们。
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{% url 'account_login' %}" class="btn btn-primary" style="display: inline-flex; align-items: center; justify-content: center; min-width: 200px; height: 46px; text-decoration: none;">
+            <i class="bi bi-arrow-left me-2"></i>
+            返回登录
+        </a>
+    </div>
 
 {% endblock %}

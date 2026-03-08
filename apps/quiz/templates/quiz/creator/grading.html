@@ -1,0 +1,895 @@
+{% extends 'public/base.html' %}
+{% load static %}
+
+{% block head_title %}阅卷管理 - {{ quiz.title }}{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'quiz/css/quiz.css' %}" rel="stylesheet">
+<style>
+    /* 题目内容 */
+    .question-content {
+        font-size: 0.95rem;
+        line-height: 1.8;
+        color: #333;
+        margin-bottom: 20px;
+        padding: 16px;
+        background: #fafbfc;
+        border-radius: 6px;
+        border-left: 3px solid #007bff;
+    }
+    
+    /* 答案区块 */
+    .answer-section {
+        margin-bottom: 16px;
+    }
+    
+    .answer-section .section-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+    
+    .answer-section .section-content {
+        background: #f8f9fa;
+        padding: 14px;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    .answer-section .section-content.empty {
+        color: #868e96;
+        font-style: italic;
+    }
+    
+    .answer-section .section-content.reference {
+        background: #e8f5e9;
+        border-color: #c8e6c9;
+    }
+    
+    /* 评分区 */
+    .grading-section {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    
+    .grading-section .section-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .score-input-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    
+    .score-input-group label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #495057;
+        margin: 0;
+    }
+    
+    .score-input {
+        width: 80px;
+        height: 38px;
+        text-align: center;
+        font-size: 1rem;
+        font-weight: 600;
+        border: 2px solid #dee2e6;
+        border-radius: 6px;
+    }
+    
+    .score-input:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    }
+    
+    .comment-textarea {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        resize: vertical;
+        min-height: 60px;
+    }
+    
+    .comment-textarea:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    }
+    
+    .grading-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+    }
+    
+    /* 统计卡片 */
+    .stat-item {
+        text-align: center;
+        padding: 16px 12px;
+    }
+    
+    .stat-item .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    
+    .stat-item .label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+    
+    /* 空状态 */
+    .empty-state {
+        text-align: center;
+        padding: 50px 20px;
+    }
+    
+    .empty-state > i {
+        font-size: 3.5rem;
+        margin-bottom: 16px;
+        display: block;
+    }
+    
+    /* 批改历史列表 */
+    .history-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .history-list::-webkit-scrollbar {
+        width: 5px;
+    }
+    
+    .history-list::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+    
+    .history-list::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+    
+    .history-item {
+        padding: 8px 10px;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        transition: all 0.15s;
+    }
+    
+    .history-item:hover {
+        border-color: #007bff;
+        background: #f8f9ff;
+    }
+    
+    .history-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .history-item-content {
+        color: #495057;
+        line-height: 1.4;
+    }
+    
+    .btn-xs {
+        padding: 2px 6px;
+        font-size: 0.7rem;
+    }
+    
+    /* 阅卷人列表 */
+    .grader-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 10px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+    
+    .grader-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .grader-info {
+        font-size: 0.8rem;
+    }
+    
+    .grader-info .name {
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .grader-info .date {
+        color: #868e96;
+        font-size: 0.7rem;
+    }
+    
+    /* 徽章 */
+    .badge-sm {
+        font-size: 0.7rem;
+        padding: 3px 6px;
+        font-weight: 500;
+    }
+    
+    /* 模态框优化 */
+    .modal-content {
+        border: none;
+        border-radius: 8px;
+    }
+    
+    .modal-header {
+        border-bottom: 1px solid #e9ecef;
+        padding: 14px 20px;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .modal-footer {
+        border-top: 1px solid #e9ecef;
+        padding: 12px 20px;
+    }
+    
+    /* Toast 提示 */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+    }
+    
+    .toast-message {
+        padding: 12px 20px;
+        border-radius: 6px;
+        color: #fff;
+        font-size: 0.875rem;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: slideIn 0.3s ease;
+    }
+    
+    .toast-message.success { background: #28a745; }
+    .toast-message.warning { background: #f0ad4e; }
+    .toast-message.error { background: #dc3545; }
+    .toast-message.info { background: #17a2b8; }
+    
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    /* 工作量统计表格 */
+    .table-hover tbody tr:hover {
+        background-color: #f8f9ff;
+    }
+    
+    .progress {
+        background-color: #e9ecef;
+    }
+    
+    .progress small {
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    /* 确保卡片圆角效果 */
+    .card.rounded-6 {
+        border-radius: 10px !important;
+        overflow: hidden;
+    }
+    
+    .card.rounded-6 .card-header:first-child {
+        border-radius: 10px 10px 0 0 !important;
+    }
+    
+    .card.rounded-6 .card-body:last-child {
+        border-radius: 0 0 10px 10px !important;
+    }
+    
+    /* 表格圆角处理 */
+    .card.rounded-6 .table-responsive {
+        border-radius: 0 0 10px 10px;
+        overflow: hidden;
+    }
+    
+    .card.rounded-6 tbody tr:last-child td:first-child {
+        border-bottom-left-radius: 10px;
+    }
+    
+    .card.rounded-6 tbody tr:last-child td:last-child {
+        border-bottom-right-radius: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container mb-5">
+    
+    
+    <div class="row">
+        <!-- 左侧主内容区 -->
+        <div class="col-lg-9">
+            <!-- 面包屑导航 -->
+             {% if quiz.creator == request.user %}
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'quiz:quiz_list' %}">知识竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'quiz:my_quizzes' %}">我的竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item active">批改管理</li>
+                </ol>
+            </nav>
+            <!-- 统计信息卡片 -->
+            <div class="card border-0 shadow-sm mb-3 rounded-6">
+                <div class="card-body p-0">
+                    <div class="row no-gutters">
+                        <div class="col-4 border-right">
+                            <div class="stat-item">
+                                <div class="value">{{ total_count }}</div>
+                                <div class="label">总答题数</div>
+                            </div>
+                        </div>
+                        <div class="col-4 border-right">
+                            <div class="stat-item">
+                                <div class="value text-warning">{{ pending_count }}</div>
+                                <div class="label">待批改</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="value text-success">{{ graded_count }}</div>
+                                <div class="label">已批改</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <!-- 批改人工作量统计（仅管理员和创建者可见） -->
+            {% if grader_stats and grader_stats|length > 0 %}
+            <div class="card border-0 shadow-sm mb-3 rounded-6">
+                <div class="card-header bg-white border-bottom py-3 ">
+                    <h6 class="mb-0"><i class="bi bi-bar-chart text-primary"></i> 批改人工作量统计</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive ">
+                        <table class="table table-hover mb-0" style="font-size: 0.85rem;">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="border-0 py-2 px-3">批改人</th>
+                                    <th class="border-0 py-2 px-3 text-center">已批改</th>
+                                    <th class="border-0 py-2 px-3 text-center">批改中</th>
+                                    <th class="border-0 py-2 px-3 text-center">合计</th>
+                                    <th class="border-0 py-2 px-3 text-center">占比</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in grader_stats %}
+                                <tr>
+                                    <td class="py-2 px-3">
+                                        <i class="bi bi-person-circle text-primary"></i> 
+                                        <strong>{{ stat.username }}</strong>
+                                        {% if stat.is_creator %}
+                                        <span class="state-label state-label-primary state-label-sm f-10 ml-1">创建者</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-2 px-3 text-center">
+                                        <span class="state-label state-label-success">{{ stat.graded_count }}</span>
+                                    </td>
+                                    <td class="py-2 px-3 text-center">
+                                        <span class="state-label state-label-warning">{{ stat.pending_count }}</span>
+                                    </td>
+                                    <td class="py-2 px-3 text-center">
+                                        <strong>{{ stat.total }}</strong>
+                                    </td>
+                                    <td class="py-2 px-3 text-center">
+                                        <div class="progress" style="height: 18px; min-width: 60px;">
+                                            <div class="progress-bar bg-success" style="width: {% if total_count > 0 %}{% widthratio stat.graded_count total_count 100 %}{% else %}0{% endif %}%">
+                                                <small>{% if total_count > 0 %}{% widthratio stat.graded_count total_count 100 %}%{% else %}0%{% endif %}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- 当前批改卡片 -->
+            <div class="card border-0 shadow-sm rounded-6">
+                {% if current_answer %}
+                <div class="card-header bg-white border-bottom py-3">
+                    <div class="d-flex align-items-center">
+                        <span class="state-label state-label-info mr-2">答卷 ID:{{ current_answer.record.id }}</span>
+                        <span class="state-label {% if current_answer.question.question_type == 'fill_blank' %}state-label-info{% else %}state-label-warning{% endif %} mr-2">
+                            {% if current_answer.question.question_type == 'fill_blank' %}填空题{% else %}简答题{% endif %}
+                        </span>
+                        <span class="state-label state-label-primary">满分 {{ current_answer.question.score }} 分</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 题目 -->
+                    <div class="question-content">
+                        {{ current_answer.question.content|safe }}
+                    </div>
+                    
+                    <!-- 学生答案 -->
+                    <div class="answer-section">
+                        <div class="section-label">答案</div>
+                        <div class="section-content {% if not current_answer.text_answer %}empty{% endif %}">{{ current_answer.text_answer|default:"（未作答）" }}</div>
+                    </div>
+                    
+                    <!-- 参考答案 -->
+                    {% if current_answer.question.standard_answer %}
+                    <div class="answer-section">
+                        <div class="section-label">参考答案</div>
+                        <div class="section-content reference">{{ current_answer.question.standard_answer }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 评分 -->
+                    <div class="grading-section">
+                        <div class="section-title">
+                            <i class="bi bi-star-fill text-warning"></i> 评分
+                        </div>
+                        <form method="post" action="{% url 'quiz:submit_grading' current_answer.id %}" id="gradingForm">
+                            {% csrf_token %}
+                            
+                            <div class="score-input-group">
+                                <label>得分</label>
+                                <input type="number" name="score" class="score-input" 
+                                       min="0" max="{{ current_answer.question.score }}" step="0.5" 
+                                       placeholder="0" required autofocus>
+                                <span class="text-muted">/ {{ current_answer.question.score }} 分</span>
+                            </div>
+                            
+                            <div class="mb-0">
+                                <label class="section-label mb-1">评语（选填）</label>
+                                <textarea name="comment" class="comment-textarea" rows="2" 
+                                          placeholder="评语..."></textarea>
+                            </div>
+                            
+                            <div class="grading-actions">
+                                <button type="button" class="btn btn-outline-secondary" onclick="confirmSkip()" data-no-loading>
+                                    <i class="bi bi-skip-forward"></i> 跳过
+                                </button>
+                                <button type="submit" class="btn btn-primary" data-no-loading> 
+                                    <i class="bi bi-check-lg"></i> 提交并继续
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <div class="card-body">
+                    <div class="empty-state">
+                        {% if total_count == 0 %}
+                        <i class="bi bi-inbox text-muted"></i>
+                        <h5>暂无答卷</h5>
+                        <p class="text-muted">此竞赛还没有需要批改的填空题或简答题答卷</p>
+                        {% else %}
+                        <i class="bi bi-check-circle text-success"></i>
+                        <h5>您的批改任务全部完成！</h5>
+                        {% endif %}
+                       
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 右侧边栏 -->
+        <div class="col-lg-3">
+            <!-- 竞赛信息卡片 -->
+            {% if quiz.creator == request.user %}
+            <div class="card border-0 shadow-sm mb-3 rounded-6">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="bi bi-info-circle text-primary"></i> 竞赛信息</h6>
+                    <ul class="list-unstyled mb-0 small">
+                        <li class="mb-2">
+                            <strong>竞赛名称：</strong><br>{{ quiz.title }}
+                        </li>
+                        <li class="mb-2">
+                            <strong>批改进度：</strong>
+                            <div class="progress mt-1" style="height: 6px;">
+                                <div class="progress-bar bg-success" style="width: {% widthratio graded_count total_count 100 %}%"></div>
+                            </div>
+                            <small class="text-muted">{{ graded_count }}/{{ total_count }}</small>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+            <!-- 阅卷人管理（仅创建者可见） -->
+            {% if quiz.creator == request.user %}
+            <div class="card border-0 shadow-sm mb-3 rounded-6">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="bi bi-people text-info"></i> 阅卷人管理</h6>
+                    
+                    {% if graders %}
+                    <div class="mb-3">
+                        {% for grader in graders %}
+                        <div class="grader-item">
+                            <div class="grader-info">
+                                <div class="name"><i class="bi bi-person-circle"></i> {{ grader.grader.username }}</div>
+                                <div class="date">{{ grader.created_at|date:"Y-m-d" }} 添加</div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                    onclick="confirmRemoveGrader({{ grader.id }}, '{{ grader.grader.username }}')">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" action="{% url 'quiz:add_grader' quiz.slug %}">
+                        {% csrf_token %}
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="username" class="form-control" 
+                                   placeholder="输入用户名" required>
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- 批改历史卡片 -->
+            <div class="card border-0 shadow-sm mb-3 rounded-6">
+                <div class="card-body">
+                    <h6 class="mb-3">
+                        <i class="bi bi-clock-history text-success"></i> 批改历史
+                        {% if graded_count > 0 %}<span class="state-label state-label-success state-label-sm f-10 float-right">{{ graded_count }}</span>{% endif %}
+                    </h6>
+                    
+                    {% if graded_answers %}
+                    <div class="history-list">
+                        {% for answer in graded_answers %}
+                        <div class="history-item">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="state-label state-label-info state-label-rounded f-10 state-label-sm">答卷 ID:{{ answer.record.id }}</span>
+                                <div>
+                                    <button type="button" class="btn btn-xs btn-outline-primary" 
+                                            onclick="viewAnswerDetail({{ answer.id }})" title="查看">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-xs btn-outline-warning" 
+                                            onclick="editGrading({{ answer.id }})" title="修改">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% if user.is_staff or quiz.creator == request.user %}
+                            <div class="text-muted" style="font-size: 0.7rem; margin-top: 4px;">
+                                <i class="bi bi-person-check"></i> {{ answer.reviewer.username|default:"未知" }} · {{ answer.reviewed_at|date:"m/d H:i" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3 text-muted">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p class="mt-2 mb-0 small">暂无批改记录</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</div>
+
+<!-- Toast 提示容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- 答案详情模态框 -->
+<div class="modal fade" id="answerDetailModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-text text-primary"></i> 答案详情
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="answerDetailContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2 text-muted small">加载中...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改评分模态框 -->
+<div class="modal fade" id="editGradingModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil-square text-warning"></i> 修改评分
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="editGradingContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2 text-muted small">加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 确认对话框 -->
+<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-question-circle text-warning"></i> 确认
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-sm btn-primary" id="confirmButton">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+
+
+// 确认对话框
+function showConfirm(message, callback) {
+    var modal = $('#confirmModal');
+    $('#confirmMessage').text(message);
+    $('#confirmButton').off('click').on('click', function() {
+        modal.modal('hide');
+        if (callback) callback();
+    });
+    modal.modal('show');
+}
+
+// 确认跳过
+function confirmSkip() {
+    {% if current_answer %}
+    showConfirm('确定跳过当前题目？', function() {
+        window.location.href = '{% url "quiz:quiz_grading" quiz.slug %}?skip={{ current_answer.id }}';
+    });
+    {% else %}
+    showToast('没有可跳过的题目');
+    {% endif %}
+}
+
+// 确认移除阅卷人
+function confirmRemoveGrader(graderId, username) {
+    showConfirm('确定移除阅卷人 "' + username + '"？', function() {
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/quiz/grading/grader/' + graderId + '/remove/';
+        
+        var csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrfmiddlewaretoken';
+        csrf.value = $('[name=csrfmiddlewaretoken]').val();
+        form.appendChild(csrf);
+        
+        document.body.appendChild(form);
+        form.submit();
+    });
+}
+
+// 查看答案详情
+function viewAnswerDetail(answerId) {
+    var modal = $('#answerDetailModal');
+    var content = $('#answerDetailContent');
+    
+    content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted small">加载中...</p></div>');
+    modal.modal('show');
+    
+    $.ajax({
+        url: '/quiz/grading/answer/' + answerId + '/detail/',
+        method: 'GET',
+        success: function(res) {
+            if (res.success) {
+                var d = res.data;
+                var html = '<div class="mb-3">' +
+                    '<span class="state-label state-label-info state-label-sm">答卷ID: ' + d.record_id + '</span> ' +
+                    '<span class="state-label state-label-primary state-label-sm" ' + (d.question_type === 'fill_blank' ? 'state-label-warning' : 'state-label-primary') + '">' +
+                    '题目类型：' + (d.question_type === 'fill_blank' ? '填空题' : '简答题') + '</span>' +
+                    '</div>' +
+                    '<div class="answer-section"><div class="section-label">题目内容</div><div class="section-content">' + d.question_content + '</div></div>' +
+                    '<div class="answer-section"><div class="section-label">答案</div><div class="section-content ' + (!d.text_answer ? 'empty' : '') + '">' + (d.text_answer || '（未作答）') + '</div></div>';
+                
+                if (d.standard_answer) {
+                    html += '<div class="answer-section"><div class="section-label">参考答案</div><div class="section-content reference">' + d.standard_answer + '</div></div>';
+                }
+                
+                html += '<div class="answer-section"><div class="section-label">评分信息</div><div class="section-content">' +
+                    '<strong>得分：</strong><span class="state-label state-label-success">' + d.manual_score + ' / ' + d.question_score + ' 分</span><br>' +
+                    '<strong>批改时间：</strong>' + d.reviewed_at +
+                    (d.review_comment ? '<br><strong>评语：</strong>' + d.review_comment : '') +
+                    '</div></div>';
+                
+                content.html(html);
+            } else {
+                content.html('<div class="alert alert-danger">' + res.message + '</div>');
+            }
+        },
+        error: function() {
+            content.html('<div class="alert alert-danger">加载失败，请重试</div>');
+        }
+    });
+}
+
+// 修改评分
+function editGrading(answerId) {
+    var modal = $('#editGradingModal');
+    var content = $('#editGradingContent');
+    
+    content.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted small">加载中...</p></div>');
+    modal.modal('show');
+    
+    $.ajax({
+        url: '/quiz/grading/answer/' + answerId + '/detail/',
+        method: 'GET',
+        success: function(res) {
+            if (res.success) {
+                var d = res.data;
+                var html = '<div class="mb-3">' +
+                    '<span class="state-label state-label-info state-label-sm f-10">答卷 #' + d.record_id + '</span> ' +
+                    '<span class="state-label state-label-primary state-label-sm f-10 ' + (d.question_type === 'fill_blank' ? 'state-label-warning' : 'state-label-primary') + '">' +
+                    (d.question_type === 'fill_blank' ? '填空题' : '简答题') + '</span>' +
+                    '</div>' +
+                    '<div class="answer-section"><div class="section-label">题目内容</div><div class="section-content">' + d.question_content + '</div></div>' +
+                    '<div class="answer-section"><div class="section-label">学生答案</div><div class="section-content ' + (!d.text_answer ? 'empty' : '') + '">' + (d.text_answer || '（未作答）') + '</div></div>';
+                
+                if (d.standard_answer) {
+                    html += '<div class="answer-section"><div class="section-label">参考答案</div><div class="section-content reference">' + d.standard_answer + '</div></div>';
+                }
+                
+                html += '<div class="grading-section" style="margin-top: 16px;">' +
+                    '<div class="section-title"><i class="bi bi-pencil-square text-warning"></i> 修改评分</div>' +
+                    '<form id="editForm" onsubmit="return submitEdit(event, ' + answerId + ', ' + d.question_score + ')">' +
+                    '<div class="score-input-group">' +
+                    '<label>得分</label>' +
+                    '<input type="number" name="score" class="score-input" min="0" max="' + d.question_score + '" step="0.5" value="' + d.manual_score + '" required>' +
+                    '<span class="text-muted">/ ' + d.question_score + ' 分</span>' +
+                    '</div>' +
+                    '<div class="mb-3">' +
+                    '<label class="section-label mb-1">评语</label>' +
+                    '<textarea name="comment" class="comment-textarea" rows="2">' + (d.review_comment || '') + '</textarea>' +
+                    '</div>' +
+                    '<div class="grading-actions">' +
+                    '<button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>' +
+                    '<button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button>' +
+                    '</div>' +
+                    '</form></div>';
+                
+                content.html(html);
+            } else {
+                content.html('<div class="alert alert-danger">' + res.message + '</div>');
+            }
+        },
+        error: function() {
+            content.html('<div class="alert alert-danger">加载失败，请重试</div>');
+        }
+    });
+}
+
+// 提交修改
+function submitEdit(e, answerId, maxScore) {
+    e.preventDefault();
+    
+    var form = e.target;
+    var score = parseFloat(form.score.value);
+    var comment = form.comment.value;
+    
+    if (isNaN(score) || score < 0 || score > maxScore) {
+        showToast('请输入有效的分数（0-' + maxScore + '）', 'warning');
+        return false;
+    }
+    
+    $.ajax({
+        url: '/quiz/grading/answer/' + answerId + '/edit/',
+        method: 'POST',
+        data: {
+            score: score,
+            comment: comment,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(res) {
+            if (res.success) {
+                $('#editGradingModal').modal('hide');
+                showToast('修改成功', 'success');
+                setTimeout(function() { location.reload(); }, 1000);
+            } else {
+                showToast(res.message || '修改失败', 'error');
+            }
+        },
+        error: function() {
+            showToast('网络错误，请重试', 'error');
+        }
+    });
+    
+    return false;
+}
+
+// 表单验证
+$(function() {
+    $('#gradingForm').on('submit', function(e) {
+        var score = parseFloat($('input[name="score"]').val());
+        var max = parseFloat($('input[name="score"]').attr('max'));
+        
+        if (isNaN(score) || score < 0 || score > max) {
+            e.preventDefault();
+            showToast('请输入有效的分数（0-' + max + '）', 'warning');
+            return false;
+        }
+    });
+    
+    // 自动聚焦
+    $('input[name="score"]').focus();
+});
+</script>
+{% endblock %}

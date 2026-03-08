@@ -1,0 +1,102 @@
+{% load static comment_tags %}
+<div class="card border-0 f-16" id="editor-block">
+    {% if user.is_authenticated %}
+    <div class="card-body p-2 p-md-3">
+        <textarea class="form-control" id="comment-form" name="text"
+                  placeholder="发表你的评论..." rows="5" required style="resize: vertical; min-height: 120px;"></textarea>
+        <div class="mt-2 f-13 text-muted">
+            <i class="fa fa-info-circle"></i> 支持 Markdown 语法
+        </div>
+    </div>
+    <div class="card-footer border-0 bg-white py-2 px-2 px-md-3 d-flex justify-content-between align-items-center" id="editor-footer">
+        <div class="d-flex align-items-center">
+            <!-- 表情按钮 -->
+            <div class="dropdown">
+                <button class="btn btn-sm btn-light border py-1 px-2 mr-2" id="emoji-btns" type="button"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-no-loading
+                        title="插入表情">
+                    <i class="fa fa-smile-o fa-lg"></i>
+                    <span class="ml-1 d-none d-md-inline">表情</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-left p-2" id='emoji-list' aria-labelledby="emoji-btns" style="max-width: 350px;">
+                    <div class="text-center mb-2 pb-2 border-bottom">
+                        <small class="text-muted">点击插入表情</small>
+                    </div>
+                    {% get_emoji_imgs as emoji_imgs %}
+                    {% for emoji_list in emoji_imgs %}
+                    <div class="editor-btns d-inline-block">
+                        {% for emoji in emoji_list %}
+                        {% with emoji.0|emoji_to_url as emoji_url %}
+                        <button class="btn p-1 emoji-btn" type="button" title="{{ emoji.1 }}">
+                            <img src="{% static emoji_url %}" alt="{{ emoji.0 }}" 
+                                 data-emoji=":{{ emoji.0 }}:" style="width: 24px; height: 24px;">
+                        </button>
+                        {% endwith %}
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Markdown 帮助 -->
+            <button class="btn btn-sm btn-light border py-1 px-2" type="button" 
+                    data-toggle="collapse" data-target="#md-help" data-no-loading
+                    title="Markdown 语法帮助">
+                <i class="fa fa-question-circle fa-lg"></i>
+                <span class="ml-1 d-none d-md-inline">帮助</span>
+            </button>
+        </div>
+        
+        <div>
+            <button type="button" class="btn btn-primary btn-sm px-3"
+                    id="push-com" data-csrf="{{ csrf_token }}" data-article-id="{{ article.id }}"
+                    data-ajax-url="{% url 'comment:add_comment' %}" data-no-loading>
+                <i class="fa fa-paper-plane mr-1"></i>提交评论
+            </button>
+        </div>
+    </div>
+    
+    <!-- Markdown 帮助面板 -->
+    <div class="collapse" id="md-help">
+        <div class="card-body bg-light f-13 p-3">
+            <div class="row">
+                <div class="col-md-6 mb-2">
+                    <strong>基础语法：</strong><br>
+                    <code>**粗体**</code> <code>*斜体*</code> <code>~~删除~~</code><br>
+                    <code>`代码`</code> <code>[链接](url)</code>
+                </div>
+                <div class="col-md-6 mb-2">
+                    <strong>标题：</strong><br>
+                    <code># 一级标题</code><br>
+                    <code>## 二级标题</code>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>列表：</strong><br>
+                    <code>- 无序列表</code><br>
+                    <code>1. 有序列表</code>
+                </div>
+                <div class="col-md-6">
+                    <strong>代码块：</strong><br>
+                    <code>```python<br>代码内容<br>```</code>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card-body text-center m-2 m-md-3 f-16" id="no-editor">
+        <div>您尚未登录，请
+            <a class="text-danger" href="{% url 'account_login' %}?next={{ request.path }}">登录</a> 或
+            <a class="text-danger" href="{% url 'account_signup' %}?next={{ request.path }}">注册</a> 后评论
+        </div>
+        {% if github_login_enabled %}
+        <div class="login-link mt-2">
+        
+            <a class="mx-3" href="/accounts/github/login/?next={{ request.path }}" title="GitHub 登录"><i
+                    class="fa fa-github fa-2x"></i></a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

@@ -1,4 +1,4 @@
-{% load static oauth_tags comment_tags %}
+{% load static oauth_tags comment_tags search_tags %}
 <style>
 
 .navbar-logo {
@@ -13,7 +13,7 @@
 }
 
 .xuehua-site-title {
-    font-family: "Microsoft YaHei", "微软雅黑", "PingFang SC", sans-serif;
+    font-family: "PingFang SC", "Hiragino Sans GB", "Source Han Sans CN", sans-serif;
     font-size: 1.25rem;
     font-weight: 600;
     color: #0184ff;  /* 直接使用纯色 */
@@ -45,13 +45,23 @@
     margin-right: 0;
 }
 
+
+
+
+
+
+
 </style>
 <nav class="navbar navbar-expand-md bg-white fixed-top blog-navbar py-md-0">
     <div class="d-flex align-items-center">
-        <a class="navbar-brand d-md-none d-lg-block ml-6" id="site-logo-name" href="">
-            <img alt="Image placeholder" src="{%static 'public/img/logo.svg' %}" class="xuehua-navbar-logo">
+        <a class="navbar-brand d-md-none d-lg-block ml-6" id="site-logo-name" href="{% url 'public:indexViews' %}">
+            {% if site_logo %}
+                <img alt="{{ site_name }}" src="{{ site_logo }}" class="xuehua-navbar-logo">
+            {% else %}
+                <img alt="{{ site_name }}" src="{% static 'blog/img/logo.svg' %}" class="xuehua-navbar-logo">
+            {% endif %}
         </a>
-        <span class="xuehua-site-title ml-2"><a href="{% url 'public:CompetitionView' %}">{{ site_logo_name }}</a></span>
+        <span class="xuehua-site-title ml-2">{{ site_name }}</span>
     </div>
     
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
@@ -59,8 +69,190 @@
         <span class="navbar-toggler-icon"></span>
     </button>
     
+   
+    
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
-        <ul class="navbar-nav ml-auto">   
+        <ul class="navbar-nav ml-auto">
+            <li class="nav-item">
+                {% url 'public:indexViews' as index_url %}
+                <a class="nav-link py-md-3 {% if request.path == index_url %}active{% endif %}"
+                   href="{{ index_url }}">首页<span class="sr-only">(current)</span></a>
+            </li>
+           
+            <li class="nav-item dropdown">
+                {% url 'competition:CompetitionView' as Competition_url %}
+                <a class="nav-link py-md-3 dropdown-toggle {% if request.path == Competition_url %}active{% endif %}" 
+                   href="#" 
+                   id="competitionDropdown" 
+                   role="button" 
+                   data-toggle="dropdown" 
+                   aria-haspopup="true" 
+                   aria-expanded="false"
+                   data-no-loading>
+                    竞赛中心
+                </a>
+                <div class="dropdown-menu shadow-sm" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px 0; min-width: 110px; margin-top: 0;" aria-labelledby="competitionDropdown">
+                    <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{{ Competition_url }}">
+                        <i class="bi bi-list mr-2" style="color: #1890ff;"></i>竞赛列表
+                    </a>
+                    <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{% url 'competition:competition_create' %}">
+                        <i class="bi bi-folder-plus mr-2" style="color: #1890ff;"></i>创建比赛
+                    </a>
+                </div>
+            </li>
+          
+           
+            <li class="nav-item">
+                {% url 'practice:challenge_list' as ctf_url %}
+                <a class="nav-link py-md-3 {% if request.path == ctf_url %}active{% endif %}"
+                   href="{{ ctf_url }}">漏洞靶场</a>
+            </li>
+         
+
+       
+            <li class="nav-item">
+                {% url 'quiz:quiz_list' as quiz_url %}
+                <a class="nav-link py-md-3 {% if request.path == quiz_url %}active{% endif %}"
+                   href="{{ quiz_url }}">知识竞赛</a>
+            </li>
+        
+            
+          
+            <li class="nav-item">
+                {% url 'blog:index' as blog_url %}
+                <a class="nav-link py-md-3 {% if request.path == blog_url %}active{% endif %}"
+                   href="{{ blog_url }}">WIKI空间</a>
+            </li>
+        
+
+        
+         
+            
+
+            
+       
+                <li class="nav-item">
+                    {% url 'tool:total' as tool_url %}
+                    <a class="nav-link py-md-3 {% if request.resolver_match.namespace == 'tool' %}active{% endif %}"
+                       href="{{ tool_url }}">在线工具</a>
+                </li>
+       
+       
+            <li class="nav-item">
+                {% url 'recruit:job_list' as recuit_url %}
+                <a class="nav-link py-md-3 {% if request.path == recuit_url %}active{% endif %}"
+                   href="{{ recuit_url }}">安全岗位</a>
+            </li>
+     
+
+     
+            <li class="nav-item">
+                {% url 'public:reward_list' as reward_url %}
+                <a class="nav-link py-md-3 {% if request.path == reward_url %}active{% endif %}"
+                   href="{{ reward_url }}">兑奖中心</a>
+            </li>
+       
+
+          
+            <form class="nav-item navbar-form py-md-2 mr-2" role="search" method="get" id="searchform"
+                  action="{% url 'blog:search_view' %}" onsubmit="return validateSearch(this)">
+                <div class="navbar-search-group">
+                    <div class="navbar-search-type-wrapper">
+                        <div class="custom-select-wrapper navbar-custom-select" data-select-name="type">
+                            <div class="custom-select-display" tabindex="0">
+                                <span class="custom-select-value">文章</span>
+                                <span class="custom-select-arrow"></span>
+                            </div>
+                            <div class="custom-select-dropdown">
+                                    <div class="custom-select-option selected" data-value="article" data-selected="true">文章</div>
+                                    <div class="custom-select-option" data-value="challenge">靶场</div>
+                                    <div class="custom-select-option" data-value="job">岗位</div>
+                            </div>
+                            <input type="hidden" name="type" value="article" id="navbar-search-type">
+                        </div>
+                    </div>
+                    <input type="search" name="q" class="navbar-search-input" placeholder="站内搜索" 
+                           autocomplete="off" required minlength="2" title="请输入至少2个字符">
+                    <button class="navbar-search-btn" type="submit" aria-label="搜索">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+            </form>
+       
+            <script>
+            function validateSearch(form) {
+                var query = form.q.value.trim();
+                if (query.length < 2) {
+                    showWarningToast('请输入至少2个字符进行搜索');
+                    return false;
+                }
+                return true;
+            }
+            </script>
+            <style>
+          
+            </style>
+            <script>
+            (function() {
+                // 初始化导航栏自定义下拉框
+                function initNavbarSelect() {
+                    const wrapper = document.querySelector('.navbar-custom-select');
+                    if (!wrapper) {
+                        
+                        return;
+                    }
+                    if (wrapper.dataset.initialized) return;
+                    wrapper.dataset.initialized = 'true';
+                    
+                    const display = wrapper.querySelector('.custom-select-display');
+                    const dropdown = wrapper.querySelector('.custom-select-dropdown');
+                    const valueSpan = wrapper.querySelector('.custom-select-value');
+                    const hiddenInput = wrapper.querySelector('input[type="hidden"]');
+                    const options = wrapper.querySelectorAll('.custom-select-option');
+                    
+                    
+                    
+                    // 点击显示/隐藏下拉框
+                    display.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        wrapper.classList.toggle('active');
+                        
+                    });
+                    
+                    // 选项点击事件
+                    options.forEach(function(option) {
+                        option.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const value = option.dataset.value;
+                            const text = option.textContent.trim();
+                            
+                            // 更新显示
+                            valueSpan.textContent = text;
+                            hiddenInput.value = value;
+                            
+                            // 更新选中状态
+                            options.forEach(opt => opt.classList.remove('selected'));
+                            option.classList.add('selected');
+                            
+                            // 关闭下拉框
+                            wrapper.classList.remove('active');
+                        });
+                    });
+                    
+                    // 点击页面其他地方关闭下拉框
+                    document.addEventListener('click', function() {
+                        wrapper.classList.remove('active');
+                    });
+                }
+                
+                // 初始化
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initNavbarSelect);
+                } else {
+                    initNavbarSelect();
+                }
+            })();
+            </script>
         </ul>
         <ul class="navbar-nav">
             {% if user.is_authenticated %}
@@ -74,26 +266,52 @@
                         {% endif %}
                         {% get_user_avatar_tag user %}
                     </a>
-                    <div class="dropdown-menu dropdown-menu-right mt-0 border-0"
+                    <div class="dropdown-menu dropdown-menu-right shadow-sm" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px 0; min-width: 140px; margin-top: 0;"
                          aria-labelledby="navbarDropdown">
-                        <a class="dropdown-item pl-3" href="{% url 'oauth:profile' %}"><i
-                                class="fa fa-fw fa-user text-primary mr-2"></i>个人信息</a>       
+                        <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{% url 'public:profileViews' user.uuid %}">
+                            <i class="fa fa-fw fa-user mr-2" style="color: #1890ff;"></i>个人信息
+                        </a>       
                         {% if user.is_staff %}
-                            <a class="dropdown-item pl-3" href="{% url 'admin:index' %}"><i
-                                    class="fa fa-fw fa-key text-primary mr-2"></i>后台管理</a>
+                            <div style="border-top: 1px solid #f3f4f6; margin: 4px 0;"></div>
+                            <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{% url 'admin:index' %}">
+                                <i class="fa fa-fw fa-key mr-2" style="color: #1890ff;"></i>后台管理
+                            </a>
+                            
+                            <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{% url 'blog:dashboard' %}">
+                                <i class="fa fa-fw fa-tachometer mr-2" style="color: #1890ff;"></i>网站看板
+                            </a>
+                            
+                            <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{% url 'container:docker_health_dashboard' %}">
+                                <i class="fa fa-fw fa-tachometer mr-2" style="color: #1890ff;"></i>容器监控
+                            </a>
+                           
+                            <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{% url 'admin:blog_article_add' %}">
+                                <i class="fa fa-fw fa-plus mr-2" style="color: #1890ff;"></i>新增文章
+                            </a>
+                           
+                            <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{% url 'practice:challenge_create' %}">
+                                <i class="fa fa-fw fa-plus mr-2" style="color: #1890ff;"></i>新增练习题
+                            </a>
+                          
+                            <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;" href="{% url 'competition:competition_create' %}">
+                                <i class="fa fa-fw fa-plus mr-2" style="color: #1890ff;"></i>新增CTF竞赛
+                            </a>
                             
                         {% endif %}
+                        <div style="border-top: 1px solid #f3f4f6; margin: 4px 0;"></div>
                         {% url 'comment:notification_no_read' as no_read_url %}
                         {% url 'comment:notification' as read_url %}
-                        <a class="dropdown-item pl-3"
+                        <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #374151; transition: all 0.2s;"
                            href="{% if msgnum > 0 %}{{ no_read_url }}{% else %}{{ read_url }}{% endif %}">
-                            <i class="fa fa-fw fa-bell text-primary mr-2"></i>消息
+                            <i class="fa fa-fw fa-bell mr-2" style="color: #1890ff;"></i>消息
                             {% if msgnum > 0 %}
-                                <span class="badge badge-warning ml-3 text-center">{{ msgnum }}</span>
+                                <span class="badge badge-danger ml-2" style="font-size: 11px; padding: 2px 6px;">{{ msgnum }}</span>
                             {% endif %}
                         </a>
-                        <a class="dropdown-item pl-3" href="{% url 'account_logout' %}"><i
-                                class="fa fa-fw fa-sign-out text-primary mr-2"></i>退出</a>
+                        <div style="border-top: 1px solid #f3f4f6; margin: 4px 0;"></div>
+                        <a class="dropdown-item" style="padding: 8px 16px; font-size: 14px; color: #dc2626; transition: all 0.2s;" href="{% url 'account_logout' %}">
+                            <i class="fa fa-fw fa-sign-out mr-2" style="color: #ef4444;"></i>退出
+                        </a>
                     </div>
                 </li>
             {% else %}
@@ -107,3 +325,37 @@
         </ul>
     </div>
 </nav>
+
+<script>
+// 优化下拉菜单体验 - 防止过早消失
+(function() {
+    let dropdownTimer;
+    const dropdowns = document.querySelectorAll('.nav-item.dropdown');
+    
+    dropdowns.forEach(function(dropdown) {
+        const toggle = dropdown.querySelector('[data-toggle="dropdown"]');
+        const menu = dropdown.querySelector('.dropdown-menu');
+        
+        if (!toggle || !menu) return;
+        
+        // 鼠标进入下拉触发区域
+        dropdown.addEventListener('mouseenter', function() {
+            clearTimeout(dropdownTimer);
+        });
+        
+        // 鼠标离开下拉区域时延迟关闭
+        dropdown.addEventListener('mouseleave', function() {
+            dropdownTimer = setTimeout(function() {
+                if ($(dropdown).hasClass('show')) {
+                    $(toggle).dropdown('hide');
+                }
+            }, 200); // 200ms延迟
+        });
+        
+        // 鼠标进入菜单时取消关闭
+        menu.addEventListener('mouseenter', function() {
+            clearTimeout(dropdownTimer);
+        });
+    });
+})();
+</script>

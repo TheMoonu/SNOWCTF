@@ -1,0 +1,94 @@
+{% load static %}
+
+<!-- 知识竞赛侧边栏 -->
+<div class="card border-0 rounded-6 mb-3">
+    <div class="card-body">
+        <h6 class="mb-3">
+            <i class="bi bi-trophy mr-2"></i>关于知识竞赛
+        </h6>
+        <p class="text-muted f-14">
+            在线知识竞赛系统，支持单选题、多选题和判断题，实时答题，自动评分。
+        </p>
+        {% if user.is_authenticated %}
+        <div class="mt-3">
+            <a href="{% url 'quiz:quiz_list' %}" class="btn btn-primary btn-block btn-sm">
+                <i class="bi bi-list"></i> 竞赛列表
+            </a>
+            <a href="{% url 'quiz:my_records' %}" class="btn btn-outline-primary btn-block btn-sm mt-2">
+                <i class="bi bi-clock-history"></i> 我的记录
+            </a>
+        </div>
+        {% else %}
+        <div class="mt-3">
+            <a href="{% url 'quiz:quiz_list' %}" class="btn btn-primary btn-block btn-sm">
+                <i class="bi bi-list"></i> 竞赛列表
+            </a>
+            <p class="text-muted f-13 mt-2 mb-0">
+                <i class="bi bi-info-circle mr-1"></i>登录后可查看答题记录
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 创建者功能 -->
+{% if user.is_authenticated %}
+    {% if user.is_staff or user.is_superuser or user.is_member %}
+    <div class="card border-0 rounded-6 mb-3 ">
+        <div class="card-body">
+            <h6 class="mb-3">
+                <i class="bi bi-pencil-square mr-2 text-primary"></i>创建竞赛
+            </h6>
+            <p class="text-muted f-13 mb-3">
+                会员和管理员可以创建和管理自己的竞赛
+            </p>
+            <a href="{% url 'quiz:my_quizzes' %}" class="btn btn-primary btn-block btn-sm">
+                <i class="bi bi-folder"></i> 我的竞赛
+            </a>
+            <a href="{% url 'quiz:create_quiz' %}" class="btn btn-outline-primary btn-block btn-sm mt-2">
+                <i class="bi bi-plus-circle"></i> 创建新竞赛
+            </a>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+
+{% if quiz.show_leaderboard and leaderboard %}
+<div class="card border-0 rounded-6 mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0"><i class="bi bi-trophy text-warning mr-2"></i>排行榜 TOP 10</h6>
+            <a href="{% url 'quiz:quiz_leaderboard' quiz.slug %}" class="f-13 text-decoration-none">
+                查看完整 <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+        {% for item in leaderboard %}
+        <div class="d-flex align-items-center justify-content-between p-2 mb-1 rounded {% if item.user__id == user.id %}bg-light{% endif %}">
+            <div class="d-flex align-items-center" style="flex: 1;">
+                <div class="text-center mr-2" style="min-width: 24px;">
+                    {% if forloop.counter == 1 %}
+                        <span style="font-size: 18px;">🥇</span>
+                    {% elif forloop.counter == 2 %}
+                        <span style="font-size: 18px;">🥈</span>
+                    {% elif forloop.counter == 3 %}
+                        <span style="font-size: 18px;">🥉</span>
+                    {% else %}
+                        <span class="text-muted f-12">{{ forloop.counter }}</span>
+                    {% endif %}
+                </div>
+                <span class="{% if item.user__id == user.id %}text-primary font-weight-bold{% endif %} f-13" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ item.user__username }}
+                </span>
+            </div>
+            <div class="text-right ml-2">
+                <div class="font-weight-bold text-success f-13">{{ item.best_score }}</div>
+                {% if item.duration_formatted %}
+                <div class="text-muted" style="font-size: 11px;">{{ item.duration_formatted }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+

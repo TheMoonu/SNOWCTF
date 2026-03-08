@@ -1,19 +1,56 @@
-<footer class="container-fluid">
+<footer class="container-fluid py-2 mt-4 footer-{{ footer_style|default:'dark' }}">
     
-
-
-    <div class="card-body text-center f-14 small">
-        
-        <!-- <p class="">
+    <div class="container-fluid">
+        <div class="row justify-content-center mt-4">
+            <div class="col-12 col-md-10 col-lg-8 col-xxl-8">
+                <div class="row row-cols-2 row-cols-md-2 row-cols-lg-4 g-4 justify-content-between">
+                    {% if footer_columns %}
+                        {# 从数据库读取页脚栏目 #}
+                        {% for column in footer_columns %}
+                        <div class="col mb-4 px-2 px-md-3 px-xl-4">
+                            <h5 class="mb-3 text-center footer-column-title">{{ column.title }}</h5>
+                            <ul class="list-unstyled mb-0 small text-center">
+                                {% for link in column.links %}
+                                <li class="mt-2">
+                                    {% if link.url_type == 'name' %}
+                                        {# Django URL Name #}
+                                        <a href="{% url link.url %}" target="{{ link.target }}" class="footer-link">{{ link.title }}</a>
+                                    {% else %}
+                                        {# 直接 URL #}
+                                        <a href="{{ link.url }}" target="{{ link.target }}" class="footer-link">{{ link.title }}</a>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endfor %}
+                    
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    
+    <div class="card-body text-center px-0 f-14 small pt-2 pb-1">
+        {% if 51la %}
+        {{ 51la|safe }}
+        {% if user.is_superuser %}
+        <i class="fa fa-line-chart mx-1"></i>
+        <a href="https://v6.51.la/user/application" target="_blank">站长统计</a>
+        {% endif %}
+        {% endif %}
+        <p class="card-text mb-1">
             <a href="http://beian.miit.gov.cn/" target="_blank">{{ beian }}</a>
-            
-           
-            
-           
-        </p> -->
-        <p class="card-text mb-1">Copyright&nbsp;&copy;&nbsp;
-            <a href="https://www.secsnow.cn" target="_blank" title="网站首页">SNOWCTF</a>.&nbsp;Powered&nbsp;by&nbsp;<a href="https://github.com/Hopetree/izone" target="_blank" title="izone">izone</a>.
-             <a href="https://www.secsnow.cn/snowlab/" target="_blank" title="漏洞靶场">漏洞靶场</a>.<a href="https://github.com/TheMoonu/snowctf" target="_blank" title="网站源码">网站源码</a>.
+            {% if cnzz_protocol %}|&nbsp;{{ cnzz_protocol|safe }}{% endif %}
+            Copyright&nbsp;&copy;&nbsp;
+            <span id="year-info">2024-{{ this_year}}</span>
+            <a href="https://www.secsnow.cn" target="_blank" title="SECSNOW">SECSNOW</a>.
+            <a href="{% url 'public:licenseViews' %}">开源协议</a>
+            &nbsp;|&nbsp;<span style="color:#e67e22; font-weight:500;">个人版 · 禁止商业使用</span>
+            &nbsp;|&nbsp;<a href="https://github.com/TheMoonu/snowctf" target="_blank" title="GitHub" style="display:inline-flex; align-items:center; vertical-align:middle;">
+                <img src="/media/site/github.png" alt="GitHub" style="width:16px; height:16px; vertical-align:middle;">
+            </a>
         </p>
     </div>
 </footer>

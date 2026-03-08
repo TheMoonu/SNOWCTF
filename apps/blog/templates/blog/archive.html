@@ -1,0 +1,57 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load blog_tags %}
+
+{% block head_title %}博客归档，浏览网站所有文章{% endblock %}
+{% block metas %}
+<meta name="description" content="{{ site_description }}">
+<meta name="keywords" content="{{ site_keywords }}">
+{% endblock %}
+
+{% block top-file %}
+<style>
+.archive {
+    line-height:2;
+}
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container snow-container-narrow">
+    <div class="row">
+        <div class="col-lg-8 ">
+            <div class="card border-0 rounded-6 mb-3 ">
+                <div class="card-body f-16 archive">
+                    {% regroup articles by create_date.year as year_list %}
+                    <ul class="pl-4">
+                        {% for article in year_list %}
+                        <li>{{ article.grouper }} 年 (共 {{ article.list|length }} 篇)
+                            {% regroup article.list by create_date.month as month_list %}
+                            <ul class="pl-2">
+                                {% for each in month_list %}
+                                <li>{{ each.grouper }} 月
+                                    <ul class="pl-4">
+                                        {% for item in each.list %}
+                                        <li><a href="{{ item.get_absolute_url }}">{{ item.create_date|date:'m-d' }}&nbsp;&nbsp;{{ item.title }}</a></li>
+                                        {% endfor %}
+                                    </ul>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% if is_paginated %}
+                    <div class="d-none d-md-block">{% load_pages 10 %}</div>
+                    <div class="d-md-none">{% load_pages 4 %}</div>
+                {% endif %}
+        </div>
+        <div class="col-lg-4 d-none d-lg-block">
+            {% include 'blog/tags/base_right.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %}

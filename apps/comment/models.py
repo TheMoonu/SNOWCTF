@@ -1,12 +1,18 @@
 from django.db import models
 from django.conf import settings
-from challenge.models import Challenge
-from competition.models import Competition
+from blog.models import Article
+from practice.models import PC_Challenge
 import re
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 import markdown
-from django.urls import reverse
+
+
+
+
+
+
+
 
 emoji_info = [
     [('aini_org', '爱你'), ('baibai_thumb', '拜拜'),
@@ -64,6 +70,7 @@ class Comment(models.Model):
                                verbose_name='评论人', on_delete=models.CASCADE)
     create_date = models.DateTimeField('创建时间', auto_now_add=True)
     content = models.TextField('评论内容')
+    ip_address = models.CharField(verbose_name='IP地址', max_length=20, default='未知')
     parent = models.ForeignKey('self', verbose_name='父评论', related_name='%(class)s_child_comments',
                                blank=True,
                                null=True, on_delete=models.CASCADE)
@@ -88,7 +95,7 @@ class Comment(models.Model):
     
     def save(self, *args, **kwargs):
         # 定义需要过滤的关键字
-        forbidden_words = ['垃圾', '傻逼', '混蛋']
+        forbidden_words = ['垃圾', '傻b', '混蛋', 'spam','xjp','习近平','共产党','中华人民共和国','革命','中国','独裁','革命','西藏','新疆','民主','官员','中共']
         
         # 替换关键字为 ** 
         filtered_content = self.content
@@ -99,36 +106,21 @@ class Comment(models.Model):
         super().save(*args, **kwargs)
 
 
+class ArticleComment(Comment):
+    belong = models.ForeignKey(Article, related_name='article_comments', verbose_name='所属文章',
+                               on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = '文章评论'
+        verbose_name_plural = verbose_name
+        ordering = ['create_date']
 
 class ChallengeComment(Comment):
-    belong = models.ForeignKey(Challenge, related_name='challenge_comments', verbose_name='所属题目',
+    belong = models.ForeignKey(PC_Challenge, related_name='challenge_comments', verbose_name='所属题目',
                                on_delete=models.CASCADE)
-    competition = models.ForeignKey(Competition, related_name='challenge_comments', 
-                                   verbose_name='所属比赛', null=True, blank=True,
-                                   on_delete=models.SET_NULL)
 
-    def get_absolute_url(self):
-        """获取评论的绝对URL，包含评论锚点"""
-        from django.urls import reverse
-        challenge_url = "#"  # 默认为页面顶部
-        
-        if self.belong:
-            try:
-                if self.competition:
-                    challenge_url = reverse('public:challenge_detail', kwargs={
-                        'slug': self.competition.slug,
-                        'uuid': self.belong.uuid
-                    })
-                else:
-                    challenge_url = reverse('challenge:detail', kwargs={'uuid': self.belong.uuid})
-            except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Error generating URL for comment {self.id}: {str(e)}")
-        
-        return f"{challenge_url}#com-{self.id}"
     class Meta:
-        verbose_name = '评论管理'
+        verbose_name = '题目评论'
         verbose_name_plural = verbose_name
         ordering = ['create_date']
 

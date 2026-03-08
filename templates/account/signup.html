@@ -3,20 +3,115 @@
 {% load i18n %}
 {% load crispy_forms_tags %}
 
-{% block head_title %}{% trans "Signup" %}{% endblock %}
+{% block head_title %}注册{% endblock %}
+{% block user_title %}创建新账号{% endblock %}
+{% block form_description %}加入我们，开启网络安全学习之旅{% endblock %}
 
-{% block user_title %}{% trans "Signup" %}{% endblock %}
 {% block content %}
-
-
-<form class="signup" id="signup_form" method="post" action="{% url 'account_signup' %}">
+<form class="auth-form" id="signup_form" method="post" action="{% url 'account_signup' %}">
     {% csrf_token %}
     {{ form|crispy }}
     {% if redirect_field_value %}
     <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
     {% endif %}
-    <a class="secondaryAction" href="{{ login_url }}">已有账号登录</a>
-    <button class="pull-right btn btn-primary btn-sm" type="submit">{% trans "Sign Up" %}</button>
+    
+    <div class="auth-form-check">
+        <input type="checkbox" id="terms_consent" name="terms_consent" required>
+        <label for="terms_consent">
+            我已阅读并同意 <a href="{% url 'blog:privacy' %}" target="_blank">用户协议和隐私政策</a>
+        </label>
+    </div>
+    
+    <button class="auth-btn" type="submit">
+        <i class="bi bi-person-plus me-2"></i>
+        注册
+    </button>
 </form>
+{% endblock %}
 
+{% block auth_footer %}
+<div class="auth-footer">
+    已有账号？ <a href="{% url 'account_login' %}">立即登录</a>
+</div>
+{% endblock %}
+
+{% block extra_body %}
+<script>
+// 验证码刷新功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 查找验证码图片
+    const captchaImage = document.querySelector('.captcha img, img.captcha');
+    const captchaRefreshLink = document.querySelector('.captcha a, a[href*="captcha/refresh"]');
+    
+    if (captchaImage) {
+        // 为验证码图片添加样式
+        captchaImage.style.cursor = 'pointer';
+        captchaImage.title = '点击刷新验证码';
+        
+        // 点击图片刷新验证码
+        captchaImage.addEventListener('click', function() {
+            refreshCaptcha();
+        });
+    }
+    
+    if (captchaRefreshLink) {
+        // 拦截刷新链接的默认行为
+        captchaRefreshLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            refreshCaptcha();
+        });
+        
+        // 美化刷新链接
+        captchaRefreshLink.innerHTML = '<i class="bi bi-arrow-clockwise"></i> 换一个';
+        captchaRefreshLink.style.marginLeft = '10px';
+        captchaRefreshLink.style.fontSize = '14px';
+        captchaRefreshLink.style.color = '#1890ff';
+        captchaRefreshLink.style.textDecoration = 'none';
+    }
+    
+    function refreshCaptcha() {
+        const captchaContainer = document.querySelector('.captcha');
+        if (!captchaContainer) return;
+        
+        const captchaImage = captchaContainer.querySelector('img');
+        const captchaHiddenInput = document.querySelector('input[name="captcha_0"]');
+        
+        if (!captchaImage || !captchaHiddenInput) return;
+        
+        // 发送 AJAX 请求获取新的验证码
+        fetch('/captcha/refresh/', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.key && data.image_url) {
+                // 更新验证码图片
+                captchaImage.src = data.image_url;
+                
+                // 更新隐藏的验证码 key
+                captchaHiddenInput.value = data.key;
+                
+                // 清空输入框
+                const captchaInput = document.querySelector('input[name="captcha_1"]');
+                if (captchaInput) {
+                    captchaInput.value = '';
+                    captchaInput.focus();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('刷新验证码失败:', error);
+            // 如果 AJAX 失败，使用传统方式刷新
+            if (captchaImage.src.indexOf('?') > 0) {
+                captchaImage.src = captchaImage.src.split('?')[0] + '?' + new Date().getTime();
+            } else {
+                captchaImage.src = captchaImage.src + '?' + new Date().getTime();
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

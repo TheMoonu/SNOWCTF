@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title><![CDATA[{{ title }}]]></title>
+        <link><![CDATA[{{ link }}]]></link>
+        <lastBuildDate><![CDATA[{{ update }}]]></lastBuildDate>
+        {% if description %}<description><![CDATA[{{ description }}]]></description>{% endif %}
+        {% for item in items %}
+            <item>
+                <title><![CDATA[{{ item.title }}]]></title>
+                <link><![CDATA[{{ item.link }}]]></link>
+                {% if item.description %}
+                    <description><![CDATA[{{ item.description }}]]></description>
+                {% endif %}
+            </item>
+        {% endfor %}
+    </channel>
+</rss>

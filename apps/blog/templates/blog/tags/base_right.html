@@ -1,0 +1,160 @@
+{% load blog_tags static %}
+{% load dashboard %}
+<!--个人空间-->
+<div class="card border-0 rounded-6 px-3 mb-2 mb-md-3 d-none d-lg-block" id="home-card">
+    <div class="card-header bg-none px-0">
+        <strong><i class="fa fa-flag mr-2 f-17"></i>文章空间</strong>
+    </div>
+    <div class="card-body px-0 pt-3 pb-1">
+        <div class="row text-center">
+            <div class="col">
+                <a href="{% url 'blog:archive' %}" target="_blank" title="归档" class="text-center">
+                    <i class="fa fa-archive fa-2x mb-2" style="color: #6c757d;"></i>
+                    <p class="mt-2">归档</p>
+                </a>
+            </div>
+            <div class="col">
+                <a href="{% url 'blog:subject_index' %}" target="_blank" title="查看WIKI专题" class="text-center">
+                    <i class="fa fa-book fa-2x mb-2" style="color: #17a2b8;"></i>
+                    <p class="mt-2">专题</p>
+                </a>
+            </div>
+            <div class="col">
+                <a href="{% url 'rss' %}" target="_blank" title="订阅博客" class="text-center">
+                    <i class="fa fa-rss fa-2x mb-2" style="color: #ff9800;"></i>
+                    <p class="mt-2">RSS订阅</p>
+                </a>
+            </div>
+        </div>
+        {% get_blog_infos as blog_infos %}
+        <div class="row text-center blog-info-list">
+            <div class="col">
+                <div>
+                    <p class="mt-1 badge">{{ blog_infos.article }}</p>
+                    <p class="mt-1">文章</p>
+                </div>
+            </div>
+            <div class="col">
+                <div>
+                    <p class="mt-1 badge">{{ blog_infos.subject }}</p>
+                    <p class="mt-1">专题</p>
+                </div>
+            </div>
+            <div class="col">
+                <div>
+                    <p class="mt-1 badge">{{ blog_infos.tag }}</p>
+                    <p class="mt-1">标签</p>
+                </div>
+            </div>
+            <div class="col">
+                <div>
+                    <p class="mt-1 badge">{{ blog_infos.comment }}</p>
+                    <p class="mt-1">评论</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!--阅读榜单，至少5篇文章才显示，最多显示10篇文章-->
+{% get_hot_article_list as hot_article_list %}
+{% if hot_article_list|length >= 5 %}
+    <div class="card border-0 rounded-6 px-3 mb-2 mb-md-3" id="article-view-card">
+        <div class="card-header bg-none px-0">
+            <strong><i class="fa fa-fire mr-2 f-17"></i>昨日热榜</strong>
+        </div>
+        <ul class="article-view-list list-group list-group-flush f-14">
+            {% for hot_article in hot_article_list|slice:":10" %}
+                <li class="py-2">
+                    <a href="{{ hot_article.get_absolute_url }}"
+                       data-last-views="{{ hot_article.add_view }}">{{ hot_article.title }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
+<!--文章分类-->
+<div class="card border-0 rounded-6 px-3 mb-2 mb-md-3" id="category-card">
+    <div class="card-header bg-none px-0">
+        <strong><i class="fa fa-book mr-2 f-17"></i>文章分类</strong>
+    </div>
+    {% get_category_list as categories %}
+    <ul class="list-group list-group-flush f-16">
+        {% for each in categories %}
+            <li class="list-group-item d-flex justify-content-between align-items-center pr-2 py-2">
+                <a class="category-item" href="{{ each.get_absolute_url }}"
+                   title="查看【{{ each.name }}】分类下所有文章">{{ each.name }}</a>
+                <span class="badge custom-badge-sm text-center" title="当前分类下有{{ each.total_num }}篇文章">{{ each.total_num }}</span>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+<!--标签云-->
+<div class="card border-0 rounded-6 px-3 mb-2 mb-md-3" id="tag-card">
+    <div class="card-header bg-none px-0">
+        <strong><i class="fa fa-tags mr-2 f-17"></i>标&nbsp;签&nbsp;云</strong>
+    </div>
+    <div class="card-body px-0 py-3">
+        <div class="tag-cloud">
+            
+            {% get_tag_list as tag_list %}
+            {% for tag in tag_list %}
+                <a href="{{ tag.get_absolute_url }}" class="tags f-16" id="tag-{{ forloop.counter }}"
+                   title="【{{ tag.name }}】标签下有{{ tag.total_num }}篇文章">{{ tag.name }}</a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 博客空间快捷图标优化 */
+    #home-card .row.text-center .col a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 15px 10px;
+        border-radius: 12px;
+        text-decoration: none;
+        color: #495057;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    #home-card .row.text-center .col a::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(0, 123, 255, 0.05), rgba(0, 123, 255, 0.02));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        border-radius: 12px;
+    }
+    
+    #home-card .row.text-center .col a:hover::before {
+        opacity: 1;
+    }
+    
+    #home-card .row.text-center .col a:hover {
+        background-color: rgba(248, 249, 250, 0.8);
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    #home-card .row.text-center .col a i {
+        transition: all 0.3s ease;
+    }
+    
+    #home-card .row.text-center .col a:hover i {
+        transform: scale(1.15) rotate(5deg);
+    }
+    
+    #home-card .row.text-center .col a p {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 500;
+    }
+</style>

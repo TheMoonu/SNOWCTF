@@ -1,0 +1,794 @@
+{% extends "tool/base_tool.html" %}
+{% load static %}
+
+{% block head_title %}文件上传工具_Markdown图片上传_对象存储上传_辅助工具{% endblock %}
+{% block metas %}
+    <meta name="description" content="拖拽式文件上传工具，支持上传到对象存储，自动生成Markdown格式链接，仅限管理员使用。">
+    <meta name="keywords" content="文件上传,图片上传,Markdown,对象存储,在线工具">
+{% endblock %}
+
+{% block top-file %}
+<style>
+    /* 工具说明 - 扁平化设计 */
+    .tool-description {
+        background: #f8fafc;
+        border-left: 4px solid #3b82f6;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .tool-description h3 {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        color: #1e293b;
+    }
+    
+    .tool-description h3 i {
+        margin-right: 8px;
+        font-size: 16px;
+        color: #3b82f6;
+    }
+    
+    .tool-description ul {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+    }
+    
+    .tool-description ul li {
+        position: relative;
+        padding-left: 20px;
+        margin-bottom: 8px;
+        line-height: 1.5;
+        font-size: 13px;
+        color: #64748b;
+    }
+    
+    .tool-description ul li strong {
+        color: #334155;
+        font-weight: 600;
+    }
+    
+    .tool-description kbd {
+        display: inline-block;
+        padding: 2px 6px;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 11px;
+        line-height: 1.4;
+        color: #334155;
+        background-color: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 3px;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+        margin: 0 2px;
+    }
+    
+    .tool-description ul li:before {
+        content: "•";
+        position: absolute;
+        left: 6px;
+        color: #3b82f6;
+    }
+    
+    .tool-description ul li:last-child {
+        margin-bottom: 0;
+    }
+    
+    .tool-description .admin-notice {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #e0f2fe;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #0c4a6e;
+    }
+    
+    .tool-description .admin-notice i {
+        margin-right: 6px;
+    }
+    
+    /* 上传区域 - 扁平化设计 */
+    .upload-area {
+        border: 2px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 60px 20px;
+        text-align: center;
+        background: #ffffff;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .upload-area:hover {
+        border-color: #3b82f6;
+        background: #f8fafc;
+    }
+    
+    .upload-area.dragover {
+        border-color: #3b82f6;
+        background: #eff6ff;
+        border-style: solid;
+    }
+    
+    .upload-content {
+        position: relative;
+    }
+    
+    .upload-icon-wrapper {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 20px;
+        background: #3b82f6;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .upload-icon {
+        font-size: 40px;
+        color: white;
+    }
+    
+    .upload-text {
+        font-size: 16px;
+        color: #1e293b;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+    
+    .upload-hint {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 16px;
+    }
+    
+    .upload-formats {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .format-tag {
+        display: inline-block;
+        padding: 4px 10px;
+        background: #f1f5f9;
+        border-radius: 4px;
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 500;
+    }
+    
+    /* 进度条 - 扁平化设计 */
+    .upload-progress {
+        margin-top: 20px;
+        display: none;
+        background: #f8fafc;
+        padding: 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+    }
+    
+    .progress-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    
+    .progress-icon {
+        font-size: 24px;
+        color: #3b82f6;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .progress-text {
+        flex: 1;
+    }
+    
+    .progress-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #1e293b;
+        margin-bottom: 2px;
+    }
+    
+    .progress-subtitle {
+        font-size: 12px;
+        color: #64748b;
+    }
+    
+    .progress {
+        height: 4px;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: #3b82f6;
+        transition: width 0.3s ease;
+    }
+    
+    /* 结果卡片 - 扁平化设计 */
+    .result-card {
+        margin-top: 24px;
+        padding: 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #ffffff;
+        display: none;
+        overflow: hidden;
+    }
+    
+    .result-card.show {
+        display: block;
+    }
+    
+    .result-header {
+        padding: 16px 20px;
+        background: #10b981;
+        color: white;
+        font-size: 15px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .result-header i {
+        font-size: 16px;
+    }
+    
+    .result-body {
+        padding: 20px;
+    }
+    
+    .file-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #f0fdf4;
+        border-left: 3px solid #10b981;
+        border-radius: 4px;
+        margin-bottom: 16px;
+    }
+    
+    .file-info-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        background: #10b981;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .file-info-icon {
+        font-size: 24px;
+        color: white;
+    }
+    
+    .file-info-text {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .file-info-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #065f46;
+        margin-bottom: 4px;
+        word-break: break-all;
+    }
+    
+    .file-info-size {
+        font-size: 12px;
+        color: #059669;
+    }
+    
+    .preview-container {
+        margin-bottom: 16px;
+    }
+    
+    .preview-image {
+        max-width: 100%;
+        max-height: 350px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        display: block;
+        margin: 0 auto;
+    }
+    
+    .result-item {
+        margin-bottom: 16px;
+    }
+    
+    .result-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .result-label {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 500;
+    }
+    
+    .result-label i {
+        font-size: 12px;
+    }
+    
+    .result-value-wrapper {
+        position: relative;
+    }
+    
+    .result-value {
+        padding: 12px 70px 12px 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 12px;
+        color: #334155;
+        word-break: break-all;
+        line-height: 1.5;
+    }
+    
+    .copy-btn {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        padding: 6px 12px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .copy-btn:hover {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+    
+    .copy-btn.copied {
+        background: #10b981;
+        border-color: #10b981;
+        color: white;
+    }
+    
+    .copy-btn i {
+        font-size: 11px;
+    }
+    
+    /* 错误消息 - 扁平化设计 */
+    .error-message {
+        padding: 16px;
+        background: #fef2f2;
+        border-left: 4px solid #dc2626;
+        border-radius: 4px;
+        color: #dc2626;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+    }
+    
+    .error-message i {
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+    
+    #file-input {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block tool_name %}文件上传工具{% endblock %}
+
+{% block left_content %}
+
+<!-- 工具说明 -->
+<div class="tool-description">
+    <h3><i class="fa fa-info-circle"></i>工具说明</h3>
+    <ul>
+        <li>拖拽文件到上传区域，或点击选择文件</li>
+        <li><strong>支持粘贴上传：</strong>使用 <kbd>Ctrl+V</kbd> 或 <kbd>Cmd+V</kbd> 直接粘贴剪贴板中的图片</li>
+        <li>支持上传图片、文档等各种类型文件</li>
+        <li>自动生成 Markdown 格式的链接（图片）或普通链接（其他文件）</li>
+        <li>文件保存到对象存储，支持长期访问</li>
+    </ul>
+    <div class="admin-notice">
+        <i class="fa fa-shield"></i>
+        <strong>权限提示：</strong>此工具仅限管理员使用
+    </div>
+</div>
+
+<!-- 上传区域 -->
+<div class="upload-area " id="upload-area">
+    <div class="upload-content">
+        <div class="upload-icon-wrapper">
+            <div class="upload-icon">
+                <i class="fa fa-cloud-upload"></i>
+            </div>
+        </div>
+        <div class="upload-text">拖拽文件到此处，或点击选择文件</div>
+        <div class="upload-hint">支持图片、文档等所有文件类型</div>
+        <div class="upload-formats">
+            <span class="format-tag">JPG</span>
+            <span class="format-tag">PNG</span>
+            <span class="format-tag">GIF</span>
+            <span class="format-tag">SVG</span>
+            <span class="format-tag">PDF</span>
+            <span class="format-tag">ZIP</span>
+            <span class="format-tag">更多...</span>
+        </div>
+    </div>
+    <input type="file" id="file-input">
+</div>
+
+<!-- 上传进度 -->
+<div class="upload-progress" id="upload-progress">
+    <div class="progress-info">
+        <div class="progress-icon">
+            <i class="fa fa-spinner"></i>
+        </div>
+        <div class="progress-text">
+            <div class="progress-title">正在上传文件...</div>
+            <div class="progress-subtitle">请稍候，文件正在传输到对象存储</div>
+        </div>
+    </div>
+    <div class="progress">
+        <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+    </div>
+</div>
+
+<!-- 上传结果 -->
+<div class="result-card" id="result-card">
+    <div class="result-header">
+        <i class="fa fa-check-circle"></i>
+        <span>上传成功</span>
+    </div>
+    
+    <div class="result-body">
+        <!-- 文件信息 -->
+        <div class="file-info" id="file-info">
+            <div class="file-info-icon-wrapper">
+                <div class="file-info-icon">
+                    <i class="fa fa-file"></i>
+                </div>
+            </div>
+            <div class="file-info-text">
+                <div class="file-info-name" id="file-name"></div>
+                <div class="file-info-size" id="file-size"></div>
+            </div>
+        </div>
+
+        <!-- 图片预览 -->
+        <div class="preview-container" id="preview-container"></div>
+
+        <!-- 文件 URL -->
+        <div class="result-item">
+            <label class="result-label">
+                <i class="fa fa-link"></i>
+                <span>文件 URL</span>
+            </label>
+            <div class="result-value-wrapper">
+                <div class="result-value">
+                    <span id="file-url"></span>
+                </div>
+                <button class="copy-btn" data-target="file-url" onclick="copyToClipboard(this)">
+                    <i class="fa fa-copy"></i>
+                    <span>复制</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Markdown 链接 -->
+        <div class="result-item">
+            <label class="result-label">
+                <i class="fa fa-markdown"></i>
+                <span>Markdown 链接</span>
+            </label>
+            <div class="result-value-wrapper">
+                <div class="result-value">
+                    <span id="markdown-link"></span>
+                </div>
+                <button class="copy-btn" data-target="markdown-link" onclick="copyToClipboard(this)">
+                    <i class="fa fa-copy"></i>
+                    <span>复制</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- HTML 代码 -->
+        <div class="result-item">
+            <label class="result-label">
+                <i class="fa fa-code"></i>
+                <span>HTML 代码</span>
+            </label>
+            <div class="result-value-wrapper">
+                <div class="result-value">
+                    <span id="html-link"></span>
+                </div>
+                <button class="copy-btn" data-target="html-link" onclick="copyToClipboard(this)">
+                    <i class="fa fa-copy"></i>
+                    <span>复制</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block end_file %}
+{{ block.super }}
+<script>
+const uploadArea = document.getElementById('upload-area');
+const fileInput = document.getElementById('file-input');
+const resultCard = document.getElementById('result-card');
+const uploadProgress = document.getElementById('upload-progress');
+const progressBar = document.getElementById('progress-bar');
+
+// 点击上传区域选择文件
+uploadArea.addEventListener('click', () => {
+    fileInput.click();
+});
+
+// 文件选择
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        uploadFile(file);
+    }
+});
+
+// 拖拽事件
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragenter', 'dragover'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, () => {
+        uploadArea.classList.add('dragover');
+    });
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, () => {
+        uploadArea.classList.remove('dragover');
+    });
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        uploadFile(file);
+    }
+});
+
+// 监听粘贴事件
+document.addEventListener('paste', (e) => {
+    // 检查剪贴板中是否有文件
+    const items = e.clipboardData.items;
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        
+        // 如果是图片类型
+        if (item.type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            
+            if (file) {
+                uploadFile(file);
+                // 显示提示
+                showInfoToast('检测到粘贴图片，正在上传...');
+            }
+            break;
+        }
+    }
+});
+
+// 上传文件
+function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // 显示进度条
+    uploadProgress.style.display = 'block';
+    resultCard.classList.remove('show');
+    
+    const xhr = new XMLHttpRequest();
+    
+    // 上传进度
+    xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+            const percent = (e.loaded / e.total) * 100;
+            progressBar.style.width = percent + '%';
+        }
+    });
+    
+    // 上传完成
+    xhr.addEventListener('load', () => {
+        uploadProgress.style.display = 'none';
+        progressBar.style.width = '0%';
+        
+        if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            if (response.success) {
+                showResult(response);
+            } else {
+                showErrorToast('上传失败：' + response.error);
+            }
+        } else {
+            showErrorToast('上传失败，请重试');
+        }
+    });
+    
+    // 上传错误
+    xhr.addEventListener('error', () => {
+        uploadProgress.style.display = 'none';
+        progressBar.style.width = '0%';
+        showErrorToast('上传失败，请检查网络连接');
+    });
+    
+    xhr.open('POST', '{% url "tool:file_upload" %}', true);
+    xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+    xhr.send(formData);
+}
+
+// 显示上传结果
+function showResult(data) {
+    // 文件信息
+    document.getElementById('file-name').textContent = data.file_name;
+    document.getElementById('file-size').textContent = formatFileSize(data.file_size);
+    
+    // 文件图标
+    const fileInfoIcon = document.querySelector('.file-info-icon i');
+    if (data.is_image) {
+        fileInfoIcon.className = 'fa fa-file-image-o';
+    } else {
+        fileInfoIcon.className = 'fa fa-file-o';
+    }
+    
+    // 链接
+    document.getElementById('file-url').textContent = data.file_url;
+    document.getElementById('markdown-link').textContent = data.markdown_link;
+    document.getElementById('html-link').textContent = data.html_link;
+    
+    // 图片预览
+    const previewContainer = document.getElementById('preview-container');
+    if (data.is_image) {
+        previewContainer.innerHTML = `<img src="${data.file_url}" class="preview-image" alt="${data.file_name}">`;
+    } else {
+        previewContainer.innerHTML = '';
+    }
+    
+    // 显示结果卡片
+    resultCard.classList.add('show');
+    
+    // 滚动到结果区域
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// 复制到剪贴板（兼容方案）
+function copyToClipboard(button) {
+    const targetId = button.getAttribute('data-target');
+    const text = document.getElementById(targetId).textContent;
+    
+    // 优先使用 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            showCopySuccess(button);
+        }).catch(err => {
+            // 降级到传统方法
+            fallbackCopy(text, button);
+        });
+    } else {
+        // 使用传统方法
+        fallbackCopy(text, button);
+    }
+}
+
+// 传统复制方法（降级方案）
+function fallbackCopy(text, button) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.width = '1px';
+    textarea.style.height = '1px';
+    textarea.style.padding = '0';
+    textarea.style.border = 'none';
+    textarea.style.outline = 'none';
+    textarea.style.boxShadow = 'none';
+    textarea.style.background = 'transparent';
+    
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            showCopySuccess(button);
+        } else {
+            showErrorToast('复制失败，请手动复制');
+        }
+    } catch (err) {
+        console.error('复制失败:', err);
+        showErrorToast('复制失败，请手动复制');
+    }
+    
+    document.body.removeChild(textarea);
+}
+
+// 显示复制成功状态
+function showCopySuccess(button) {
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fa fa-check"></i><span>已复制</span>';
+    button.classList.add('copied');
+    
+    // 2秒后恢复
+    setTimeout(() => {
+        button.innerHTML = originalHTML;
+        button.classList.remove('copied');
+    }, 2000);
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+}
+
+// 显示信息提示
+function showInfoToast(message) {
+    // 如果页面有 toast 方法，使用它
+    if (typeof showSuccessToast === 'function') {
+        showSuccessToast(message);
+    } else if (typeof toastr !== 'undefined') {
+        toastr.info(message);
+    } else {
+        // 简单的提示
+        console.log(message);
+    }
+}
+</script>
+{% endblock %}
+

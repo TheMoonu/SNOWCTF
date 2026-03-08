@@ -1,0 +1,322 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}添加比赛题目{% endblock %}
+
+
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-12 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'competition:CompetitionView' %}">竞赛列表</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'competition:competition_detail' object.slug %}">{{ object.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'competition:competition_manage' competition.slug %}">管理面板</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">添加题目</li>
+                </ol>
+            </nav>
+
+            <!-- 主要内容卡片 -->
+            <div class="comp-card">
+                <h2 class="comp-title">为比赛添加题目</h2>
+                <p>比赛：<strong>{{ object.title }}</strong></p>
+                
+                <!-- 选项卡 -->
+                <div class="comp-tabs">
+                    <div class="comp-tab active" data-tab="existing">选择现有题目</div>
+                    <div class="comp-tab" data-tab="create">创建新题目</div>
+                </div>
+                
+                <!-- 选择现有题目 -->
+                <div class="comp-tab-content active" id="existing-tab">
+                    {% if available_challenges %}
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <!-- 搜索和筛选 -->
+                            <div class="comp-search-box">
+                                <input type="text" id="searchInput" class="comp-search-input" placeholder="搜索题目...">
+                                <button type="button" class="comp-search-btn">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-2 mb-md-0">
+                                    <label class="small text-muted mb-1">题目分类</label>
+                                    <select id="categoryFilter" class="form-control" style="border-radius: 6px; border-color: #e0e0e0;">
+                                        <option value="all">全部分类</option>
+                                        {% for category in available_categories %}
+                                        <option value="{{ category }}">{{ category }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small text-muted mb-1">难度等级</label>
+                                    <select id="difficultyFilter" class="form-control" style="border-radius: 6px; border-color: #e0e0e0;">
+                                        <option value="all">全部难度</option>
+                                        <option value="Easy">简单</option>
+                                        <option value="Medium">中等</option>
+                                        <option value="Hard">困难</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="filterStats" class="mb-3 text-muted small" style="display: none;">
+                                显示 <span id="visibleCount">0</span> / <span id="totalCount">0</span> 个题目
+                            </div>
+                            
+                            <!-- 题目列表 -->
+                            <div class="comp-challenge-list">
+                                {% for challenge in available_challenges %}
+                                    <div class="comp-challenge-item" 
+                                         data-category="{{ challenge.category }}"
+                                         data-difficulty="{{ challenge.difficulty }}">
+                                        <div class="comp-challenge-checkbox">
+                                            <label class="comp-custom-checkbox">
+                                                <input type="checkbox" name="challenges" value="{{ challenge.id }}" 
+                                                       {% if challenge in object.challenges.all %}checked{% endif %}
+                                                       class="comp-challenge-check">
+                                                <span class="comp-checkmark"></span>
+                                            </label>
+                                        </div>
+                                        <label for="challenge_{{ challenge.id }}" class="comp-challenge-info">
+                                            <div class="comp-challenge-title">
+                                                {{ challenge.title }}
+                                                <span class="comp-challenge-badge comp-badge-{{ challenge.category|lower }}">
+                                                    {{ challenge.get_category_display }}
+                                                </span>
+                                                <span class="comp-challenge-badge comp-badge-{{ challenge.difficulty|lower }}">
+                                                    {{ challenge.get_difficulty_display }}
+                                                </span>
+                                                
+                                                <!-- 添加题目来源标识 -->
+                                                {% if challenge.author.is_staff or challenge.author.is_superuser %}
+                                                <span class="comp-challenge-badge comp-badge-system">
+                                                    系统内置
+                                                </span>
+                                                {% elif challenge.author == request.user %}
+                                                <span class="comp-challenge-badge comp-badge-user">
+                                                    我创建的
+                                                </span>
+                                                {% else %}
+                                                <span class="comp-challenge-badge comp-badge-other">
+                                                    用户创建
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="comp-challenge-meta">
+                                                <div class="comp-challenge-meta-item">
+                                                    <i class="bi bi-book"></i> {{ challenge.points }} 分
+                                                </div>
+                                                <div class="comp-challenge-meta-item">
+                                                    <i class="fa fa-flag-checkered"></i> {{ challenge.solves }} 解题
+                                                </div>
+                                                <div class="comp-challenge-meta-item">
+                                                    <i class="fas fa-calendar-alt"></i> {{ challenge.created_at|date:"Y-m-d" }}
+                                                </div>
+                                                <!-- 添加作者信息 -->
+                                                <div class="comp-challenge-meta-item">
+                                                    <i class="fas fa-user"></i> {{ challenge.author.username }}
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="comp-selected-count mt-3">
+                                已选择 <span id="selectedCount">0</span> 个题目
+                            </div>
+                            
+                            <div class="text-right mt-4">
+                                <a href="{% url 'competition:competition_detail' object.slug %}" class="comp-btn comp-btn-light mr-2">
+                                    取消
+                                </a>
+                                <button type="submit" class="comp-btn comp-btn-primary">
+                                    保存题目
+                                </button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="comp-empty-state">
+                            <div class="comp-empty-icon">
+                                <i class="bi bi-bookmark-check"></i>
+                            </div>
+                            <p>暂无可用题目，请创建新题目</p>
+                            <button type="button" class="comp-btn comp-btn-primary mt-3" onclick="switchTab('create')">
+                                 创建新题目
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- 创建新题目 -->
+                <div class="comp-tab-content" id="create-tab">
+                    <div class="comp-create-challenge">
+                        <div class="comp-create-icon">
+                            <i class="bi bi-bookmark-check"></i>
+                        </div>
+                        <h3 class="comp-create-title">创建新题目</h3>
+                        <p class="comp-create-text">您可以创建新的题目并添加到当前比赛中</p>
+                        <a href="{% url 'competition:competition_create_challenge' slug=object.slug %}" class="comp-btn comp-btn-primary">
+                            </i> 创建题目
+                        </a>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <p>创建题目后，您可以返回此页面将题目添加到比赛中</p>
+                        <button type="button" class="comp-btn comp-btn-light mt-2" onclick="switchTab('existing')">
+                            </i> 返回选择题目
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化选中计数
+    updateSelectedCount();
+    
+    // 搜索功能
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', filterChallenges);
+    }
+    
+    // 分类筛选（下拉选择框）
+    const categoryFilter = document.getElementById('categoryFilter');
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', filterChallenges);
+    }
+    
+    // 难度筛选（下拉选择框）
+    const difficultyFilter = document.getElementById('difficultyFilter');
+    if (difficultyFilter) {
+        difficultyFilter.addEventListener('change', filterChallenges);
+    }
+    
+    // 复选框变化事件
+    const checkboxes = document.querySelectorAll('.comp-challenge-check');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+    
+    // 选项卡切换
+    const tabs = document.querySelectorAll('.comp-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+            switchTab(tabId);
+        });
+    });
+    
+    // 点击题目项也可以选中/取消选中复选框
+    const challengeItems = document.querySelectorAll('.comp-challenge-item');
+    challengeItems.forEach(item => {
+        const checkbox = item.querySelector('.comp-challenge-check');
+        const info = item.querySelector('.comp-challenge-info');
+        
+        info.addEventListener('click', function(e) {
+            if (e.target !== checkbox) {
+                checkbox.checked = !checkbox.checked;
+                updateSelectedCount();
+            }
+        });
+    });
+});
+
+// 更新选中计数
+function updateSelectedCount() {
+    const selectedCount = document.querySelectorAll('.comp-challenge-check:checked').length;
+    const countElement = document.getElementById('selectedCount');
+    if (countElement) {
+        countElement.textContent = selectedCount;
+    }
+}
+
+// 筛选题目
+function filterChallenges() {
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter');
+    const difficultyFilter = document.getElementById('difficultyFilter');
+    
+    const selectedCategory = categoryFilter ? categoryFilter.value : 'all';
+    const selectedDifficulty = difficultyFilter ? difficultyFilter.value : 'all';
+    
+    const challenges = document.querySelectorAll('.comp-challenge-item');
+    let visibleCount = 0;
+    
+    challenges.forEach(challenge => {
+        const title = challenge.querySelector('.comp-challenge-title').textContent.toLowerCase();
+        const category = challenge.getAttribute('data-category');
+        const difficulty = challenge.getAttribute('data-difficulty');
+        
+        const matchesSearch = title.includes(searchText);
+        const matchesCategory = selectedCategory === 'all' || category === selectedCategory;
+        const matchesDifficulty = selectedDifficulty === 'all' || difficulty === selectedDifficulty;
+        
+        if (matchesSearch && matchesCategory && matchesDifficulty) {
+            challenge.style.display = 'flex';
+            visibleCount++;
+        } else {
+            challenge.style.display = 'none';
+        }
+    });
+    
+    // 显示筛选结果统计
+    updateFilterStats(visibleCount, challenges.length);
+}
+
+// 更新筛选结果统计
+function updateFilterStats(visible, total) {
+    const statsDiv = document.getElementById('filterStats');
+    const visibleCountSpan = document.getElementById('visibleCount');
+    const totalCountSpan = document.getElementById('totalCount');
+    
+    if (statsDiv && visibleCountSpan && totalCountSpan) {
+        visibleCountSpan.textContent = visible;
+        totalCountSpan.textContent = total;
+        
+        // 只有在有筛选条件时才显示统计信息
+        const searchText = document.getElementById('searchInput').value;
+        const categoryFilter = document.getElementById('categoryFilter');
+        const difficultyFilter = document.getElementById('difficultyFilter');
+        
+        const hasFilter = searchText || 
+                         (categoryFilter && categoryFilter.value !== 'all') || 
+                         (difficultyFilter && difficultyFilter.value !== 'all');
+        
+        statsDiv.style.display = hasFilter ? 'block' : 'none';
+    }
+}
+
+// 切换选项卡
+function switchTab(tabId) {
+    // 更新选项卡状态
+    document.querySelectorAll('.comp-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.getAttribute('data-tab') === tabId);
+    });
+    
+    // 更新内容区域
+    document.querySelectorAll('.comp-tab-content').forEach(content => {
+        content.classList.toggle('active', content.id === tabId + '-tab');
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,375 @@
+{% extends 'public/base.html' %}
+{% load static blog_tags %}
+{% load dashboard %}
+
+{% block head_title %}网站看板{% endblock %}
+
+{% block metas %}
+    <meta name="description" content="{{ site_description }}">
+    <meta name="keywords" content="{{ site_keywords }}">
+{% endblock %}
+
+{% block top-file %}
+    <script src="{% static 'blog/js/echarts/5.4.3/echarts.min.js' %}"></script>
+    <!--设置默认的主题颜色为亮色-->
+    <script>
+        var baseEchartsColor = {
+            backgroundColor: '#fff',
+            titleColor: '#464646'
+        }
+        var nightEchartsColor = {
+            backgroundColor: '#1a222c',
+            titleColor: '#d5d3d3'
+        }
+        // 🔧 根据 Cookie 初始化主题
+        var currentTheme = document.cookie.split('; ').find(row => row.startsWith('toggleTheme='));
+        var isDarkMode = currentTheme && currentTheme.split('=')[1] === 'dark';
+        var echartsTheme = isDarkMode ? nightEchartsColor : baseEchartsColor;
+    </script>
+    <!--根据cookies判断是否启用暗色主题-->
+
+{% endblock %}
+
+{% block base_content %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="mb-3" id="day_views_box" style="width: 100%;height:340px;"></div>
+            {% get_views_data_from_redis as day_views_data %}
+            <div id="day_views_data" style="display: none;">{{ day_views_data|json_script:"day_views_data" }}</div>
+            <script type="text/javascript">
+                // 基于准备好的dom，初始化echarts实例
+                const myDayViewsData = JSON.parse(document.getElementById("day_views_data").textContent);
+                const myDayViewsChart = echarts.init(document.getElementById('day_views_box'));
+
+                // 指定图表的配置项和数据
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    color: ['#3ba272', '#9a60b4', '#f38b53', '#fac858'],
+                    toolbox: {
+                        show: true,
+                        feature: {
+                            magicType: {type: ['line', 'bar']},
+                            saveAsImage: {}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    },
+                    title: {
+                        text: '两周有效访问量',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    legend: {
+                        data: ['本周访问量', '上周访问量', '今日预测', '上周此时'],
+                        textStyle: {color: echartsTheme.titleColor}
+                    },
+                    dataset: {
+                        source: [['product', '本周访问量', '上周访问量', '今日预测', '上周此时']].concat(myDayViewsData)
+                    },
+                    xAxis: {type: 'category'},
+                    yAxis: {type: 'value'},
+                    series: [
+                        {
+                            type: 'line',
+                            label: {
+                                show: true,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            label: {
+                                show: true,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        },
+                        {
+                            type: 'line',
+                            label: {
+                                show: false,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        }
+                    ]
+                };
+
+                // 使用刚指定的配置项和数据显示图表。
+                myDayViewsChart.setOption(option);
+            </script>
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="hours_views_box" style="width: 100%;height:340px;"></div>
+            {% get_hours_views_from_redis as hours_views_data %}
+            <div id="hours_views_data"
+                 style="display: none;">{{ hours_views_data|json_script:"hours_views_data" }}</div>
+            <script type="text/javascript">
+                // 基于准备好的dom，初始化echarts实例
+                const myHoursViewData = JSON.parse(document.getElementById("hours_views_data").textContent);
+                const myHoursViewChart = echarts.init(document.getElementById('hours_views_box'));
+
+                // 指定图表的配置项和数据
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    color: ['#5470c6', '#91cc75', '#73c0de', '#fac858', '#fc8452', '#3ba272', '#fac858', '#ee6666', '#9a60b4', '#ea7ccc'],
+                    toolbox: {
+                        show: true,
+                        feature: {
+                            magicType: {type: ['line', 'bar']},
+                            saveAsImage: {}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    },
+                    title: {
+                        text: '24小时有效访问量',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    legend: {
+                        textStyle: {color: echartsTheme.titleColor}
+                    },
+                    dataset: {
+                        source: [['product', '今日文章', '今日单页面', '昨日文章', '昨日单页面']].concat(myHoursViewData)
+                    },
+                    xAxis: {type: 'category'},
+                    yAxis: {type: 'value'},
+                    series: [
+                        {
+                            type: 'bar',
+                            stack: '今日',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            stack: '今日',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            stack: '昨日',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            stack: '昨日',
+                            emphasis: {
+                                focus: 'series'
+                            }
+                        }
+                    ]
+                };
+
+                // 使用刚指定的配置项和数据显示图表。
+                myHoursViewChart.setOption(option);
+            </script>
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="30_days_views_box" style="width: 100%;height:500px;"></div>
+            {% get_30_days_views_from_redis as 30_days_views_data %}
+            <div id="30_days_views_data"
+                 style="display: none;">{{ 30_days_views_data|json_script:"30_days_views_data" }}</div>
+            <script type="text/javascript">
+                // 基于准备好的dom，初始化echarts实例
+                const my30DayViewData = JSON.parse(document.getElementById("30_days_views_data").textContent);
+                const my30DayViewChart = echarts.init(document.getElementById('30_days_views_box'));
+
+                // 指定图表的配置项和数据
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    color: ['#ee6666', '#fac858', '#fc8452', '#ea7ccc', '#9a60b4', '#5470c6', '#91cc75', '#73c0de', '#3ba272'],
+                    toolbox: {
+                        show: true,
+                        feature: {
+                            magicType: {type: ['line', 'bar']},
+                            saveAsImage: {}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    },
+                    title: {
+                        text: '30天有效访问量',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    legend: {
+                        textStyle: {color: echartsTheme.titleColor}
+                    },
+                    dataset: {
+                        source: [['product', '每日访问量']].concat(my30DayViewData)
+                    },
+                    xAxis: {type: 'category'},
+                    yAxis: {type: 'value'},
+                    series: [
+                        {
+                            type: 'line',
+                            label: {
+                                show: true,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        }
+                    ]
+                };
+
+                // 使用刚指定的配置项和数据显示图表。
+                my30DayViewChart.setOption(option);
+            </script>
+        </div>
+        <div class="row justify-content-center">
+            <div class="mb-3" id="user_data_views_box" style="width: 100%;height:500px;"></div>
+            {% get_user_growth_trend as user_data %}
+            <div id="user_data"
+                 style="display: none;">{{ user_data|json_script:"user_data" }}</div>
+            <script type="text/javascript">
+                // 基于准备好的dom，初始化echarts实例
+                const myUserData = JSON.parse(document.getElementById("user_data").textContent);
+                const myUserDataViewChart = echarts.init(document.getElementById('user_data_views_box'));
+
+                // 指定图表的配置项和数据
+                option = {
+                    backgroundColor: echartsTheme.backgroundColor,
+                    color: ['#fc8452', '#ee6666', '#fac858', '#9a60b4', '#5470c6', '#91cc75', '#73c0de', '#3ba272'],
+                    toolbox: {
+                        show: true,
+                        feature: {
+                            saveAsImage: {}
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    },
+                    title: {
+                        text: '平台用户总数趋势',
+                        x: 'center',
+                        y: 'bottom',
+                        textStyle: {fontSize: 18, color: echartsTheme.titleColor}
+                    },
+                    dataset: {
+                        source: [['product', '用户总数']].concat(myUserData)
+                    },
+                    xAxis: {type: 'category'},
+                    yAxis: {type: 'value'},
+                    series: [
+                        {
+                            type: 'line',
+                            label: {
+                                show: true,
+                                position: 'top',
+                                textStyle: {
+                                    fontSize: 12
+                                }
+                            }
+                        }
+                    ]
+                };
+
+                // 使用刚指定的配置项和数据显示图表。
+                myUserDataViewChart.setOption(option);
+            </script>
+        </div>
+    </div>
+    
+    <!-- 🔥 监听主题切换，动态更新 ECharts 图表 -->
+    <script>
+        // 保存所有图表实例的引用
+        var allCharts = [];
+        
+        // 页面加载完成后，收集所有图表实例
+        document.addEventListener('DOMContentLoaded', function() {
+            // 等待图表初始化完成
+            setTimeout(function() {
+                if (typeof myDayViewsChart !== 'undefined') allCharts.push(myDayViewsChart);
+                if (typeof myHoursViewChart !== 'undefined') allCharts.push(myHoursViewChart);
+                if (typeof my30DayViewChart !== 'undefined') allCharts.push(my30DayViewChart);
+                if (typeof myUserDataViewChart !== 'undefined') allCharts.push(myUserDataViewChart);
+            }, 100);
+        });
+        
+        // 监听主题切换按钮点击事件
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('#change-theme')) {
+                // 延迟执行，等待 Cookie 更新完成
+                setTimeout(function() {
+                    // 检查当前主题
+                    var currentTheme = document.cookie.split('; ').find(row => row.startsWith('toggleTheme='));
+                    var isDarkMode = currentTheme && currentTheme.split('=')[1] === 'dark';
+                    
+                    // 更新全局主题变量
+                    echartsTheme = isDarkMode ? nightEchartsColor : baseEchartsColor;
+                    
+                    // 更新所有图表的主题
+                    allCharts.forEach(function(chart) {
+                        if (chart && chart.getOption) {
+                            var option = chart.getOption();
+                            
+                            // 更新背景色
+                            option.backgroundColor = echartsTheme.backgroundColor;
+                            
+                            // 更新标题颜色
+                            if (option.title && option.title[0]) {
+                                option.title[0].textStyle = option.title[0].textStyle || {};
+                                option.title[0].textStyle.color = echartsTheme.titleColor;
+                            }
+                            
+                            // 更新图例颜色
+                            if (option.legend && option.legend[0]) {
+                                option.legend[0].textStyle = option.legend[0].textStyle || {};
+                                option.legend[0].textStyle.color = echartsTheme.titleColor;
+                            }
+                            
+                            // 重新设置配置
+                            chart.setOption(option);
+                        }
+                    });
+                    
+                    console.log('✅ ECharts 图表主题已切换为: ' + (isDarkMode ? '暗色' : '亮色'));
+                }, 100);
+            }
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends 'competition/tech/base.html' %}
+{% load static %}
+{% load blog_tags %}
+{% load humanize %}
+{% load com_tags %}
+
+{% block title %}{{competition_title}}{% endblock %}
+
+{% block content %}
+        <div class="tech-content-grid">
+            <!-- 左侧主内容 -->
+            <div>
+                <!-- 搜索框 -->
+                
+                <!-- 过滤器 -->
+                <div class="tech-filter-panel">
+                    <!-- 类型过滤 -->
+                    <div class="tech-filter-group">
+                        <div class="tech-filter-title">
+                            <i class="fa fa-tag"></i> 题目类型
+                        </div>
+                        <div class="tech-filter-options" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <a href="?{% if request.GET.difficulty %}difficulty={{ request.GET.difficulty }}{% if request.GET.status or request.GET.sort_by or request.GET.q %}&{% endif %}{% endif %}{% if request.GET.status %}status={{ request.GET.status }}{% if request.GET.sort_by or request.GET.q %}&{% endif %}{% endif %}{% if request.GET.sort_by %}sort_by={{ request.GET.sort_by }}{% if request.GET.q %}&{% endif %}{% endif %}{% if request.GET.q %}q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if not request.GET.type %}active{% endif %}">
+                                全部
+                            </a>
+                            {% for type in challenge_types %}
+                            <a href="?type={{ type }}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if request.GET.type == type %}active{% endif %}">
+                                {{ type }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- 难度过滤 -->
+                    <div class="tech-filter-group">
+                        <div class="tech-filter-title">
+                            <i class="fa fa-signal"></i> 难度等级
+                        </div>
+                        <div class="tech-filter-options" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <a href="?{% if request.GET.type %}type={{ request.GET.type }}{% if request.GET.status or request.GET.sort_by or request.GET.q %}&{% endif %}{% endif %}{% if request.GET.status %}status={{ request.GET.status }}{% if request.GET.sort_by or request.GET.q %}&{% endif %}{% endif %}{% if request.GET.sort_by %}sort_by={{ request.GET.sort_by }}{% if request.GET.q %}&{% endif %}{% endif %}{% if request.GET.q %}q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if not request.GET.difficulty %}active{% endif %}">
+                                全部
+                            </a>
+                            {% for difficulty in difficulties %}
+                            <a href="?difficulty={{ difficulty }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if request.GET.difficulty == difficulty %}active{% endif %}">
+                                {{ difficulty }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- 解决状态过滤 -->
+                    {% if user.is_authenticated %}
+                    <div class="tech-filter-group">
+                        <div class="tech-filter-title">
+                            <i class="fa fa-check-circle"></i> 解决状态
+                        </div>
+                        <div class="tech-filter-options" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <a href="?{% if request.GET.type %}type={{ request.GET.type }}{% if request.GET.difficulty or request.GET.sort_by or request.GET.q %}&{% endif %}{% endif %}{% if request.GET.difficulty %}difficulty={{ request.GET.difficulty }}{% if request.GET.sort_by or request.GET.q %}&{% endif %}{% endif %}{% if request.GET.sort_by %}sort_by={{ request.GET.sort_by }}{% if request.GET.q %}&{% endif %}{% endif %}{% if request.GET.q %}q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if not request.GET.status %}active{% endif %}">
+                                全部
+                            </a>
+                            <a href="?status=solved{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if request.GET.status == 'solved' %}active{% endif %}">
+                                已解决
+                            </a>
+                            <a href="?status=unsolved{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if request.GET.status == 'unsolved' %}active{% endif %}">
+                                未解决
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 排序选项 -->
+                    <div class="tech-filter-group">
+                        <div class="tech-filter-title">
+                            <i class="fa fa-sort"></i> 排序方式
+                        </div>
+                        <div class="tech-filter-options" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <a href="?sort_by=id{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if request.GET.sort_by == 'id' or not request.GET.sort_by %}active{% endif %}">
+                                默认排序
+                            </a>
+                            <a href="?sort_by=solve_count{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if request.GET.sort_by == 'solve_count' %}active{% endif %}">
+                                解题次数
+                            </a>
+                            <a href="?sort_by=points{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+                                class="tech-filter-option {% if request.GET.sort_by == 'points' %}active{% endif %}">
+                                分数排序
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 题目列表 -->
+                <div id="challenge-list">
+                    <div class="tech-challenges-grid">
+                        {% for challenge in challenges %}
+                        <div class="tech-challenge-card">
+                            {% if challenge.is_solved %}
+                            <div class="tech-solved-badge">
+                                <i class="fa fa-check"></i> 已完成
+                            </div>
+                            {% endif %}
+                            
+                            <div class="tech-challenge-content">
+                                <a href="{% url 'competition:challenge_detail' competition_slug challenge.uuid %}"
+                                   class="tech-challenge-link">
+                                    <h3 class="tech-challenge-title">
+                                        {{ challenge.title }}
+                                    </h3>
+                                    
+                                    <p class="tech-challenge-desc">
+                                        {{ challenge.description|my_slice:':70' }}
+                                    </p>
+                                    
+                                    <div class="tech-challenge-tags">
+                                        <span class="tech-tag">{{ challenge.category }}</span>
+                                        <span class="tech-difficulty-stars tech-difficulty-{{ challenge.difficulty|lower }}" title="难度：{{ challenge.get_difficulty_display }}" data-toggle="tooltip" data-placement="top">
+                                            {% if challenge.difficulty == 'Easy' %}
+                                                <i class="fa fa-star"></i>
+                                                <i class="fa fa-star-o"></i>
+                                                <i class="fa fa-star-o"></i>
+                                            {% elif challenge.difficulty == 'Medium' %}
+                                                <i class="fa fa-star"></i>
+                                                <i class="fa fa-star"></i>
+                                                <i class="fa fa-star-o"></i>
+                                            {% elif challenge.difficulty == 'Hard' %}
+                                                <i class="fa fa-star"></i>
+                                                <i class="fa fa-star"></i>
+                                                <i class="fa fa-star"></i>
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="tech-challenge-footer">
+                                        <span class="tech-points">
+                                            <i class="fa fa-star"></i> {{ challenge.points }} 分
+                                        </span>
+                                        <span class="tech-solves">
+                                            <i class="fa fa-user"></i> {{ challenge.solves|format_k }} 人
+                                        </span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="tech-empty-state" style="grid-column: 1 / -1;">
+                            <div class="tech-empty-icon">
+                                <i class="fa fa-search"></i>
+                            </div>
+                            <p>未找到符合条件的题目</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 分页 -->
+                {% if is_paginated %}
+                <div class="tech-pagination">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}" 
+                       class="tech-page-link">
+                        <i class="fa fa-angle-left"></i> 上一页
+                    </a>
+                    {% endif %}
+                    
+                    <span class="tech-page-link active">
+                        第 {{ page_obj.number }} / {{ paginator.num_pages }} 页
+                    </span>
+                    
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}" 
+                       class="tech-page-link">
+                        下一页 <i class="fa fa-angle-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 右侧边栏 -->
+            <div>
+                {% include 'competition/tech/base_right.html' %}
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'public/js/ctf.js'%}?v=20260124.01"></script>
+{% endblock %}

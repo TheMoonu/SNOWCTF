@@ -1,0 +1,1072 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load public_tags %} 
+{% block head_title %}个人中心{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'public/css/public.css' %}?v=20260113.09" rel="stylesheet">
+<style>
+    /* 个人资料下拉菜单样式 */
+    .profile-dropdown-menu {
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 8px 0;
+        min-width: 120px;
+    }
+    
+    .profile-dropdown-item {
+        padding: 8px 16px;
+        font-size: 14px;
+        color: #333;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+    }
+    
+    .profile-dropdown-item i {
+        margin-right: 8px;
+        font-size: 14px;
+        width: 16px;
+        text-align: center;
+    }
+    
+    .profile-dropdown-item:hover {
+        background: #f8f9fa;
+        color: #5189f0;
+    }
+    
+    .profile-dropdown-item:active {
+        background: #e9ecef;
+    }
+    
+    /* 下拉按钮样式 */
+    #profileDropdown {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        opacity: 0.7;
+    }
+    
+    #profileDropdown:hover {
+        opacity: 1;
+        color: #5189f0 !important;
+    }
+</style>
+{% endblock %}
+{% block base_content %}
+
+<div class="container">
+    <div class="row">
+        <div class="col-lg-4 mb-3">
+            <!-- 个人信息卡片 -->
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">个人信息</h6>
+                        {% if is_self %}
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-link text-dark p-0" type="button" id="profileDropdown" 
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                                    title="设置">
+                                <i class="bi bi-gear" style="font-size: 16px;"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-right profile-dropdown-menu" aria-labelledby="profileDropdown">
+                                <a class="dropdown-item profile-dropdown-item" href="{% url 'oauth:change_profile' %}">
+                                    <i class="bi bi-pencil"></i> 修改资料
+                                </a>
+                                <a class="dropdown-item profile-dropdown-item" href="{% url 'account_change_password' %}">
+                                    <i class="bi bi-key"></i> 修改密码
+                                </a>
+                                <a class="dropdown-item profile-dropdown-item" href="{% url 'account_email' %}">
+                                    <i class="bi bi-envelope"></i> 邮箱管理
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <img src="{{ profile_user.avatar.url }}" class="rounded-circle mb-3 profile-avatar" width="100" height="100">
+                        <h5 class="mb-0">{{ profile_user.username }}</h5>
+                        
+                        {% if profile_user.is_superuser %}
+                        <div class="profile-badge profile-badge-admin">管理员</div>
+                        {% elif profile_user.is_staff %}
+                        <div class="profile-badge profile-badge-admin">管理员</div>
+                        {% elif profile_user.is_member %}
+                        <div class="profile-badge profile-badge-member">
+                            {% if is_self %}
+                            <span data-toggle="tooltip" data-placement="top"
+                            title="有效期至：{{ profile_user.member_until|date:'Y-m-d' }}">高级会员</span>
+                            {% else %}
+                            <span>高级会员</span>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="profile-badge profile-badge-normal">普通会员</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- 排名和经验值 -->
+                    <div class="d-flex justify-content-center flex-wrap mb-4">
+                        <div class="profile-stat">
+                            <div class="profile-stat-label">排名</div>
+                            {% if user_rank.rank is None %}
+                            <div class="profile-stat-value">未上榜</div>
+                            {% else %}
+                            <div class="profile-stat-value">{{ user_rank.rank|format_k  }}</div>
+                            {% endif %}
+                        </div>
+                        {% if is_self %}
+                          {% if user_rank.coins %}
+                          <div class="profile-stat">
+                            <div class="profile-stat-label">金币</div>
+                            <div class="profile-stat-value">{{ user_rank.coins|format_k }}</div>
+                          </div>
+                          {% endif %}
+                        {% endif %}
+                        <div class="profile-stat">
+                            <div class="profile-stat-label">题目</div>
+                            <div class="profile-stat-value">{{ num_problems |format_k  }}</div>
+                        </div>
+                        
+                       
+                    </div>
+
+                    <!-- 个人简介 -->
+                        {% if profile_user.profile %}
+                    <div class="profile-bio">
+                        <p class="text-muted text-center f-14 mb-0">{{ profile_user.profile|truncatechars:100 }}</p>
+                    </div>
+                        {% else %}
+                    <div class="profile-bio">
+                        <p class="text-muted text-center f-14 mb-0">暂无个人简介</p>
+                    </div>
+                        {% endif %}
+                </div>
+                    </div>
+
+            <div class="profile-card">
+                <div class="profile-header">
+                    <h6 class="mb-0">关注及粉丝</h6>
+                </div>
+                <div class="card-body">
+                    <div class="profile-follow-stats">
+                        <div class="profile-follow-item" id="following-item" data-toggle="modal" data-target="#followingModal">
+                            <div class="profile-follow-count">{{ profile_user.following_count|default:"0" }}</div>
+                            <div class="profile-follow-label">关注</div>
+                        </div>
+                        <div class="profile-follow-item" id="followers-item" data-toggle="modal" data-target="#followersModal">
+                            <div class="profile-follow-count">{{ profile_user.followers_count|default:"0" }}</div>
+                            <div class="profile-follow-label">粉丝</div>
+                        </div>
+                    </div>
+                    
+                    {% csrf_token %}
+                    {% if user.is_authenticated and user != profile_user %}
+                    <div data-user-id="{{ profile_user.id }}" class="mt-3">
+                        <button class="btn btn-sm w-100 {% if user|is_following:profile_user %}btn-outline-primary{% else %}btn-primary{% endif %} follow-btn"
+                                data-user-id="{{ profile_user.id }}">
+                            {% if user|is_following:profile_user %}<i class="bi bi-dash"></i>取消关注{% else %}<i class="bi bi-plus"></i>关注{% endif %}
+                        </button>
+                    </div>
+                    {% else %}
+                    <div class="text-center mt-3">
+                        <button class="btn btn-sm w-100 btn-primary" data-toggle="modal" data-target="#followingModal">我的关注及粉丝</button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 分享有赏卡片 -->
+            {% if is_self %}
+            <div class="profile-card">
+                <div class="profile-header">
+                    <!-- 个人信息标题 -->
+                    <div>
+                        <h6 class="mb-0">分享有赏</h6>
+                    </div>
+
+
+                </div>
+                <div class="card-body text-center">
+
+                    <div class="invite-code-section">
+                        {% if user.invite_code and user.is_invite_code_valid %}
+                            <div class="d-flex flex-column">
+                                <div class="mb-2">邀请码：<span class="font-weight-bolder">{{ user.invite_code }}</span>&nbsp;&nbsp;<i class="bi bi-clipboard copy-icon text-primary" style="font-size: 0.9rem; cursor: pointer;" data-toggle="tooltip" data-placement="top"
+                                    title="copy" onclick="copyInviteCode('{{ user.invite_code }}')"></i></div>
+                                
+                                <small class="text-muted">有效期至：{{ user.invite_code_expires|date:"Y-m-d H:i:s" }}</small>
+                            </div>
+                        {% else %}
+                            <div>
+                                <button class="btn btn-sm w-100 btn-primary generate-invite-btn">生成邀请码</button>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+
+        <!-- 右侧内容区域 -->
+        <div class="col-lg-8">
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="profile-nav-wrapper">
+                        <ul class="nav nav-tabs profile-nav-tabs">
+                            {% for type, info in content_types.items %}
+                                {% if info.module == None  %}
+                                <li class="nav-item profile-nav-item">
+                                    <a class="nav-link {% if content_type == type %}active{% endif %}"
+                                        href="?type={{ type }}">{{ info.name }}</a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="profile-content-wrapper">
+                    <!-- 内容列表 -->
+                    {% if content_items %}
+                    <div class="profile-content-list">
+                    {% for item in content_items %}
+                            <!-- 各种内容类型的显示 -->
+                    
+                    {% if content_type == 'problems' %}
+                            <a href="{{ item.url }}" class="profile-list-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="profile-item-title">
+                                        <span class="text-muted me-2">{{ forloop.counter }}.</span>{{item.title }}
+                                </div>
+                                    <div class="d-flex align-items-center">
+                                        <span class="profile-tag profile-tag-primary">{{ item.category }}</span>
+                                        <div class="ms-2">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </div>
+                                </div>
+                              </div>
+                                <div class="profile-item-desc">
+                                    {{ item.description|truncatechars_html:45 }}
+                              </div>
+                                <div class="profile-item-meta">
+                                    <div class="profile-item-meta-item">
+                                        <i class="bi bi-calendar"></i>
+                                        {{item.create_time|date:"Y-m-d" }}
+                                    </div>
+                                    <div class="profile-item-meta-item">
+                                        <i class="bi bi-award"></i>
+                                    解决 {{ item.solves }} 次
+                                  </div>
+                                  <div class="profile-item-meta-item">
+                                    <i class="bi bi-award"></i>
+                                 获得金币奖励 {{ item.allocated_coins  }} 个
+                              </div>
+                            </div>
+                            </a>
+
+                      
+                    {% elif content_type == 'collects' %}
+                      <a href="{{ item.url }}" class="profile-list-item">
+                          <div class="d-flex justify-content-between align-items-center">
+                              <div class="profile-item-title">
+                                  <span class="text-muted me-2">{{ forloop.counter }}.</span>
+                                  {% if item.type == 'challenge' %}
+                                      <span class=" state-label state-label-primary me-2" style="font-size: 0.75rem;">题目</span>
+                                  {% elif item.type == 'job' %}
+                                      <span class=" state-label state-label-success me-2" style="font-size: 0.75rem;">岗位</span>
+                                  {% endif %}
+                                  {{ item.title }}
+                              </div>
+                              <div class="d-flex align-items-center">
+                                  {% if item.type == 'challenge' %}
+                                      <span class="profile-tag profile-tag-primary">{{ item.category }}</span>
+                                  {% elif item.type == 'job' %}
+                                      <span class="profile-tag profile-tag-success">{{ item.salary_desc }}</span>
+                                  {% endif %}
+                                  <div class="ms-2">
+                                      <i class="bi bi-chevron-right"></i>
+                                  </div>
+                              </div>
+                          </div>
+                          
+                          {% if item.type == 'challenge' %}
+                              <!-- 题目收藏显示 -->
+                              <div class="profile-item-desc">
+                                  {{ item.description|truncatechars_html:45 }}
+                              </div>
+                              <div class="profile-item-meta">
+                                  <div class="profile-item-meta-item">
+                                      <i class="bi bi-calendar"></i>
+                                      {{ item.create_time|date:"Y-m-d" }}
+                                  </div>
+                                  <div class="profile-item-meta-item">
+                                      <i class="bi bi-award"></i>
+                                      解决 {{ item.solves }} 次
+                                  </div>
+                                  <div class="profile-item-meta-item">
+                                      <i class="bi bi-award"></i>
+                                      获得金币奖励 {{ item.allocated_coins }} 个
+                                  </div>
+                              </div>
+                          {% elif item.type == 'job' %}
+                              <!-- 岗位收藏显示 -->
+                              <div class="profile-item-desc d-flex flex-wrap align-items-center">
+                                  <span class="me-2"><i class="bi bi-briefcase"></i> {{ item.track }}</span>
+                                  <span class="me-2"><i class="bi bi-person-badge"></i> {{ item.recruitment_type }}</span>
+                                  {% for company in item.companies %}
+                                      <span class="me-2"><i class="bi bi-building"></i> {{ company.name }}</span>
+                                  {% endfor %}
+                                  {% for city in item.cities %}
+                                      <span class="me-2"><i class="bi bi-geo-alt"></i> {{ city.name }}</span>
+                                  {% endfor %}
+                              </div>
+                              <div class="profile-item-meta">
+                                  <div class="profile-item-meta-item">
+                                      <i class="bi bi-calendar"></i>
+                                      {{ item.create_time|date:"Y-m-d" }}
+                                  </div>
+                                  <div class="profile-item-meta-item">
+                                      <i class="bi bi-eye"></i>
+                                      浏览 {{ item.views }} 次
+                                  </div>
+                              </div>
+                          {% endif %}
+                      </a>
+                    {% elif content_type == 'comments' %}
+                            <a href="{{ item.url }}" class="profile-list-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                    <div class="profile-item-title">
+                                        <span class="text-muted me-2">{{ forloop.counter }}.</span>{{item.target_title }}
+                                </div>
+                                    <div class="d-flex align-items-center">
+                                        {% if item.target_type == '文章' %}
+                                        <span class="profile-tag profile-tag-primary">文章</span>
+                                        {% elif item.target_type == '题目' %}
+                                        <span class="profile-tag profile-tag-success">题目</span>
+                                        {% endif %}
+                                        <div class="ms-2">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </div>
+                                </div>
+                            </div>
+                                <div class="profile-item-desc">
+                                    {{ item.content|safe|truncatechars_html:100 }}
+                            </div>
+                                <div class="profile-item-meta">
+                                    <div class="profile-item-meta-item">
+                                        <i class="bi bi-chat"></i>
+                                        评论时间：{{item.target_time|date:"Y-m-d" }}
+                                    </div>
+                            </div>
+                        </a>
+                            {% elif content_type == 'competitions' %}
+                            <a href="{{ item.url }}" class="profile-list-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="profile-item-title">
+                                        <span class="text-muted me-2">{{ forloop.counter }}.</span>{{item.title }}
+                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <span class="profile-tag {% if item.status == '进行中' %}profile-tag-success{% elif item.status == '未开始' %}profile-tag-primary{% else %}profile-tag-danger{% endif %}">{{ item.status }}</span>
+                                        <span class="profile-tag">{{ item.competition_type }}</span>
+                                        {% if item.is_author %}
+                                        <span class="profile-tag profile-tag-warning">创建者</span>
+                                        {% endif %}
+                                        <div class="ms-2">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="profile-item-desc">
+                                    {{ item.description|truncatechars_html:45 }}
+                                </div>
+                                <div class="profile-item-meta">
+                                    <div class="profile-item-meta-item">
+                                        <i class="bi bi-calendar-check"></i>
+                                        开始：{{item.start_time|date:"Y-m-d" }}
+                                    </div>
+                                    <div class="profile-item-meta-item">
+                                        <i class="bi bi-calendar-x"></i>
+                                        结束：{{item.end_time|date:"Y-m-d" }}
+                                    </div>
+                                </div>
+                            </a>
+                            {% elif content_type == 'resources' %}
+                            <a href="{{ item.url }}" class="profile-list-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                    <div class="profile-item-title">
+                                        <span class="text-muted me-2">{{ forloop.counter }}.</span>{{item.title }}
+                                </div>
+                                    <div class="d-flex align-items-center">
+                                        <span class="profile-tag profile-tag-primary">{{ item.type }}</span>
+                                        <div class="ms-2">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="profile-item-desc">
+                                    {{ item.description|truncatechars_html:45 }}
+                                </div>
+                                <div class="profile-item-meta">
+                                    <div class="profile-item-meta-item">
+                                        <i class="bi bi-calendar"></i>
+                                        创建时间：{{item.create_time|date:"Y-m-d" }}
+                                    </div>
+                                    {% if item.size > 0 %}
+                                    <div class="profile-item-meta-item">
+                                        <i class="bi bi-file-earmark"></i>
+                                        文件大小：{{ item.size|filesizeformat }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </a>
+                            {% elif content_type == 'teams' %}
+                            <div class="profile-list-item">
+                                <!-- 队伍头部：标题和标签 -->
+                                <div class="team-header">
+                                    <div class="team-title-section">
+                                        <h5 class="team-title">
+                                            <span class="team-number">{{ forloop.counter }}.</span>
+                                            {{ item.title }}
+                                        </h5>
+                                        <div class="team-tags">
+                                            <span class="profile-tag {% if item.role == '队长' %}profile-tag-warning{% else %}profile-tag-primary{% endif %}">
+                                                <i class="bi bi-{% if item.role == '队长' %}star-fill{% else %}person{% endif %}"></i>
+                                                {{ item.role }}
+                                            </span>
+                                            <span class="profile-tag profile-tag-info">
+                                                <i class="bi bi-people"></i>
+                                                {{ item.member_count }}/{{ item.max_members }}
+                                            </span>
+                                            {% if is_self and item.role == '队长' %}
+                                            <span class="profile-tag profile-tag-secondary" title="队伍识别码">
+                                                <i class="bi bi-key"></i>
+                                                {{ item.team_code }}
+                                                <button class="team-code-copy-btn" onclick="copyTeamCode('{{ item.team_code }}')" title="复制识别码">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 操作按钮 -->
+                                    <div class="team-actions">
+                                        <a href="{{ item.url }}" class="team-action-btn view-btn" title="查看比赛">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if is_self %}
+                                            {% if item.role == '队长' %}
+                                            <button class="team-action-btn dissolve-btn" 
+                                                    onclick="showDissolveTeamModal('{{ item.id }}', '{{ item.title }}')"
+                                                    title="解散队伍">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            {% else %}
+                                            <button class="team-action-btn leave-btn" 
+                                                    onclick="showLeaveTeamModal('{{ item.id }}', '{{ item.title }}')"
+                                                    title="退出队伍">
+                                                <i class="bi bi-box-arrow-right"></i>
+                                            </button>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- 比赛信息 -->
+                                <div class="team-competition">
+                                    <i class="bi bi-trophy"></i>
+                                    <span>{{ item.competition }}的参赛队伍</span>
+                                    <span class="text-muted mx-2">|</span>
+                                    <i class="bi bi-calendar"></i>
+                                    <span>{{ item.create_time|date:"Y-m-d" }}</span>
+                                </div>
+                                
+                                
+                                
+                                <!-- 队伍成员 -->
+                                <div class="team-members">
+                                    <div class="team-members-label">
+                                        <i class="bi bi-people"></i>
+                                        队员
+                                    </div>
+                                    <div class="team-members-list">
+                                        {% for member in item.members %}
+                                        <div class="team-member {% if member.is_leader %}leader{% endif %}" title="{% if member.is_leader %}队长{% else %}队员{% endif %}">
+                                            {% if member.is_leader %}
+                                            <i class="bi bi-star-fill"></i>
+                                            {% else %}
+                                            <i class="bi bi-person-circle"></i>
+                                            {% endif %}
+                                            <span>{{ member.username }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+
+                    <!-- 简化的分页控件 -->
+                    <div class="profile-pagination">
+                        <span class="text-muted me-3">共 {{ total_count }} 条</span>
+                
+                    <a href="?type={{ content_type }}&page={% if current_page > 1 %}{{ current_page|add:'-1' }}{% else %}1{% endif %}&per_page={{ per_page }}"
+                            class="profile-pagination-btn {% if not has_previous %}disabled{% endif %}"
+                            {% if not has_previous %}disabled{% endif %}>
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                
+                        <span class="profile-pagination-page">{{ current_page }}</span>
+                
+                    <a href="?type={{ content_type }}&page={{ current_page|add:'1' }}&per_page={{ per_page }}"
+                            class="profile-pagination-btn {% if not has_next %}disabled{% endif %}"
+                            {% if not has_next %}disabled{% endif %}>
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                
+                        <select class="profile-per-page" onchange="window.location.href='?type={{ content_type }}&page=1&per_page='+this.value">
+                            <option value="10" {% if per_page == 10 %}selected{% endif %}>10 条/页</option>
+                            <option value="20" {% if per_page == 20 %}selected{% endif %}>20 条/页</option>
+                            <option value="50" {% if per_page == 50 %}selected{% endif %}>50 条/页</option>
+                        </select>
+                        </div>
+                {% else %}
+                    <!-- 无内容时的显示 -->
+                    <div class="profile-empty">
+                        <i class="bi bi-inbox"></i>
+                        <p>暂无内容~</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- 添加确认框 Modal -->
+<div class="modal fade" id="unfollowConfirmModal" tabindex="-1" role="dialog" aria-labelledby="unfollowConfirmModalLabel" aria-hidden="true">
+    {% csrf_token %}
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content rounded-lg">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-weight-bold" id="unfollowConfirmModalLabel" style="font-size: 1.1rem;">取消关注</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <div class="modal-body text-center py-4">
+                <p class="mb-0">确定不再关注此用户？</p>
+            </div>
+            <div class="modal-footer border-0 pt-0 justify-content-center">
+                <button type="button" class="btn btn-light btn-sm px-4" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary btn-sm px-4" id="confirmUnfollow">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加解散队伍确认模态框 -->
+<div class="modal fade" id="dissolveTeamModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+    <div class="modal-content rounded-lg">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title font-weight-bold" style="font-size: 1.1rem;">确认解散队伍</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+</div>
+      <div class="modal-body text-center py-4">
+        <p class="mb-0">确定要解散 <span id="dissolve-team-name" class="font-weight-bold"></span> 吗？</p>
+        <p class="text-danger mt-2 mb-0"><small>此操作不可恢复，且退出本次比赛</small></p>
+        <input type="hidden" id="dissolve-team-id">
+      </div>
+      <div class="modal-footer border-0 pt-0 justify-content-center">
+        <button type="button" class="btn btn-light btn-sm px-4" data-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-danger btn-sm px-4" onclick="confirmDissolveTeam()">解散</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 添加退出队伍确认模态框 -->
+<div class="modal fade" id="leaveTeamModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+    <div class="modal-content rounded-lg">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title font-weight-bold" style="font-size: 1.1rem;">确认退出队伍</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <p class="mb-0">确定要退出 <span id="leave-team-name" class="font-weight-bold"></span> 吗？</p>
+        <p class="text-danger mt-2 mb-0"><small>此操作不可恢复，且退出本次比赛</small></p>
+        <input type="hidden" id="leave-team-id">
+      </div>
+      <div class="modal-footer border-0 pt-0 justify-content-center">
+        <button type="button" class="btn btn-light btn-sm px-4" data-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-warning btn-sm px-4" onclick="confirmLeaveTeam()">退出</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 关注列表模态框 -->
+<div class="modal fade" id="followingModal" tabindex="-1" role="dialog" aria-labelledby="followingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content follow-modal-content">
+            <div class="follow-modal-header">
+                <h5 class="follow-modal-title" id="followingModalLabel">{{ profile_user.username }} 的关注</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="follow-modal-body">
+                <div class="follow-list-container" id="followingList">
+                    <div class="follow-loading">
+                        <div class="follow-spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 粉丝列表模态框 -->
+<div class="modal fade" id="followersModal" tabindex="-1" role="dialog" aria-labelledby="followersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content follow-modal-content">
+            <div class="follow-modal-header">
+                <h5 class="follow-modal-title" id="followersModalLabel">{{ profile_user.username }} 的粉丝</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="follow-modal-body">
+                <div class="follow-list-container" id="followersList">
+                    <div class="follow-loading">
+                        <div class="follow-spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'public/js/user_profile.js' %}"></script>
+<script>
+// 全局函数定义
+window.copyInviteCode = function(code) {
+    const input = document.createElement('input');
+    input.value = code;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    
+    // 获取复制图标元素
+    const copyIcon = document.querySelector('.copy-icon');
+    // 保存原始的类名
+    const originalClass = copyIcon.className;
+    // 更改图标为对勾
+    copyIcon.className = 'bi bi-check2 text-primary';
+    
+    // 2秒后恢复原始图标
+    setTimeout(() => {
+        copyIcon.className = originalClass;
+    }, 2000);
+    
+    toastr.success('邀请码已复制');
+};
+
+// 复制队伍识别码
+window.copyTeamCode = function(code) {
+    const input = document.createElement('input');
+    input.value = code;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    
+    showSuccessToast('队伍识别码已复制');
+};
+
+// 队伍相关函数
+window.showDissolveTeamModal = function(teamId, teamName) {
+    document.getElementById('dissolve-team-id').value = teamId;
+    document.getElementById('dissolve-team-name').textContent = teamName;
+    $('#dissolveTeamModal').modal('show');
+};
+
+window.showLeaveTeamModal = function(teamId, teamName) {
+    document.getElementById('leave-team-id').value = teamId;
+    document.getElementById('leave-team-name').textContent = teamName;
+    $('#leaveTeamModal').modal('show');
+};
+
+window.confirmDissolveTeam = function() {
+    const teamId = document.getElementById('dissolve-team-id').value;
+    fetch(`/accounts/api/v1/team/${teamId}/dissolve/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#dissolveTeamModal').modal('hide');
+        if (data.success) {
+            location.reload();
+        } else {
+            showWarningToast(data.message || '操作失败');
+        }
+    });
+};
+
+window.confirmLeaveTeam = function() {
+    const teamId = document.getElementById('leave-team-id').value;
+    fetch(`/accounts/api/v1/team/${teamId}/leave/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#leaveTeamModal').modal('hide');
+        if (data.success) {
+            location.reload();
+        } else {
+            showWarningToast(data.message || '操作失败');
+        }
+    });
+};
+
+// 关注相关函数
+window.loadFollowList = function(type, userId, page = 1, pageSize = 10) {
+  
+    
+    const container = type === 'following' ? 
+        document.getElementById('followingList') : 
+        document.getElementById('followersList');
+        
+    container.innerHTML = `
+        <div class="follow-loading">
+            <div class="follow-spinner"></div>
+            <p>加载中...</p>
+        </div>
+    `;
+    
+    // 确保使用正确的API路径，添加分页参数
+    const apiUrl = `/accounts/api/v1/user/${userId}/${type}/?page=${page}&page_size=${pageSize}`;
+    console.log(`请求API: ${apiUrl}`);
+    
+    fetch(apiUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`网络响应不正常: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(`获取到${type === 'following' ? '关注' : '粉丝'}数据:`, data);
+            
+            // 假设API返回格式为 {results: [...], count: 总数量, next: 下一页URL, previous: 上一页URL}
+            // 如果API格式不同，需要调整以下代码
+            
+            const results = Array.isArray(data) ? data : (data.results || []);
+            const totalCount = data.count || results.length;
+            const hasNext = !!data.next;
+            const hasPrevious = !!data.previous;
+            
+            if (!results || results.length === 0) {
+                // 显示空状态
+                container.innerHTML = `
+                    <div class="follow-empty">
+                        <div class="follow-empty-icon">
+                            <i class="bi bi-person-x"></i>
+                        </div>
+                        <p>${type === 'following' ? '暂无关注的用户' : '暂无粉丝'}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 渲染用户列表
+            let html = '';
+            results.forEach(user => {
+                const isFollowing = user.is_following;
+                const currentUserId = Number({{ user.id }});
+                
+                html += `
+                    <div class="follow-user-item">
+                        <img src="${user.avatar || '/static/images/default-avatar.png'}" alt="${user.username}" class="follow-user-avatar">
+                        <div class="follow-user-info">
+                            <div class="follow-user-name">
+                                <a href="/profile/${user.uuid}/" class="text-dark">
+                                    ${user.username} 
+                                </a>
+                                ${user.is_staff ? '<span class="follow-user-badge">管理员</span>' : ''}
+                            </div>
+                            <div class="follow-user-bio">${user.profile || '这个人很懒，什么都没留下'}</div>
+                        </div>
+                        ${Number(user.id) !== Number(currentUserId) ? `
+                            <button class="btn ${isFollowing ? 'btn-outline-primary' : 'btn-primary'} follow-action-btn" 
+                                    data-user-id="${user.id}" onclick="toggleFollow(this, ${user.id})">
+                                ${isFollowing ? '取消关注' : '关注'}
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            // 添加分页控件
+            const totalPages = Math.ceil(totalCount / pageSize);
+            
+            if (totalPages > 1) {
+                html += `
+                    <div class="follow-pagination">
+                        <span class="follow-pagination-info">共 ${totalCount} 人</span>
+                        <button class="follow-pagination-btn ${!hasPrevious ? 'disabled' : ''}" 
+                                onclick="loadFollowList('${type}', ${userId}, ${page-1}, ${pageSize})" 
+                                ${!hasPrevious ? 'disabled' : ''}>
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="follow-pagination-page">${page}/${totalPages}</span>
+                        <button class="follow-pagination-btn ${!hasNext ? 'disabled' : ''}" 
+                                onclick="loadFollowList('${type}', ${userId}, ${page+1}, ${pageSize})" 
+                                ${!hasNext ? 'disabled' : ''}>
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            
+            container.innerHTML = `
+                <div class="follow-empty">
+                    <div class="follow-empty-icon">
+                        <i class="bi bi-exclamation-circle"></i>
+                    </div>
+                    <p>加载失败，请稍后重试 (${error.message})</p>
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadFollowList('${type}', ${userId}, ${page}, ${pageSize})">
+                            <i class="bi bi-arrow-clockwise"></i> 重试
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+    
+};
+
+window.toggleFollow = function(button, userId) {
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    const isFollowing = button.classList.contains('btn-outline-primary');
+    
+    // 保存原始文本
+    const originalText = button.textContent;
+    
+    // 添加按钮加载状态 - 使用更小的spinner
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    
+    fetch(`/accounts/api/v1/user/follow/${userId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken
+        },
+        body: `action=${isFollowing ? 'unfollow' : 'follow'}`
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`网络响应不正常: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // 更新按钮状态
+            if (isFollowing) {
+                button.classList.remove('btn-outline-primary');
+                button.classList.add('btn-primary');
+                button.textContent = '关注';
+            } else {
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-outline-primary');
+                button.textContent = '取消关注';
+            }
+            
+            // 更新页面上的关注/粉丝数量
+            if (Number(userId) === Number({{ profile_user.id }})) {
+                const followersCountElement = document.querySelector('#followers-item .profile-follow-count');
+                if (followersCountElement) {
+                    const followersCount = parseInt(followersCountElement.textContent);
+                    followersCountElement.textContent = isFollowing ? 
+                        Math.max(0, followersCount - 1) : 
+                        followersCount + 1;
+                }
+                
+                // 更新主页面上的关注按钮
+                const mainButton = document.querySelector(`.follow-btn[data-user-id="${userId}"]`);
+                if (mainButton) {
+                    if (isFollowing) {
+                        mainButton.classList.remove('btn-outline-primary');
+                        mainButton.classList.add('btn-primary');
+                        mainButton.innerHTML = '<i class="bi bi-plus"></i>关注';
+                    } else {
+                        mainButton.classList.remove('btn-primary');
+                        mainButton.classList.add('btn-outline-primary');
+                        mainButton.innerHTML = '<i class="bi bi-dash"></i>取消关注';
+                    }
+                }
+            }
+            
+            // 如果当前用户是被查看的用户，更新关注数
+            if (Number({{ user.id }}) === Number({{ profile_user.id }})) {
+                const followingCountElement = document.querySelector('#following-item .profile-follow-count');
+                if (followingCountElement) {
+                    const followingCount = parseInt(followingCountElement.textContent);
+                    followingCountElement.textContent = isFollowing ? 
+                        Math.max(0, followingCount - 1) : 
+                        followingCount + 1;
+                }
+            }
+            
+            // 如果在关注列表中操作，可能需要刷新列表
+            if ($('#followingModal').hasClass('show') || $('#followersModal').hasClass('show')) {
+                // 判断当前打开的是哪个模态框
+                if ($('#followingModal').hasClass('show')) {
+                    // 如果是取消关注操作，可能需要从列表中移除该用户
+                    if (isFollowing && Number(userId) !== Number({{ profile_user.id }})) {
+                        const userItem = button.closest('.follow-user-item');
+                        if (userItem) {
+                            userItem.style.opacity = '0';
+                            setTimeout(() => {
+                                userItem.remove();
+                                // 检查列表是否为空
+                                if (document.querySelectorAll('#followingList .follow-user-item').length === 0) {
+                                    document.getElementById('followingList').innerHTML = `
+                                        <div class="follow-empty">
+                                            <div class="follow-empty-icon">
+                                                <i class="bi bi-person-x"></i>
+                                            </div>
+                                            <p>暂无关注的用户</p>
+                                        </div>
+                                    `;
+                                }
+                            }, 300);
+                        }
+                    }
+                }
+            }
+        } else {
+            // 恢复按钮原始状态
+            button.textContent = originalText;
+            showWarningToast(data.message || '操作失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error toggling follow:', error);
+        // 恢复按钮原始状态
+        button.textContent = originalText;
+        showWarningToast('操作失败，请稍后重试');
+    })
+    .finally(() => {
+        // 无论成功失败，都启用按钮
+        button.disabled = false;
+    });
+};
+
+// 辅助函数
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 页面初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 为统计数字添加动画效果
+    const statValues = document.querySelectorAll('.profile-stat-value');
+    statValues.forEach(function(el) {
+        el.addEventListener('mouseover', function() {
+            this.style.transform = 'scale(1.1)';
+            this.style.color = '#0d6efd';
+        });
+        el.addEventListener('mouseout', function() {
+            this.style.transform = 'scale(1)';
+            this.style.color = '#343a40';
+        });
+    });
+    
+    // 为列表项添加渐入动画效果
+    const listItems = document.querySelectorAll('.profile-list-item');
+    listItems.forEach(function(item, index) {
+        setTimeout(function() {
+            item.style.opacity = '1';
+            item.style.transform = 'translateX(0)';
+        }, 50 * index);
+    });
+    
+    // 初始化工具提示
+    if(typeof $().tooltip === 'function') {
+        $('[data-toggle="tooltip"]').tooltip();
+    }
+    
+    // 加载关注列表
+    const followingModal = document.getElementById('followingModal');
+    if (followingModal) {
+        // 使用 jQuery 的事件处理，因为模态框使用的是 Bootstrap 的 jQuery 插件
+        $(followingModal).on('show.bs.modal', function() {
+            loadFollowList('following', Number({{ profile_user.id }}), 1);
+        });
+    }
+    
+    // 加载粉丝列表
+    const followersModal = document.getElementById('followersModal');
+    if (followersModal) {
+        $(followersModal).on('show.bs.modal', function() {
+            loadFollowList('followers', Number({{ profile_user.id }}), 1);
+        });
+    }
+    
+    // 添加"我的关注"按钮点击事件
+    const myFollowBtn = document.querySelector('.btn[data-target="#followingModal"]');
+    if (myFollowBtn) {
+        myFollowBtn.addEventListener('click', function() {
+            // 确保模态框标题正确
+            document.getElementById('followingModalLabel').textContent = '我的关注';
+            loadFollowList('following', Number({{ user.id }}), 1);
+        });
+    }
+});
+
+</script>
+{% endblock %}

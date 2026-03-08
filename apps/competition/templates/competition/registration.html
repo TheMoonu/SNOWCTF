@@ -1,0 +1,478 @@
+{% extends 'public/base.html' %}
+{% block head_title %}比赛报名 - {{ competition.title }}{% endblock %}
+
+{% block top-file %}
+<style>
+    .reg-main {
+        max-width: 650px;
+        margin: 0 auto;
+    }
+
+    /* 单选卡片 */
+    .reg-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+
+    .reg-option {
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        padding: 20px;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .reg-option:hover {
+        border-color: #007bff;
+    }
+
+    .reg-option input {
+        display: none;
+    }
+
+    .reg-option.selected {
+        border-color: #007bff;
+        background: #f0f7ff;
+    }
+
+    .reg-option-title {
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .reg-option-desc {
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    /* 自定义标签 */
+    .reg-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+    }
+
+    .reg-badge-team {
+        background: #fff7e6;
+        color: #d48806;
+        border-color: #ffd591;
+    }
+
+    .reg-badge-individual {
+        background: #f6ffed;
+        color: #389e0d;
+        border-color: #b7eb8f;
+    }
+
+    .reg-badge-public {
+        background: #e6f7ff;
+        color: #0050b3;
+        border-color: #91d5ff;
+    }
+
+    .reg-badge-private {
+        background: #fff1f0;
+        color: #cf1322;
+        border-color: #ffa39e;
+    }
+
+    @media (max-width: 768px) {
+        .reg-page {
+            padding: 20px 15px;
+        }
+        
+        .reg-options {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* 无效字段样式 */
+    .is-invalid {
+        border-color: #dc3545 !important;
+    }
+    
+    .is-invalid:focus {
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="reg-main px-3">
+        <div class="card border-0 rounded-6">
+            <div class="card-body p-4">
+
+                <!-- 标题 -->
+                <div class="text-center pb-3 mb-4 border-bottom">
+                    <h1 class="font-weight-bold">{{ competition.title }} - 比赛报名系统</h1>
+                    <div class="mt-3">
+                        {% if competition.competition_type == 'team' %}
+                            <span class="reg-badge reg-badge-team">团队赛</span>
+                        {% else %}
+                            <span class="reg-badge reg-badge-individual">个人赛</span>
+                        {% endif %}
+                        
+                        {% if competition.visibility_type == 'public' %}
+                            <span class="reg-badge reg-badge-public ml-2">公开报名</span>
+                        {% else %}
+                            <span class="reg-badge reg-badge-private ml-2">仅限邀请</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 用户信息 -->
+                {% if not user.real_name or not user.phones %}
+                    <div class="alert alert-warning">
+                        您的信息不完整，请先 <a href="{% url 'oauth:change_profile' %}" class="alert-link" target="_blank">完善个人资料</a> 后再报名
+                    </div>
+                {% else %}
+                    <div class="border rounded p-3 mb-4 bg-light">
+                        <div class="font-weight-bold mb-3">报名信息</div>
+                        <div class="row small">
+                            <div class="col-md-6 mb-2">
+                                <span class="text-muted">姓名：</span>{{ user.real_name_masked }}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <span class="text-muted">手机：</span>{{ user.phones_masked }}
+                            </div>
+                            {% if user.department %}
+                            <div class="col-md-6 mb-2">
+                                <span class="text-muted">学院/部门：</span>{{ user.department_masked }}
+                            </div>
+                            {% endif %}
+                            {% if user.student_id %}
+                            <div class="col-md-6 mb-2">
+                                <span class="text-muted">学号/工号：</span>{{ user.student_id_masked }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- 已在队伍提示 -->
+                {% if is_team_competition and existing_team %}
+                    <div class="alert alert-info border-info">
+                        <i class="fa fa-info-circle mr-2"></i>
+                        <strong>您已加入队伍：{{ existing_team.name }}</strong>
+                        <div class="mt-2 small">
+                            <div>队伍认证码：<code>{{ existing_team.team_code }}</code></div>
+                            <div>队长：{{ existing_team.leader.username }}</div>
+                            <div>队伍人数：{{ existing_team.members.count }}/{{ existing_team.member_count }}</div>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- 表单 -->
+                <form method="post" id="regForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="captcha_key" value="{{ captcha_key }}" id="captchaKey">
+                    <input type="hidden" name="captcha" id="captchaValue">
+
+                    {% for field in form %}
+                        {% if field.name == 'captcha' %}
+                            <!-- 验证码移到模态框中 -->
+                        {% elif field.name == 'team_action' %}
+                            {% if not existing_team %}
+                            <div class="form-group">
+                                <label class="font-weight-bold">
+                                    {{ field.label }}
+                                    {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                <div class="reg-options">
+                                    <label class="reg-option {% if field.value != 'join' %}selected{% endif %}" id="optCreate" onclick="selectOption('create')">
+                                        <input type="radio" name="{{ field.name }}" value="create" id="radioCreate" 
+                                               {% if field.value != 'join' %}checked{% endif %}>
+                                        <div class="reg-option-title">创建队伍</div>
+                                        <div class="reg-option-desc">创建新队伍并担任队长</div>
+                                    </label>
+                                    <label class="reg-option {% if field.value == 'join' %}selected{% endif %}" id="optJoin" onclick="selectOption('join')">
+                                        <input type="radio" name="{{ field.name }}" value="join" id="radioJoin"
+                                               {% if field.value == 'join' %}checked{% endif %}>
+                                        <div class="reg-option-title">加入队伍</div>
+                                        <div class="reg-option-desc">输入队伍名称和认证码</div>
+                                    </label>
+                                </div>
+                                {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors.0 }}</div>{% endif %}
+                            </div>
+                            {% endif %}
+                        {% elif field.name == 'team_name' %}
+                            {% if not existing_team %}
+                            <div class="form-group">
+                                <label class="font-weight-bold">
+                                    {{ field.label }}
+                                    {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                <input type="{{ field.field.widget.input_type|default:'text' }}" 
+                                       name="{{ field.name }}" 
+                                       class="form-control {% if field.errors %}is-invalid{% endif %}" 
+                                       value="{{ field.value|default:'' }}"
+                                       placeholder="{{ field.field.widget.attrs.placeholder|default:'' }}"
+                                       {% if field.field.required %}required{% endif %}>
+                                {% if field.errors %}
+                                    <div class="invalid-feedback">{{ field.errors.0 }}</div>
+                                {% endif %}
+                                {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                            </div>
+                            {% endif %}
+                        {% elif field.name == 'team_code' %}
+                            {% if not existing_team %}
+                            <div class="form-group" id="teamCodeGroup" style="display: none;">
+                                <label class="font-weight-bold" id="teamCodeLabel">
+                                    {{ field.label }}
+                                    <span class="text-danger" id="teamCodeRequired">*</span>
+                                </label>
+                                <input type="text" name="{{ field.name }}" class="form-control {% if field.errors %}is-invalid{% endif %}" 
+                                       value="{{ field.value|default:'' }}" placeholder="{{ field.field.widget.attrs.placeholder }}">
+                                {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                                {% if field.errors %}
+                                    <div class="invalid-feedback d-block">{{ field.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="form-group">
+                                <label class="font-weight-bold">
+                                    {{ field.label }}
+                                    {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                <input type="{{ field.field.widget.input_type|default:'text' }}" 
+                                       name="{{ field.name }}" 
+                                       class="form-control {% if field.errors %}is-invalid{% endif %}" 
+                                       value="{{ field.value|default:'' }}"
+                                       placeholder="{{ field.field.widget.attrs.placeholder|default:'' }}"
+                                       {% if field.field.required %}required{% endif %}>
+                                {% if field.errors %}
+                                    <div class="invalid-feedback">{{ field.errors.0 }}</div>
+                                {% endif %}
+                                {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- 按钮 -->
+                    <div class="d-flex justify-content-end pt-3 mt-3 border-top">
+                        <button type="button" class="btn btn-primary" onclick="showConfirmModal()">
+                            <i class="fa fa-check mr-1"></i>提交报名
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 确认报名模态框 -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title font-weight-bold">
+                    <i class="fa fa-exclamation-circle text-warning mr-2"></i>确认报名
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-3">请确认您要报名参加以下比赛：</p>
+                <div class="bg-light border rounded p-3 mb-3">
+                    <div class="text-center">
+                        <h5 class="font-weight-bold text-primary mb-2">{{ competition.title }}</h5>
+                        <p class="text-muted small mb-0" id="modalTeamInfo" style="display: none;">
+                            队伍：<span id="modalTeamName" class="text-dark font-weight-bold"></span>
+                        </p>
+                    </div>
+                </div>
+                <div class="alert alert-warning border-warning mb-3 py-2 px-3">
+                    <small class="mb-0">
+                        <i class="fa fa-info-circle mr-1"></i>
+                        提交后将使用您的真实信息进行报名，请确保信息准确
+                    </small>
+                </div>
+                
+                <!-- 验证码 -->
+                <div class="form-group mb-0">
+                    <label class="font-weight-bold mb-2">
+                        <i class="fa fa-shield mr-1"></i>安全验证
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="captchaInput" placeholder="请输入验证码" maxlength="6" required>
+                        <div class="input-group-append">
+                            <img id="captchaImage" src="{{ captcha_image }}" alt="验证码" 
+                                 style="height: 38px; cursor: pointer; border: 1px solid #ced4da; border-left: 0; border-radius: 0 4px 4px 0;" 
+                                 onclick="refreshCaptcha()" title="点击刷新">
+                        </div>
+                    </div>
+                    <small class="form-text text-muted">
+                        <i class="fa fa-refresh mr-1"></i>看不清？点击验证码图片刷新
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary px-3 btn-sm" onclick="confirmSubmit()">
+                    <i class="fa fa-check mr-1"></i>确认提交
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const isTeamCompetition = {{ is_team_competition|lower }};
+
+// ========== 队伍选择逻辑 ==========
+function selectOption(action) {
+    const radioCreate = document.getElementById('radioCreate');
+    const radioJoin = document.getElementById('radioJoin');
+    const optCreate = document.getElementById('optCreate');
+    const optJoin = document.getElementById('optJoin');
+    const codeGroup = document.getElementById('teamCodeGroup');
+    
+    if (!radioCreate || !radioJoin || !optCreate || !optJoin) {
+        return;
+    }
+    
+    if (action === 'create') {
+        radioCreate.checked = true;
+        optCreate.classList.add('selected');
+        optJoin.classList.remove('selected');
+        if (codeGroup) {
+            codeGroup.style.display = 'none';
+            const input = codeGroup.querySelector('input[name="team_code"]');
+            if (input) {
+                input.value = '';
+                input.removeAttribute('required');
+            }
+        }
+    } else {
+        radioJoin.checked = true;
+        optCreate.classList.remove('selected');
+        optJoin.classList.add('selected');
+        if (codeGroup) {
+            codeGroup.style.display = 'block';
+            const input = codeGroup.querySelector('input[name="team_code"]');
+            if (input) {
+                input.setAttribute('required', 'required');
+            }
+        }
+    }
+}
+
+// ========== 显示确认模态框 ==========
+function showConfirmModal() {
+    const form = document.getElementById('regForm');
+    const requiredFields = form.querySelectorAll('[required]');
+    
+    // 验证必填字段
+    let isValid = true;
+    requiredFields.forEach(field => {
+        if (!field.value || field.value.trim() === '') {
+            field.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            field.classList.remove('is-invalid');
+        }
+    });
+    
+    if (!isValid) {
+        const firstInvalid = form.querySelector('.is-invalid');
+        if (firstInvalid) {
+            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstInvalid.focus();
+        }
+        return;
+    }
+    
+    // 团队赛：显示队伍名称
+    if (isTeamCompetition) {
+        const teamName = document.querySelector('input[name="team_name"]');
+        if (teamName && teamName.value.trim()) {
+            document.getElementById('modalTeamInfo').style.display = 'block';
+            document.getElementById('modalTeamName').textContent = teamName.value.trim();
+        }
+    }
+    
+    // 清空并聚焦验证码
+    const captchaInput = document.getElementById('captchaInput');
+    captchaInput.value = '';
+    captchaInput.classList.remove('is-invalid');
+    
+    $('#confirmModal').modal('show');
+    setTimeout(() => captchaInput.focus(), 500);
+}
+
+// ========== 确认提交 ==========
+function confirmSubmit() {
+    const captchaInput = document.getElementById('captchaInput');
+    const captchaValue = captchaInput.value.trim();
+    
+    if (!captchaValue) {
+        captchaInput.classList.add('is-invalid');
+        captchaInput.focus();
+        return;
+    }
+    
+    // 设置验证码到隐藏字段
+    document.getElementById('captchaValue').value = captchaValue;
+    
+    // 关闭模态框并提交表单
+    $('#confirmModal').modal('hide');
+    setTimeout(() => {
+        const form = document.getElementById('regForm');
+        form.noValidate = true;
+        form.submit();
+    }, 300);
+}
+
+// ========== 刷新验证码 ==========
+function refreshCaptcha() {
+    fetch('{% url "competition:refresh_captcha" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            document.getElementById('captchaImage').src = d.captcha_image;
+            document.getElementById('captchaKey').value = d.captcha_key;
+            document.getElementById('captchaInput').value = '';
+        }
+    })
+    .catch(err => console.error('刷新验证码失败:', err));
+}
+
+// ========== 页面加载初始化 ==========
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化团队赛队伍选择
+    if (document.getElementById('radioCreate')) {
+        const radioJoin = document.getElementById('radioJoin');
+        selectOption(radioJoin && radioJoin.checked ? 'join' : 'create');
+    }
+    
+    // 滚动到错误位置
+    const firstError = document.querySelector('.is-invalid, .alert-danger, .alert-warning');
+    if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    // 验证码输入框回车提交
+    document.getElementById('captchaInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmSubmit();
+        }
+    });
+});
+</script>
+{% endblock %}
+

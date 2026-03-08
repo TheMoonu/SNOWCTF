@@ -1,0 +1,1003 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}创建题目{% endblock %}
+
+{% block top-file %}
+<style>
+    .comp-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .comp-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        padding: 30px;
+        margin-bottom: 25px;
+        border: none;
+    }
+    
+    .comp-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+        color: #333;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 15px;
+    }
+    
+    .comp-form-group {
+        margin-bottom: 22px;
+    }
+    
+    .comp-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #444;
+        font-size: 0.95rem;
+    }
+    
+    .comp-input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: all 0.2s;
+        background-color: #fafafa;
+    }
+    
+    .comp-input:focus {
+        border-color: #6591f1;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(101, 145, 241, 0.1);
+        background-color: #fff;
+    }
+    
+    .comp-textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+    
+    .comp-select {
+        height: 42px;
+        background-color: #fafafa;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px;
+    }
+    .comp-select[multiple] {
+        background-image: none;
+        padding-right: 0.75rem;
+        height: auto;
+        min-height: 100px;
+    }
+    
+    .comp-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-align: center;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .comp-btn-primary {
+        background-color: #6591f1;
+        color: white;
+    }
+    
+    .comp-btn-primary:hover {
+        background-color: #5080e0;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(101, 145, 241, 0.2);
+    }
+    
+    .comp-btn-light {
+        background-color: #f5f5f5;
+        color: #444;
+    }
+    
+    .comp-btn-light:hover {
+        background-color: #e9e9e9;
+        transform: translateY(-1px);
+    }
+    
+    .comp-help-text {
+        font-size: 12px;
+        color: #888;
+        margin-top: 6px;
+    }
+    
+    .comp-required {
+        color: #e74c3c;
+        margin-left: 3px;
+    }
+    
+    .comp-invalid-feedback {
+        color: #e74c3c;
+        font-size: 12px;
+        margin-top: 5px;
+        display: none;
+    }
+    
+    .comp-input.is-invalid {
+        border-color: #e74c3c;
+        background-color: #fff9f9;
+    }
+    
+    .comp-input.is-invalid + .comp-invalid-feedback {
+        display: block;
+    }
+    
+    .comp-alert {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    
+    .comp-alert-info {
+        background-color: #e3f2fd;
+        color: #0c5460;
+        border-left: 4px solid #4fc3f7;
+    }
+    
+    .comp-alert-icon {
+        font-size: 18px;
+        margin-right: 12px;
+        color: #4fc3f7;
+    }
+    
+    .comp-form-section {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .comp-form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .comp-form-section-title {
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 20px;
+        color: #444;
+    }
+    
+    /* 自定义复选框样式 */
+    .custom-control {
+        position: relative;
+        display: block;
+        min-height: 1.5rem;
+        padding-left: 1.8rem;
+        margin-bottom: 10px;
+        z-index: 5;
+    }
+    
+    .custom-control-input {
+        position: absolute;
+        z-index: 6;
+        opacity: 1;
+        width: 20px;
+        height: 20px;
+        left: 0;
+        top: 2px;
+        cursor: pointer;
+    }
+    
+    .custom-control-label {
+        position: relative;
+        margin-bottom: 0;
+        vertical-align: top;
+        cursor: pointer;
+        padding-left: 10px;
+        display: inline-block;
+    }
+    
+    /* 移除可能导致遮挡的伪元素 */
+    .custom-control-label::before,
+    .custom-control-label::after {
+        display: none;
+    }
+    
+    .comp-radio-group {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 15px;
+    }
+    
+    .comp-radio-item {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+    }
+    
+    .comp-radio-item input[type="radio"] {
+        margin-right: 8px;
+    }
+    
+    @media (max-width: 768px) {
+        .comp-radio-group {
+            flex-direction: column;
+            gap: 10px;
+        }
+    }
+    
+    /* 添加验证码样式 */
+    .captcha-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .captcha-input {
+        flex: 1;
+        margin-right: 10px;
+    }
+    
+    .captcha-image {
+        height: 40px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .captcha-refresh {
+        margin-left: 10px;
+        color: #6591f1;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    
+    .captcha-refresh:hover {
+        color: #5080e0;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-12 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'practice:challenge_list' %}">漏洞靶场</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">创建题目</li>
+                </ol>
+            </nav>
+
+            <!-- 比赛信息提示 -->
+            
+
+            <!-- 表单卡片 -->
+            <div class="comp-card">
+                <h2 class="comp-title">创建靶场题目</h2>
+                
+                <form id="challengeForm" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    {{ form.captcha_key }}
+                    
+                    <!-- 基本信息部分 -->
+                    <div class="comp-form-section">
+                        <h3 class="comp-form-section-title">基本信息</h3>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="id_title">标题<span class="comp-required">*</span></label>
+                            {{ form.title }}
+                            <div class="comp-help-text">最多20个字符，支持中英文、数字和基本标点</div>
+                            <div class="comp-invalid-feedback">请输入标题</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="id_description">题目描述<span class="comp-required">*</span></label>
+                            {{ form.description }}
+                            <div class="comp-help-text">详细描述题目的背景、目标和提示等信息</div>
+                            <div class="comp-invalid-feedback">请输入题目描述</div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_category">题目类型<span class="comp-required">*</span></label>
+                                    {{ form.category }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_difficulty">难度等级<span class="comp-required">*</span></label>
+                                    {{ form.difficulty }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 部署配置部分 -->
+                    <div class="comp-form-section">
+                        <h3 class="comp-form-section-title">部署配置</h3>
+                        
+                       
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group" id="docker_image_group">
+                                    <label class="comp-label" for="id_docker_image">单镜像配置</label>
+                                    {{ form.docker_image }}
+                                    <div class="comp-help-text">选择单个镜像（与多场景题目互斥）</div>
+                                    <div class="comp-invalid-feedback">请选择容器配置</div>
+                                    <div class="text-right mt-2">
+                                        <a href="{% url 'container:docker_image_create' %}" class="comp-btn comp-btn-light" target="_blank">
+                                            创建新镜像
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="comp-form-group" id="network_topology_config_group">
+                                    <label class="comp-label" for="id_network_topology_config">多场景题目</label>
+                                    {{ form.network_topology_config }}
+                                    <div class="comp-help-text">选择多场景题目</div>
+                                    <div class="comp-invalid-feedback">请选择多场景题目</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_static_files">题目附件</label>
+                                    {{ form.static_files }}
+                                    <div class="comp-help-text">选择要使用的静态文件（仅用于静态文件部署）</div>
+                                    <div class="comp-invalid-feedback">请选择静态文件</div>
+                                    <div class="text-right mt-2">
+                                        <a href="{% url 'container:static_file_create' %}" class="comp-btn comp-btn-light" target="_blank">
+                                            上传静态文件
+                                        </a>
+                                        <span class="comp-help-text d-block mt-1">上传后请刷新页面以查看新上传的文件</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_static_files">附件URL</label>
+                                    {{ form.static_file_url }}
+                                    <div class="comp-help-text">填写静态文件的URL地址，支持的压缩包格式：zip, rar, 7z, tar, gz</div>
+                                    <div id="static_file_url_error" class="text-danger f-13 mt-1" style="display: none;"></div>
+                                    <span class="comp-help-text d-block mt-1">PS：优先使用静态文件URL，如果填写了URL地址，则优先使用URL地址，否则使用题目附件</span>
+                                    {% if form.static_file_url.errors %}
+                                        <div class="text-danger f-13">
+                                            {% for error in form.static_file_url.errors %}
+                                                <p>{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- 题目详情部分 -->
+                    <div class="comp-form-section">
+                        <h3 class="comp-form-section-title">题目详情</h3>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_initial_points">金币<span class="comp-required">*</span></label>
+                                    {{ form.coins }}
+                                    <div class="comp-help-text">用户创建解答题目所扣除的金币，设置范围0-10</div>
+                                    <div class="comp-invalid-feedback">请输入有效的范围</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_minimum_points">奖励金币<span class="comp-required">*</span></label>
+                                    {{ form.reward_coins }}
+                                    
+                                    <div class="comp-help-text">用户解题后奖励金币的最大值，此金币或从创建者金币中扣除（PS：奖励金币是随机给用户,设置范围0-10）</div>
+                                    <div class="comp-invalid-feedback">请输入有效的范围</div>
+                                </div>
+
+                            </div>
+                            <div class="col-md-4">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_minimum_points">分数<span class="comp-required">*</span></label>
+                                    {{ form.points }}
+                                    <div class="comp-help-text">用户解题后奖励分数，不超过200分</div>
+                                    <div class="comp-invalid-feedback">请输入有效的范围</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_flag_type">Flag类型<span class="comp-required">*</span></label>
+                                    {{ form.flag_type }}
+                                    <div class="comp-help-text">
+                                        <strong>静态Flag</strong>：固定的Flag值，适用于无环境或公共环境题目<br>
+                                        <strong>动态Flag</strong>：每个用户独立的Flag，适用于需要防止抄袭的题目
+                                    </div>
+                                </div>
+                                
+                                <div class="comp-form-group" id="flag_template_group" style="display: none;">
+                                    <label class="comp-label">Flag值（静态）<span class="comp-required">*</span></label>
+                                    {{ form.flag_template }}
+                                    <div class="comp-help-text">
+                                        <strong>单段Flag</strong>：flag{this_is_a_flag}<br>
+                                        <strong>多段Flag</strong>：flag{part1},flag{part2},flag{part3}（用英文逗号分隔）
+                                    </div>
+                                    <div class="comp-invalid-feedback">请输入Flag值</div>
+                                </div>
+                                
+                                <div class="comp-form-group" id="flag_count_group">
+                                    <label class="comp-label" for="id_flag_count">Flag数量</label>
+                                    {{ form.flag_count }}
+                                    <div class="comp-help-text">
+                                        题目包含的Flag段数（1-10个）<br>
+                                        <strong>静态Flag</strong>：会自动检测逗号分隔的数量<br>
+                                        <strong>动态Flag</strong>：需手动设置生成数量
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_tags">标签</label>
+                                    {{ form.tags }}
+                                    <div class="comp-help-text">Ctrl+点击添加多个标签</div>
+                                </div>
+                                
+                                <div class="comp-form-group" id="flag_points_group" style="display: none;">
+                                    <label class="comp-label" for="id_flag_points">各Flag分数配置（可选）</label>
+                                    {{ form.flag_points }}
+                                    <div class="comp-help-text">
+                                        为每个Flag段配置分数，JSON数组格式，例如：<code>[10, 20, 30, 40]</code><br>
+                                        <strong>要求</strong>：① 数组长度 = Flag数量 ② 总和 = 题目总分 ③ 全为正整数<br>
+                                        <strong>留空</strong>：自动平均分配分数
+                                    </div>
+                                    <div class="comp-invalid-feedback" id="flag_points_error"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="id_hint">题解</label>
+                            {{ form.hint }}
+                            <div class="comp-help-text">可选，帮助解题的提示信息，支持Markdown格式</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <div class="custom-control custom-checkbox" style="position: relative; z-index: 10;">
+                                {{ form.writeup_is_public }}
+                                <label class="custom-control-label" for="id_writeup_is_public" style="position: relative; z-index: 11; padding-left: 5px;">
+                                    题解公开
+                                </label>
+                            </div>
+                            <div class="comp-help-text">勾选后所有用户可免费查看题解</div>
+                        </div>
+                        
+                        <div class="comp-form-group" id="writeup_cost_group">
+                            <label class="comp-label" for="id_writeup_cost">题解金币成本</label>
+                            {{ form.writeup_cost }}
+                            <div class="comp-help-text">用户查看题解需要消耗的金币数（公开时无需消耗）</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <div class="custom-control custom-checkbox" style="position: relative; z-index: 10;">
+                                {{ form.is_active }}
+                                <label class="custom-control-label" for="id_is_active" style="position: relative; z-index: 11; padding-left: 5px;">
+                                    激活题目
+                                </label>
+                            </div>
+                            <div class="comp-help-text">激活后题目用户可访问</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 验证码部分 -->
+                    <div class="comp-form-section">
+                        <h3 class="comp-form-section-title">安全验证</h3>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="id_captcha">验证码<span class="comp-required">*</span></label>
+                            <div class="captcha-container">
+                                <div class="captcha-input">
+                                    {{ form.captcha }}
+                                </div>
+                                <img src="{{ captcha_image }}" alt="验证码" class="captcha-image" id="captchaImage">
+                                <i class="fas fa-sync captcha-refresh" id="refreshCaptcha" title="刷新验证码"></i>
+                            </div>
+                            <div class="comp-help-text">请输入图片中显示的验证码</div>
+                            <div class="comp-invalid-feedback" id="captchaError">验证码错误或已过期</div>
+                            {% if form.captcha.errors %}
+                                <div class="text-danger mt-1">{{ form.captcha.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="text-right mt-4">
+                        <a href="{% url 'practice:challenge_create' %}" class="comp-btn comp-btn-light mr-2">
+                            取消
+                        </a>
+                        <button type="submit" class="comp-btn comp-btn-primary">创建题目</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 美化表单元素
+    document.querySelectorAll('input, select, textarea').forEach(input => {
+        if (input.type !== 'radio' && input.type !== 'checkbox' && input.type !== 'hidden') {
+            input.classList.add('comp-input');
+        }
+        
+        if (input.tagName === 'SELECT') {
+            // 多选框特殊处理 - 为标签选择框添加特殊类
+            if (input.multiple) {
+                input.classList.add('comp-input'); // 仍然保留输入框基本样式
+                // 不添加 comp-select 类，避免出现下拉箭头
+            } else {
+                input.classList.add('comp-select');
+            }
+        }
+        if (input.tagName === 'TEXTAREA') {
+            input.classList.add('comp-textarea');
+        }
+    });
+    
+
+    const createComposeBtn = document.getElementById('create_compose_btn');
+    const createStaticBtn = document.getElementById('create_static_btn');
+    
+    
+    // 单镜像和多场景题目互斥选择
+    const dockerImageSelect = document.getElementById('id_docker_image');
+    const topologyConfigSelect = document.getElementById('id_network_topology_config');
+    
+    if (dockerImageSelect && topologyConfigSelect) {
+        // 监听单镜像选择变化
+        dockerImageSelect.addEventListener('change', function() {
+            if (this.value) {
+                // 如果选择了单镜像，清空多场景选择并禁用
+                topologyConfigSelect.value = '';
+                topologyConfigSelect.disabled = true;
+                topologyConfigSelect.style.opacity = '0.5';
+                document.getElementById('network_topology_config_group').style.opacity = '0.5';
+            } else {
+                // 如果清空了单镜像，启用多场景选择
+                topologyConfigSelect.disabled = false;
+                topologyConfigSelect.style.opacity = '1';
+                document.getElementById('network_topology_config_group').style.opacity = '1';
+            }
+        });
+        
+        // 监听多场景选择变化
+        topologyConfigSelect.addEventListener('change', function() {
+            if (this.value) {
+                // 如果选择了多场景，清空单镜像选择并禁用
+                dockerImageSelect.value = '';
+                dockerImageSelect.disabled = true;
+                dockerImageSelect.style.opacity = '0.5';
+                document.getElementById('docker_image_group').style.opacity = '0.5';
+            } else {
+                // 如果清空了多场景，启用单镜像选择
+                dockerImageSelect.disabled = false;
+                dockerImageSelect.style.opacity = '1';
+                document.getElementById('docker_image_group').style.opacity = '1';
+            }
+        });
+        
+        // 初始化：根据当前值设置禁用状态
+        if (dockerImageSelect.value) {
+            topologyConfigSelect.disabled = true;
+            topologyConfigSelect.style.opacity = '0.5';
+            document.getElementById('network_topology_config_group').style.opacity = '0.5';
+        } else if (topologyConfigSelect.value) {
+            dockerImageSelect.disabled = true;
+            dockerImageSelect.style.opacity = '0.5';
+            document.getElementById('docker_image_group').style.opacity = '0.5';
+        }
+    }
+    
+    // Flag类型切换
+    const flagType = document.getElementById('id_flag_type');
+    const flagTemplateGroup = document.getElementById('flag_template_group');
+    const flagTemplateInput = document.getElementById('id_flag_template');
+    const flagCountInput = document.getElementById('id_flag_count');
+    const flagPointsInput = document.getElementById('id_flag_points');
+    const totalPointsInput = document.getElementById('id_points');
+    
+    // Flag类型切换处理
+    function updateFlagFields() {
+        if (flagType.value === 'STATIC') {
+            flagTemplateGroup.style.display = 'block';
+            flagTemplateInput.required = true;
+        } else {
+            flagTemplateGroup.style.display = 'none';
+            flagTemplateInput.required = false;
+            flagTemplateInput.value = '';
+        }
+        updateFlagPointsVisibility();
+    }
+    
+    // 根据Flag数量控制分数配置字段的显示
+    function updateFlagPointsVisibility() {
+        const flagPointsGroup = document.getElementById('flag_points_group');
+        const flagCount = parseInt(flagCountInput.value) || 1;
+        
+        if (flagCount > 1) {
+            flagPointsGroup.style.display = 'block';
+        } else {
+            flagPointsGroup.style.display = 'none';
+            flagPointsInput.value = ''; // 清空配置
+        }
+    }
+    
+    // 静态Flag自动检测数量
+    function autoDetectFlagCount() {
+        if (flagType.value === 'STATIC' && flagTemplateInput.value.trim()) {
+            const flags = flagTemplateInput.value.split(',').filter(f => f.trim());
+            if (flags.length > 1) {
+                flagCountInput.value = flags.length;
+            } else {
+                flagCountInput.value = 1;
+            }
+            updateFlagPointsVisibility();
+            suggestEvenDistribution();
+        }
+    }
+    
+    // 验证Flag分数配置
+    function validateFlagPoints() {
+        const flagPointsValue = flagPointsInput.value.trim();
+        const flagPointsError = document.getElementById('flag_points_error');
+        
+        // 如果为空，不验证（会自动分配）
+        if (!flagPointsValue) {
+            flagPointsInput.classList.remove('is-invalid');
+            flagPointsError.style.display = 'none';
+            return true;
+        }
+        
+        try {
+            const points = JSON.parse(flagPointsValue);
+            const flagCount = parseInt(flagCountInput.value) || 1;
+            const totalPoints = parseInt(totalPointsInput.value) || 0;
+            
+            // 验证是否为数组
+            if (!Array.isArray(points)) {
+                throw new Error('必须是数组格式，例如：[10, 20, 30]');
+            }
+            
+            // 验证数组长度
+            if (points.length !== flagCount) {
+                throw new Error(`数组长度必须等于Flag数量（${flagCount}）`);
+            }
+            
+            // 验证是否全为正整数
+            if (!points.every(p => Number.isInteger(p) && p > 0)) {
+                throw new Error('所有分数必须是正整数');
+            }
+            
+            // 验证总和
+            const sum = points.reduce((a, b) => a + b, 0);
+            if (sum !== totalPoints) {
+                throw new Error(`分数总和（${sum}）必须等于题目总分（${totalPoints}）`);
+            }
+            
+            flagPointsInput.classList.remove('is-invalid');
+            flagPointsError.style.display = 'none';
+            return true;
+        } catch (error) {
+            flagPointsInput.classList.add('is-invalid');
+            flagPointsError.style.display = 'block';
+            flagPointsError.textContent = error.message;
+            return false;
+        }
+    }
+    
+    // 自动生成平均分配建议
+    function suggestEvenDistribution() {
+        const flagCount = parseInt(flagCountInput.value) || 1;
+        const totalPoints = parseInt(totalPointsInput.value) || 0;
+        const helpText = flagPointsInput.parentElement.querySelector('.comp-help-text');
+        
+        if (flagCount > 1 && totalPoints > 0) {
+            const avgPoints = Math.floor(totalPoints / flagCount);
+            let remainder = totalPoints - (avgPoints * flagCount);
+            const distribution = Array(flagCount).fill(avgPoints);
+            
+            // 将余数分配到前面几个flag
+            for (let i = 0; i < remainder; i++) {
+                distribution[i]++;
+            }
+            
+            if (helpText) {
+                helpText.innerHTML = `
+                    为每个Flag段配置分数，JSON数组格式，例如：<code>[10, 20, 30, 40]</code><br>
+                    <strong>要求</strong>：① 数组长度 = Flag数量（${flagCount}） ② 总和 = 题目总分（${totalPoints}） ③ 全为正整数<br>
+                    <strong>留空</strong>：自动平均分配分数<br>
+                    <span style="color: #17a2b8;">💡 建议平均分配：<code>${JSON.stringify(distribution)}</code></span>
+                `;
+            }
+        } else if (helpText) {
+            // 恢复默认提示
+            helpText.innerHTML = `
+                为每个Flag段配置分数，JSON数组格式，例如：<code>[10, 20, 30, 40]</code><br>
+                <strong>要求</strong>：① 数组长度 = Flag数量 ② 总和 = 题目总分 ③ 全为正整数<br>
+                <strong>留空</strong>：自动平均分配分数
+            `;
+        }
+    }
+    
+    // 绑定事件
+    if (flagType) {
+        flagType.addEventListener('change', updateFlagFields);
+        updateFlagFields(); // 初始化
+    }
+    
+    if (flagTemplateInput) {
+        flagTemplateInput.addEventListener('blur', autoDetectFlagCount);
+    }
+    
+    if (flagCountInput) {
+        flagCountInput.addEventListener('change', function() {
+            updateFlagPointsVisibility();
+            suggestEvenDistribution();
+        });
+    }
+    
+    if (totalPointsInput) {
+        totalPointsInput.addEventListener('change', suggestEvenDistribution);
+    }
+    
+    if (flagPointsInput) {
+        flagPointsInput.addEventListener('blur', validateFlagPoints);
+    }
+    
+    // 初始化
+    updateFlagPointsVisibility();
+    suggestEvenDistribution();
+    
+    
+    // 刷新验证码
+    const refreshCaptchaBtn = document.getElementById('refreshCaptcha');
+    const captchaImage = document.getElementById('captchaImage');
+    
+    function refreshCaptcha() {
+        fetch("{% url 'practice:refresh_captcha' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                captchaImage.src = data.captcha_image;
+                document.getElementById('id_captcha_key').value = data.captcha_key;
+                document.getElementById('id_captcha').value = '';
+            }
+        })
+        .catch(error => console.error('Error refreshing captcha:', error));
+    }
+    
+    if (refreshCaptchaBtn) {
+        refreshCaptchaBtn.addEventListener('click', refreshCaptcha);
+    }
+    
+    if (captchaImage) {
+        captchaImage.addEventListener('click', refreshCaptcha);
+    }
+    
+    // 表单验证
+    document.getElementById('challengeForm').addEventListener('submit', function(event) {
+        let isValid = true;
+        
+        // 验证标题
+        const title = document.getElementById('id_title');
+        if (!title.value.trim()) {
+            title.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            title.classList.remove('is-invalid');
+        }
+        
+        // 验证描述
+        const description = document.getElementById('id_description');
+        if (!description.value.trim()) {
+            description.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            description.classList.remove('is-invalid');
+        }
+        
+        const dockerCompose = document.getElementById('id_docker_compose');
+        const staticFiles = document.getElementById('id_static_files');
+        if (!dockerCompose.value && !staticFiles.value) {
+            dockerCompose.classList.add('is-invalid');
+            staticFiles.classList.add('is-invalid');
+            const dockerComposeError = document.querySelector('#docker_compose_group .comp-invalid-feedback');
+            if (dockerComposeError) {
+                dockerComposeError.style.display = 'block';
+                dockerComposeError.textContent = '请至少选择一个部署类型：镜像配置或题目附件';
+            }
+            isValid = false;
+        } else {
+            dockerCompose.classList.remove('is-invalid');
+            staticFiles.classList.remove('is-invalid');
+            const dockerComposeError = document.querySelector('#docker_compose_group .comp-invalid-feedback');
+            if (dockerComposeError) {
+                dockerComposeError.style.display = 'none';
+            }
+        }
+        
+        // 验证Flag配置
+        if (flagType.value === 'STATIC') {
+            // 静态Flag必须填写flag值
+            if (!flagTemplateInput.value.trim()) {
+                flagTemplateInput.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                flagTemplateInput.classList.remove('is-invalid');
+                // 自动检测Flag数量
+                autoDetectFlagCount();
+            }
+        }
+        
+        // 验证Flag数量
+        const flagCount = parseInt(flagCountInput.value) || 1;
+        if (flagCount < 1 || flagCount > 10) {
+            flagCountInput.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            flagCountInput.classList.remove('is-invalid');
+        }
+        
+        // 验证Flag分数配置（只在多Flag时验证，且填写了分数配置）
+        if (flagCount > 1 && flagPointsInput.value.trim()) {
+            if (!validateFlagPoints()) {
+                isValid = false;
+            }
+        }
+        
+        // 验证验证码
+        const captcha = document.getElementById('id_captcha');
+        if (!captcha.value.trim()) {
+            captcha.classList.add('is-invalid');
+            document.getElementById('captchaError').style.display = 'block';
+            document.getElementById('captchaError').textContent = '请输入验证码';
+            isValid = false;
+        } else {
+            captcha.classList.remove('is-invalid');
+            document.getElementById('captchaError').style.display = 'none';
+        }
+        const coins = document.getElementById('id_coins');
+        const rewardCoins = document.getElementById('id_reward_coins');
+        const points = document.getElementById('id_points');
+        // 金币范围验证 (0-10)
+        if (coins.value < 0 || coins.value > 10) {
+            coins.classList.add('is-invalid');
+            const coinsError = coins.nextElementSibling.nextElementSibling;
+            if (coinsError && coinsError.classList.contains('comp-invalid-feedback')) {
+                coinsError.style.display = 'block';
+                coinsError.textContent = '金币必须在0-10的范围内';
+            }
+            isValid = false;
+        } else {
+            coins.classList.remove('is-invalid');
+        }
+        
+        // 奖励金币范围验证 (0-10)
+        if (rewardCoins.value < 0 || rewardCoins.value > 10) {
+            rewardCoins.classList.add('is-invalid');
+            const rewardCoinsError = rewardCoins.nextElementSibling.nextElementSibling;
+            if (rewardCoinsError && rewardCoinsError.classList.contains('comp-invalid-feedback')) {
+                rewardCoinsError.style.display = 'block';
+                rewardCoinsError.textContent = '奖励金币必须在0-10的范围内';
+            }
+            isValid = false;
+        } else {
+            rewardCoins.classList.remove('is-invalid');
+        }
+        
+        // 分数范围验证 (0-200)
+        if (points.value < 0 || points.value > 200) {
+            points.classList.add('is-invalid');
+            const pointsError = points.nextElementSibling.nextElementSibling;
+            if (pointsError && pointsError.classList.contains('comp-invalid-feedback')) {
+                pointsError.style.display = 'block';
+                pointsError.textContent = '分数必须在0-200的范围内';
+            }
+            isValid = false;
+        } else {
+            points.classList.remove('is-invalid');
+        }
+        if (!isValid) {
+            event.preventDefault();
+            showErrorToast('请检查表单中的错误');
+            
+            // 滚动到第一个错误字段
+            const firstError = document.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    });
+    
+    // 显示错误提示
+});
+</script>
+
+<script>
+    // 获取Flag类型选择框和Flag值输入框容器
+    const flagTypeSelect = document.querySelector('select[name="flag_type"]');
+    const flagTemplateGroup = document.getElementById('flag_template_group');
+    
+    // 监听Flag类型变化
+    flagTypeSelect.addEventListener('change', function () {
+        // 如果Flag类型选择的是静态，显示Flag值输入框
+        if (flagTypeSelect.value === 'STATIC') {
+            flagTemplateGroup.style.display = 'block';
+        } else {
+            flagTemplateGroup.style.display = 'none';
+        }
+    });
+    
+    // 初始化状态：页面加载时检查Flag类型
+    if (flagTypeSelect.value === 'STATIC') {
+        flagTemplateGroup.style.display = 'block';
+    } else {
+        flagTemplateGroup.style.display = 'none';
+    }
+    
+    // 题解公开状态控制题解金币成本显示/隐藏
+    const writeupIsPublicCheckbox = document.querySelector('input[name="writeup_is_public"]');
+    const writeupCostGroup = document.getElementById('writeup_cost_group');
+    
+    // 监听题解公开状态变化
+    if (writeupIsPublicCheckbox && writeupCostGroup) {
+        writeupIsPublicCheckbox.addEventListener('change', function () {
+            if (writeupIsPublicCheckbox.checked) {
+                writeupCostGroup.style.display = 'none';
+            } else {
+                writeupCostGroup.style.display = 'block';
+            }
+        });
+        
+        // 初始化状态：页面加载时检查题解公开状态
+        if (writeupIsPublicCheckbox.checked) {
+            writeupCostGroup.style.display = 'none';
+        } else {
+            writeupCostGroup.style.display = 'block';
+        }
+    }
+</script>
+{% endblock %}

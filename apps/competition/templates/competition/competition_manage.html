@@ -1,0 +1,1953 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load cache %}
+{% load com_tags %}
+{% block head_title %}管理比赛_{{ competition.title }}{% endblock %}
+
+{% block metas %}
+<meta name="description" content="管理比赛 - {{ competition.title }}">
+<meta name="keywords" content="CTF,比赛,管理比赛">
+{% endblock %}
+
+{% block top-file %}
+<style>
+/* 添加滚动偏移，确保内容不被导航栏遮挡 */
+.manage-tab-content {
+    scroll-margin-top: 100px;
+}
+
+/* 平滑滚动 */
+html {
+    scroll-behavior: smooth;
+}
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-12">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'competition:CompetitionView' %}">竞赛列表</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'competition:competition_detail' competition.slug %}">{{ competition.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">管理竞赛</li>
+                </ol>
+            </nav>
+
+            <!-- 比赛状态提示 -->
+            {% if competition.status == 'pending' %}
+            <div class="manage-alert manage-alert-info">
+                <i class="fa fa-info-circle manage-alert-icon"></i>
+                <div>比赛尚未开始，将于 {{ competition.start_time|date:"Y-m-d H:i" }} 开始。</div>
+            </div>
+            {% elif competition.status == 'running' %}
+            <div class="manage-alert manage-alert-success">
+                <i class="fa fa-play-circle manage-alert-icon"></i>
+                <div>比赛正在进行中，将于 {{ competition.end_time|date:"Y-m-d H:i" }} 结束。</div>
+            </div>
+            {% elif competition.status == 'ended' %}
+            <div class="manage-alert manage-alert-warning">
+                <i class="fa fa-flag-checkered manage-alert-icon"></i>
+                <div>比赛已结束，结束时间为 {{ competition.end_time|date:"Y-m-d H:i" }}。</div>
+            </div>
+            {% endif %}
+
+            <!-- 统计卡片 -->
+            <div class="row mb-2">
+                
+                <div class="col-md-3">
+                    <div class="manage-stats-card">
+                        <i class="fa fa-users manage-stats-icon"></i>
+                        {% if competition.competition_type == 'individual' %}
+                            <div class="manage-stats-title">报名人数</div>
+                        {% else %}
+                            <div class="manage-stats-title">队伍数量</div>
+                        {% endif %}
+                        <div class="manage-stats-value">{{ registration_count }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="manage-stats-card">
+                        <i class="fa fa-tasks manage-stats-icon"></i>
+                        <div class="manage-stats-title">题目数量</div>
+                        <div class="manage-stats-value">{{challenge_count  }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="manage-stats-card">
+                        <i class="fa fa-flag manage-stats-icon"></i>
+                        <div class="manage-stats-title">提交次数</div>
+                        <div class="manage-stats-value">{{ submission_count }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="manage-stats-card">
+                        <i class="fa fa-trophy manage-stats-icon"></i>
+                        <div class="manage-stats-title">解题次数</div>
+                        <div class="manage-stats-value">{{ solve_count }}</div>
+                    </div>
+                </div>
+                
+            </div>
+
+            <!-- 主卡片 -->
+            <div class="manage-card">
+                <h2 class="manage-title">{{ competition.title }} - 管理面板</h2>
+                
+                <!-- 选项卡 -->
+                <div class="manage-tabs">
+                    <div class="manage-tab {% if active_tab == 'info' or not active_tab %}active{% endif %}" data-tab="info">
+                        <a href="?active_tab=info" class="tab-link">基本信息</a>
+                    </div>
+                    <div class="manage-tab {% if active_tab == 'registrations' %}active{% endif %}" data-tab="registrations">
+                        <a href="?active_tab=registrations{% if request.GET.reg_page %}&reg_page={{ request.GET.reg_page }}{% endif %}" class="tab-link">报名信息</a>
+                    </div>
+                    <div class="manage-tab {% if active_tab == 'challenges' %}active{% endif %}" data-tab="challenges">
+                        <a href="?active_tab=challenges{% if request.GET.challenges_page %}&challenges_page={{ request.GET.challenges_page }}{% endif %}" class="tab-link">题目管理</a>
+                    </div>
+                    <div class="manage-tab {% if active_tab == 'rankings' %}active{% endif %}" data-tab="rankings">
+                        <a href="?active_tab=rankings{% if request.GET.score_page %}&score_page={{ request.GET.score_page }}{% endif %}{% if request.GET.team_score_page %}&team_score_page={{ request.GET.team_score_page }}{% endif %}" class="tab-link">分数排行</a>
+                    </div>
+                    <div class="manage-tab {% if active_tab == 'statistics' %}active{% endif %}" data-tab="statistics">
+                        <a href="?active_tab=statistics" class="tab-link">监测日志</a>
+                    </div>
+                    {% if competition.is_audit == True %}
+                    <div class="manage-tab {% if active_tab == 'audit' %}active{% endif %}" data-tab="audit">
+                        <a href="?active_tab=audit{% if request.GET.audit_page %}&audit_page={{ request.GET.audit_page }}{% endif %}" class="tab-link">审核管理</a>
+                    </div>
+                    {% endif %}
+                    <div class="manage-tab {% if active_tab == 'writeups' %}active{% endif %}" data-tab="writeups">
+                        <a href="?active_tab=writeups{% if request.GET.writeup_page %}&writeup_page={{ request.GET.writeup_page }}{% endif %}{% if request.GET.not_submitted_page %}&not_submitted_page={{ request.GET.not_submitted_page }}{% endif %}" class="tab-link">WP管理</a>
+                    </div>
+                </div>
+                
+                <!-- 基本信息选项卡 -->
+                <div class="manage-tab-content {% if active_tab == 'info' or not active_tab %}active{% endif %}" id="info-tab">
+                    <form id="competitionForm" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="title">比赛标题<span class="manage-required">*</span></label>
+                                    <input type="text" id="title" name="title" class="manage-input" value="{{ competition.title }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="competition_type">比赛类型<span class="manage-required">*</span></label>
+                                    <select id="competition_type" name="competition_type" class="manage-input manage-select">
+                                        <option value="individual" {% if competition.competition_type == 'individual' %}selected{% endif %}>个人赛</option>
+                                        <option value="team" {% if competition.competition_type == 'team' %}selected{% endif %}>团体赛</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="visibility_type">公开类型<span class="manage-required">*</span></label>
+                                    <select id="visibility_type" name="visibility_type" class="manage-input manage-select">
+                                        <option value="public" {% if competition.visibility_type == 'public' %}selected{% endif %}>公开赛</option>
+                                        <option value="internal" {% if competition.visibility_type == 'internal' %}selected{% endif %}>内部赛</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="theme">主题风格<span class="manage-required">*</span></label>
+                                    <select id="theme" name="theme" class="manage-input manage-select">
+                                        <option value="default" {% if competition.theme == 'default' %}selected{% endif %}>默认风格</option>
+                                        <option value="tech" {% if competition.theme == 'tech' %}selected{% endif %}>CTF科技风格</option>
+                                    </select>
+                                </div>
+                            </div>  
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="is_audit">报名审核<span class="manage-required">*</span></label>
+                                    <select id="is_audit" name="is_audit" class="manage-input manage-select">
+                                        <option value="True" {% if competition.is_audit == True %}selected{% endif %}>需要审核</option>
+                                        <option value="False" {% if competition.is_audit == False %}selected{% endif %}>不需要审核</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="is_register">是否允许报名<span class="manage-required">*</span></label>
+                                    <select id="is_register" name="is_register" class="manage-input manage-select">
+                                        <option value="True" {% if competition.is_register == True %}selected{% endif %}>允许报名</option>
+                                        <option value="False" {% if competition.is_register == False %}selected{% endif %}>不允许报名</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="is_active">是否激活竞赛<span class="manage-required">*</span></label>
+                                    <select id="is_active" name="is_active" class="manage-input manage-select">
+                                        <option value="True" {% if competition.is_active == True %}selected{% endif %}>激活竞赛</option>
+                                        <option value="False" {% if competition.is_active == False %}selected{% endif %}>禁用竞赛</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="dashboard_template">数据大屏模板<span class="manage-required">*</span></label>
+                                    <select id="dashboard_template" name="dashboard_template" class="manage-input manage-select">
+                                        <option value="dashboardone" {% if competition.dashboard_template == 'dashboardone' %}selected{% endif %}>模板1</option>
+                                        <option value="dashboardtwo" {% if competition.dashboard_template == 'dashboardtwo' %}selected{% endif %}>模板2</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="related_quiz">关联知识竞赛</label>
+                                    <select id="related_quiz" name="related_quiz" class="manage-input manage-select" onchange="toggleCombinedScoreSettings()">
+                                        <option value="">不关联</option>
+                                        {% for quiz in available_quizzes %}
+                                            <option value="{{ quiz.id }}" {% if competition.related_quiz and competition.related_quiz.id == quiz.id %}selected{% endif %}>
+                                                {{ quiz.title }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <small style="color: #888; display: block; margin-top: 5px;">
+                                        <i class="fa fa-info-circle"></i> 关联后将自动生成综合排行榜（CTF + 知识竞赛）
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 综合分数配置（只在关联知识竞赛时显示） -->
+                        <div id="combinedScoreSettings" style="{% if not competition.related_quiz %}display: none;{% endif %}">
+                            <div class="row" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                <div class="col-12">
+                                    <h5 style="margin-bottom: 15px; color: #495057;">
+                                        <i class="fa fa-calculator"></i> 综合分数计算配置
+                                    </h5>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="manage-form-group">
+                                        <label class="manage-label" for="combined_score_ctf_weight">CTF 权重</label>
+                                        <input type="number" id="combined_score_ctf_weight" name="combined_score_ctf_weight" 
+                                               class="manage-input" step="0.01" min="0" max="1" 
+                                               value="{{ competition.combined_score_ctf_weight|default:'0.60' }}"
+                                               oninput="limitDecimalPlaces(this, 2)">
+                                        <small style="color: #888; display: block; margin-top: 5px;">
+                                            0-1 之间，建议 0.6。知识竞赛权重 = 1 - CTF权重
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="manage-form-group">
+                                        <label class="manage-label" for="combined_score_top_percent">归一化基准百分比</label>
+                                        <input type="number" id="combined_score_top_percent" name="combined_score_top_percent" 
+                                               class="manage-input" min="5" max="50" 
+                                               value="{{ competition.combined_score_top_percent|default:'20' }}">
+                                        <small style="color: #888; display: block; margin-top: 5px;">
+                                            取前百分之几的平均分作为归一化基准，建议 10-30
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="manage-form-group">
+                            <label class="manage-label" for="description">比赛描述<span class="manage-required">*</span></label>
+                            <textarea id="description" name="description" class="manage-input manage-textarea" required>{{ competition.description }}</textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="start_time">开始时间<span class="manage-required">*</span></label>
+                                    <div class="manage-datetime-wrapper">
+                                        <input type="datetime-local" id="start_time" name="start_time" class="manage-input" value="{{ competition.start_time|date:'Y-m-d\TH:i' }}" required>
+                                        <div class="manage-datetime-icon">
+                                            <i class="far fa-calendar-alt"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manage-form-group">
+                                    <label class="manage-label" for="end_time">结束时间<span class="manage-required">*</span></label>
+                                    <div class="manage-datetime-wrapper">
+                                        <input type="datetime-local" id="end_time" name="end_time" class="manage-input" value="{{ competition.end_time|date:'Y-m-d\TH:i' }}" required>
+                                        <div class="manage-datetime-icon">
+                                            <i class="far fa-calendar-alt"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="manage-form-group">
+                            <label class="manage-label" for="img_link">封面图片</label>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="manage-file-preview-container">
+                                        <img id="previewImg" src="{{ competition.img_link.url }}" alt="{{ competition.title }}" class="img-fluid rounded">
+                                        <div class="manage-file-name" id="fileName"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="manage-file-upload" id="fileUploadArea">
+                                        <input type="file" id="img_link" name="img_link" accept="image/*" onchange="previewImage(this)">
+                                        <div class="manage-file-icon">
+                                            <i class="fa fa-cloud-upload-alt"></i>
+                                        </div>
+                                        <div class="manage-file-text">点击或拖拽上传图片</div>
+                                        <div class="manage-file-subtext">支持 JPG、PNG 格式</div>
+                                    </div>
+                                </div>
+                                
+                            </div>
+                            <div class="manage-help-text">上传图片大小建议使用5:3的宽高比，为了清晰度原始图片宽度应该超过250px</div>
+                        </div>
+                        
+                        <div class="text-right mt-4">
+                            <button type="submit" class="manage-btn manage-btn-primary">保存修改</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 报名信息选项卡 -->
+                <div class="manage-tab-content {% if active_tab == 'registrations' %}active{% endif %}" id="registrations-tab">
+                    <!-- 优化报名链接信息 -->
+                    <div class="manage-alert manage-alert-info mb-4">
+                        <i class="fa fa-link manage-alert-icon"></i>
+                        <div class="d-flex flex-column flex-md-row align-items-md-center w-100">
+                            <div class="mr-md-3 mb-2 mb-md-0">
+                                <strong>报名链接：</strong>
+                            </div>
+                            <div class="manage-link-container flex-grow-1">
+                                <span class="manage-link-text">{{ site_url }}{% url 'competition:registration_detail' competition.slug competition.re_slug %}</span>
+                                <button class="manage-link-copy-btn" onclick="copyRegistrationLink()" title="复制链接">
+                                    <i class="fa fa-copy"></i>
+                                </button>
+                            </div>
+                            {% if competition.visibility_type == 'internal' and competition.invitation_code %}
+                            <div class="ml-md-3 mt-2 mt-md-0 d-flex align-items-center">
+                                <strong class="mr-2">报名码：</strong>
+                                <code id="invitationCode" class="mr-2">{{ competition.invitation_code }}</code>
+                                <button type="button" class="btn btn-outline-primary py-0 px-1" style="font-size: 0.75rem;" onclick="refreshInvitationCode()" title="刷新报名码">
+                                    <i class="fa fa-refresh"></i>
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="manage-search">
+                        <i class="fa fa-search manage-search-icon"></i>
+                        <input type="text" id="registrationSearch" class="manage-search-input" placeholder="搜索报名信息...">
+                    </div>
+                    
+                    {% if competition.competition_type == 'individual' %}
+                    <!-- 个人赛报名信息 -->
+                    <h3 class="manage-subtitle">个人报名信息</h3>
+                    
+                    {% if individual_registrations %}
+                    <div class="table-responsive">
+                        <table class="manage-table" id="individualTable">
+                            <thead>
+                                <tr>
+                                    <th>用户名</th>
+                                    <th>真实姓名</th>
+                                    <th>学号/工号</th>
+                                    <th>学院/部门</th>
+                                    <th>联系方式</th>
+                                    <th>报名时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reg in individual_registrations %}
+                                <tr>
+                                    <td>{{ reg.user.username }}</td>
+                                    <td>{{ reg.user.real_name|default:"-" }}</td>
+                                    <td>{{ reg.user.student_id|default:"-" }}</td>
+                                    <td>{{ reg.user.department|default:"-" }}</td>
+                                    <td>{{ reg.user.phones|default:"-" }}</td>
+                                    <td>
+                                        {% if reg.created_at %}
+                                            {{ reg.created_at|date:"Y-m-d H:i" }}
+                                        {% else %}
+                                            <span class="text-muted">无记录</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="manage-btn manage-btn-danger btn-sm" onclick="deleteRegistration({{ reg.id }})">删除</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% competition_pagination individual_registrations 'reg_page' active_tab %}
+                    {% else %}
+                    <div class="manage-empty-state">
+                        <div class="manage-empty-icon">
+                            <i class="fa fa-users-slash"></i>  
+                        </div>
+                        <div class="manage-empty-text">暂无个人报名信息</div>
+                    </div>  
+                    
+                    {% endif %}
+                    
+                    {% else %}
+                    <!-- 团队赛报名信息 -->
+                    <h3 class="manage-subtitle">团队报名信息</h3>
+                    
+                    {% if team_registrations %}
+                    <div class="table-responsive">
+                        <table class="manage-table" id="teamTable">
+                            <thead>
+                                <tr>
+                                    <th>队伍名称</th>
+                                    <th>队长</th>
+                                    <th>成员数量</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for team in team_registrations %}
+                                <tr>
+                                    <td>{{ team.name }}</td>
+                                    <td>{{ team.leader.username }}</td>
+                                    <td>{{ team.members.count }}/{{ team.member_count }}</td>
+                                    <td>
+                                        {% if team.created_at %}
+                                            {{ team.created_at|date:"Y-m-d H:i" }}
+                                        {% else %}
+                                            <span class="text-muted">无记录</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="manage-btn manage-btn-primary btn-sm" onclick="viewTeamMembers({{ team.id }})">查看成员</button>
+                                        <button class="manage-btn manage-btn-danger btn-sm" onclick="deleteTeam({{ team.id }})">删除</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% competition_pagination team_registrations 'team_page' active_tab %}
+                    
+                    
+                    {% else %}
+                    <div class="manage-empty-state">
+                        <div class="manage-empty-icon">
+                            <i class="fa fa-users-slash"></i>
+                        </div>
+                        <div class="manage-empty-text">暂无团队报名信息</div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    
+                    <!-- 导出报名信息 -->
+                    <div class="text-right mt-4">
+                        <a href="{% url 'competition:export_registrations' competition.id %}" class="manage-btn manage-btn-success" data-no-loading>
+                            <i class="fa fa-download mr-1"></i> 导出报名信息
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- 题目管理选项卡 -->
+                <div class="manage-tab-content {% if active_tab == 'challenges' %}active{% endif %}" id="challenges-tab">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3 class="manage-subtitle mb-0">题目列表</h3>
+                        <div>
+                            <a href="{% url 'competition:competition_add_challenges' competition.slug %}" class="manage-btn manage-btn-primary mr-2">
+                                <i class="fa fa-plus-circle mr-1"></i> 添加现有题目
+                            </a>
+                            <a href="{% url 'competition:competition_create_challenge' competition.slug %}" class="manage-btn manage-btn-success">
+                                <i class="fa fa-plus mr-1"></i> 创建新题目
+                            </a>
+                        </div>
+                    </div>
+                    
+                    {% if challenges %}
+                    <div class="table-responsive">
+                        <table class="manage-table">
+                            <thead>
+                                <tr>
+                                    <th>标题</th>
+                                    <th>类型</th>
+                                    <th>难度</th>
+                                    <th>初始分数</th>
+                                    <th>解题次数</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for challenge in challenges %}
+                                <tr>
+                                    <td>{{ challenge.title }}</td>
+                                    <td>{{ challenge.category }}</td>
+                                    <td>{{ challenge.get_difficulty_display }}</td>
+                                    <td>{{ challenge.initial_points }}</td>
+                                    <td>{{ challenge.solves }}</td>
+                                    <td>
+                                        {% if challenge.is_active %}
+                                        <span class="state-label state-label-info">已激活</span>
+                                        {% else %}
+                                        <span class="state-label state-label-warning">未激活</span>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <td>
+                                        <a href="{% url 'competition:challenge_detail' competition.slug challenge.uuid %}" class="manage-btn manage-btn-light btn-sm">查看</a>
+                                        <a href="{% url 'competition:challenge_edit' competition.slug challenge.uuid %}" class="manage-btn manage-btn-primary btn-sm">编辑</a>
+                                        <button class="manage-btn manage-btn-danger btn-sm" onclick="removeChallenge({{ challenge.id }})">移除</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% competition_pagination challenges 'challenges_page' active_tab %}
+                    {% else %}
+                    <div class="manage-empty-state">
+                        <div class="manage-empty-icon">
+                            <i class="fa fa-puzzle-piece"></i>
+                        </div>
+                        <div class="manage-empty-text">暂无题目，请添加题目</div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- 分数排行选项卡 -->
+                <div class="manage-tab-content {% if active_tab == 'rankings' %}active{% endif %}" id="rankings-tab">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3 class="manage-subtitle mb-0">分数排行榜</h3>
+                        <div>
+                            <a href="{% url 'competition:export_rankings' competition.id %}" class="manage-btn manage-btn-success" data-no-loading>
+                                <i class="fa fa-download mr-1"></i> 导出排行榜
+                            </a>
+                        </div>
+                    </div>
+                    
+                    {% if competition.competition_type == 'individual' %}
+                    <!-- 个人赛排行榜 -->
+                        {% if individual_scores %}
+                            <div class="table-responsive">
+                                <table class="manage-table">
+                                    <thead>
+                                        <tr>
+                                            <th>排名</th>
+                                            <th>用户名</th>
+                                            <th>分数</th>
+                                            <th>解题数量</th>
+                                            <th>最后提交时间</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for score in individual_scores %}
+                                        <tr>
+                                            <td>{{ individual_scores.start_index|add:forloop.counter0 }}</td>
+                                            <td>{{ score.user.username }}</td>
+                                            <td>{{ score.points }}</td>
+                                            <td>{{ score.solved_challenges.count }}</td>
+                                            <td>
+                                                {% if score.created_at %}
+                                                    {{ score.created_at|date:"Y-m-d H:i:s" }}
+                                                {% else %}
+                                                    <span class="text-muted">无记录</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="manage-btn manage-btn-warning manage-btn-sm" 
+                                                        onclick="openAdjustScoreModal('individual', {{ score.id }}, '{{ score.user.username }}', {{ score.points }})">
+                                                    <i class="fa fa-edit"></i> 调整分数
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center">暂无排名数据</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {% competition_pagination individual_scores 'score_page' active_tab %}
+                        {% else %}
+                        <div class="manage-empty-state">
+                            <div class="manage-empty-icon">
+                                <i class="fa fa-puzzle-piece"></i>
+                            </div>
+                            <div class="manage-empty-text">暂无排名信息</div>
+                            
+                        </div>
+                        {% endif %}    
+                    
+                    {% else %}
+                    <!-- 团队赛排行榜 -->
+                        {% if team_scores %}
+                            <div class="table-responsive">
+                                <table class="manage-table">
+                                    <thead>
+                                        <tr>
+                                            <th>排名</th>
+                                            <th>队伍名称</th>
+                                            <th>分数</th>
+                                            <th>解题数量</th>
+                                            <th>最后提交时间</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for score in team_scores %}
+                                        <tr>
+                                            <td>{{ team_scores.start_index|add:forloop.counter0 }}</td>
+                                            <td>{{ score.team.name }}</td>
+                                            <td>{{ score.score }}</td>
+                                            <td>{{ score.solved_challenges.count }}</td>
+                                            <td>
+                                                {% if score.time %}
+                                                    {{ score.time|date:"Y-m-d H:i:s" }}
+                                                {% else %}
+                                                    <span class="text-muted">无记录</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="manage-btn manage-btn-warning manage-btn-sm" 
+                                                        onclick="openAdjustScoreModal('team', {{ score.id }}, '{{ score.team.name }}', {{ score.score }})">
+                                                    <i class="fa fa-edit"></i> 调整分数
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% competition_pagination team_scores 'team_score_page' active_tab %}
+                        {% else %}
+                            <div class="manage-empty-state">
+                                <div class="manage-empty-icon">
+                                    <i class="fa fa-puzzle-piece"></i>
+                                </div>
+                                <div class="manage-empty-text">暂无排名信息</div>
+                                
+                            </div>
+                        
+                        {% endif %} 
+                    {% endif %}
+                </div>
+
+                
+                
+                <!-- 数据统计选项卡 -->
+                <div class="manage-tab-content {% if active_tab == 'statistics' %}active{% endif %}" id="statistics-tab">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3 class="manage-subtitle mb-0">日志列表</h3>
+                        <div>
+                            <a href="{% url 'competition:export_statistics' competition.id %}" class="manage-btn manage-btn-success" data-no-loading>
+                                <i class="fa fa-download mr-1"></i> 导出日志
+                            </a>                
+                        </div>
+                    </div>
+                   
+                    {% if CheatingLogs %}
+                                
+                                <div class="table-responsive">
+                                    <table class="manage-table">
+                                        <thead>
+                                            <tr>
+                                                <th>用户</th>
+                                                {% if competition.competition_type == 'team' %}
+                                                <th>队伍</th>
+                                                {% endif %}
+                                                <th>类型</th>
+                                                <th>描述</th>
+            
+                                                <th>记录时间</th>
+                                            
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for logs in CheatingLogs %}
+                                            <tr>
+                                                <td>{{ logs.user }}</td>
+                                                {% if competition.competition_type == 'team' %}
+                                                <td>{{ logs.team }}</td>
+                                                {% endif %}
+                                                <td>
+                                                    {{ logs.get_cheating_type }}</td>
+                                                <td>{{ logs.description }}</td>
+                                                <td>{{ logs.timestamp|date:"Y-m-d H:i:s"}}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% competition_pagination CheatingLogs 'log_page' active_tab %}
+                        {% else %}
+                        <div class="manage-empty-state">
+                            <div class="manage-empty-icon">
+                                <i class="fa fa-puzzle-piece"></i>
+                            </div>
+                            <div class="manage-empty-text">暂无日志信息</div>
+                            
+                        </div>
+                    
+                        {% endif %}
+                    
+                    
+                </div>
+
+
+                
+                <div class="manage-tab-content {% if active_tab == 'audit' %}active{% endif %}" id="audit-tab">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3 class="manage-subtitle mb-0">审核列表</h3>
+                        <div>
+                           
+                        </div>
+                    </div>
+                    {% if registrations %}
+                    
+                    <div class="table-responsive">
+                        
+                        <table class="manage-table">
+                            <thead>
+                                <tr>
+                                    <th>用户名</th>
+                                    <th>姓名</th>
+                                    <th>学号/身份证号</th>
+                                    <th>所属单位</th>
+                                    <th>联系方式</th>
+                                    <th>所属队伍</th>
+                                    <th>审核状态</th>
+                                    <th>备注</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for registration in registrations %}
+                                <tr>
+                                    <td>{{ registration.user.username }}</td>
+                                    <td>{{ registration.user.real_name|default:"-" }}</td>
+                                    <td>{{ registration.user.student_id|default:"-" }}</td>
+                                    <td>{{ registration.user.department|default:"-" }}</td>
+                                    <td>{{ registration.user.phones|default:"-" }}</td>
+                                    <td>{{ registration.team_name|default:"-" }}</td>
+                                    <td>
+                                        {% if registration.audit %}
+                                        <span class="manage-badge manage-badge-success">已审核</span>
+                                        {% else %}
+                                        <span class="manage-badge manage-badge-warning">未审核</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ registration.audit_comment|default:"-" }}</td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm" onclick="viewAudit({{ registration.id }}, {{ registration.user.id }}, {{ competition.id }})">审核</button>
+                                    </td>
+                                    
+                                    
+                                    
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        
+                    </div>
+                        
+                        {% competition_pagination registrations 'audit_page' active_tab %}
+                    
+                    
+                        {% else %}
+                        <div class="manage-empty-state">
+                            <div class="manage-empty-icon">
+                                <i class="fa fa-puzzle-piece"></i>
+                            </div>
+                            <div class="manage-empty-text">暂无审核信息</div>
+                        </div>
+                        {% endif %}
+                </div>
+
+
+                <!-- WP管理选项卡 -->
+                <div class="manage-tab-content {% if active_tab == 'writeups' %}active{% endif %}" id="writeups-tab">
+                    <h3 class="manage-subtitle">Writeup 提交列表</h3>
+                    
+                    {% if writeups %}
+                    <div class="table-responsive">
+                        <table class="manage-table">
+                            <thead>
+                                <tr>
+                                    <th>标题</th>
+                                    <th>提交者</th>
+                                    {% if competition.competition_type == 'team' %}
+                                    <th>所属队伍</th>
+                                    {% endif %}
+                                    <th>简介</th>
+                                    <th>提交时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for writeup in writeups %}
+                                <tr>
+                                    <td>{{ writeup.title }}</td>
+                                    <td>{{ writeup.user.username }}</td>
+                                    {% if competition.competition_type == 'team' %}
+                                    <td>{{ writeup.team.name|default:"-" }}</td>
+                                    {% endif %}
+                                    <td>
+                                        {% if writeup.description %}
+                                            {{ writeup.description|truncatechars:50 }}
+                                        {% else %}
+                                            <span class="text-muted">无简介</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if writeup.created_at %}
+                                            {{ writeup.created_at|date:"Y-m-d H:i:s" }}
+                                        {% else %}
+                                            <span class="text-muted">无记录</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ writeup.pdf_file.url }}" class="manage-btn manage-btn-primary btn-sm" target="_blank" download>
+                                            <i class="fa fa-download"></i> 下载
+                                        </a>
+                                        <button class="manage-btn manage-btn-danger btn-sm" onclick="deleteWriteup({{ writeup.id }})">删除</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% competition_pagination writeups 'writeup_page' active_tab %}
+                    {% else %}
+                    {% competition_pagination writeups 'writeup_page' active_tab %}
+                    <div class="manage-empty-state">
+                        <div class="manage-empty-icon">
+                            <i class="fa fa-file-pdf-o"></i>
+                        </div>
+                        <div class="manage-empty-text">暂无 Writeup 提交</div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 未提交 WP 的列表 -->
+                    {% if not_submitted_writeups %}
+                    <div class="mt-5">
+                        <h3 class="manage-subtitle">未提交 Writeup 列表</h3>
+                        <div class="manage-alert manage-alert-warning">
+                            <i class="fa fa-exclamation-triangle manage-alert-icon"></i>
+                            <div>以下{% if competition.competition_type == 'team' %}队伍{% else %}参赛者{% endif %}尚未提交 Writeup</div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="manage-table">
+                                <thead>
+                                    <tr>
+                                        {% if competition.competition_type == 'team' %}
+                                        <th>队伍名称</th>
+                                        <th>队长</th>
+                                        <th>成员数量</th>
+                                        {% else %}
+                                        <th>用户名</th>
+                                        <th>真实姓名</th>
+                                        <th>学号/工号</th>
+                                        {% endif %}
+                                        <th>报名时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in not_submitted_writeups %}
+                                    <tr>
+                                        {% if competition.competition_type == 'team' %}
+                                        <td>{{ item.name }}</td>
+                                        <td>{{ item.leader.username }}</td>
+                                        <td>{{ item.members.count }}</td>
+                                        {% else %}
+                                        <td>{{ item.user.username }}</td>
+                                        <td>{{ item.user.real_name|default:"-" }}</td>
+                                        <td>{{ item.user.student_id|default:"-" }}</td>
+                                        {% endif %}
+                                        <td>
+                                            {% if item.created_at %}
+                                                {{ item.created_at|date:"Y-m-d H:i" }}
+                                            {% else %}
+                                                <span class="text-muted">无记录</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% competition_pagination not_submitted_writeups 'not_submitted_page' active_tab %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+
+               
+                
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 报名信息删除确认模态框 -->
+<div class="modal fade" id="deleteRegistrationModal" tabindex="-1" role="dialog" aria-labelledby="deleteRegistrationModalLabel">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="deleteRegistrationModalLabel">确认删除</h5>
+                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center pb-4">
+                <p class="mb-4">确定要删除这条报名信息吗？<br>此操作不可恢复。</p>
+                <input type="hidden" id="delete-registration-id">
+                <button type="button" class="manage-btn manage-btn-danger py-1 px-3" style="font-size: 0.875rem;" onclick="confirmDeleteRegistration()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 审核信息查看模态框 -->
+<div class="modal fade" id="viewAuditModal" tabindex="-1" role="dialog" aria-labelledby="viewAuditModalLabel">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="viewAuditModalLabel">审核报名信息</h5>
+                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="auditForm">
+                    <input type="hidden" id="audit-registration-id">
+                    <input type="hidden" id="audit-user-id">
+                    <input type="hidden" id="audit-competition-id">
+                    
+                    <div class="form-group">
+                        <label for="audit-comment">审核备注</label>
+                        <textarea id="audit-comment" class="form-control" rows="3" placeholder="请输入审核备注（选填）"></textarea>
+                    </div>
+                    
+                    <div class="form-group mt-4 text-center">
+                        <button type="button" class="btn btn-success mr-2 btn-sm" onclick="submitAudit(true)">
+                            <i class="fa fa-check"></i> 通过
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="submitAudit(false)">
+                            <i class="fa fa-times"></i> 拒绝
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- 团队删除确认模态框 -->
+<div class="modal fade" id="deleteTeamModal" tabindex="-1" role="dialog" aria-labelledby="deleteTeamModalLabel">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="deleteTeamModalLabel">确认删除</h5>
+                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center pb-4">
+                <p class="mb-4">确定要删除这个团队吗？<br>此操作将同时删除团队所有成员的报名信息，不可恢复。</p>
+                <input type="hidden" id="delete-team-id">
+                <button type="button" class="manage-btn manage-btn-danger py-1 px-3" style="font-size: 0.875rem;" onclick="confirmDeleteTeam()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Writeup 删除确认模态框 -->
+<div class="modal fade" id="deleteWriteupModal" tabindex="-1" role="dialog" aria-labelledby="deleteWriteupModalLabel">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="deleteWriteupModalLabel">确认删除</h5>
+                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center pb-4">
+                <p class="mb-4">确定要删除这个 Writeup 吗？<br>此操作不可恢复。</p>
+                <input type="hidden" id="delete-writeup-id">
+                <button type="button" class="manage-btn manage-btn-danger py-1 px-3" style="font-size: 0.875rem;" onclick="confirmDeleteWriteup()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 题目移除确认模态框 -->
+<div class="modal fade" id="removeChallengeModal" tabindex="-1" role="dialog" aria-labelledby="removeChallengeModalLabel">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="removeChallengeModalLabel">确认移除</h5>
+                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center pb-4">
+                <p class="mb-4">确定要从比赛中移除这个题目吗？<br>若比赛若开始请慎重移除题目，若用户已解决此题目分数已将会计入总分。此操作不会删除题目本身。</p>
+                <input type="hidden" id="remove-challenge-id">
+                <button type="button" class="manage-btn manage-btn-danger py-1 px-3" style="font-size: 0.875rem;" onclick="confirmRemoveChallenge()">移除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- 刷新报名码确认模态框 -->
+<div class="modal fade" id="refreshCodeModal" tabindex="-1" role="dialog" aria-labelledby="refreshCodeModalLabel">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="refreshCodeModalLabel">确认刷新</h5>
+                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center pb-4">
+                <p class="mb-3">确定要刷新报名码吗？</p>
+                <p class="text-muted small mb-4">刷新后原报名码将立即失效，已分发的报名码需要重新通知参赛者。</p>
+                <button type="button" class="btn btn-sm btn-secondary mr-2" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="confirmRefreshCode()">确认刷新</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 团队成员模态框 -->
+<div class="modal fade" id="teamMembersModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">团队成员</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="teamMembersContent">
+                <!-- 动态加载团队成员 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="manage-btn manage-btn-light" data-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 分数调整模态框 -->
+<div class="modal fade" id="adjustScoreModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content" style="border-radius: 8px;">
+            <div class="modal-header border-0" style="padding: 1.5rem 1.5rem 0;">
+                <h5 class="modal-title" style="font-weight: 600; color: #333;">
+                    <i class="fa fa-edit" style="color: #6591f1;"></i> 调整分数
+                </h5>
+                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <input type="hidden" id="adjust-score-type">
+                <input type="hidden" id="adjust-score-id">
+                
+                <div class="form-group mb-3">
+                    <label style="font-weight: 500; color: #555; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                        <span id="adjust-score-label">用户</span>
+                    </label>
+                    <input type="text" id="adjust-score-name" 
+                           class="form-control" 
+                           style="border-radius: 6px; border: 1px solid #ddd; background-color: #f8f9fa; font-size: 0.9rem;" 
+                           readonly>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label style="font-weight: 500; color: #555; font-size: 0.9rem; margin-bottom: 0.5rem;">当前分数</label>
+                    <input type="text" id="adjust-current-score" 
+                           class="form-control" 
+                           style="border-radius: 6px; border: 1px solid #ddd; background-color: #f8f9fa; font-size: 0.9rem;" 
+                           readonly>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label style="font-weight: 500; color: #555; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                        <span class="text-danger">*</span> 新分数
+                    </label>
+                    <input type="text" id="adjust-new-score" 
+                           class="form-control" 
+                           style="border-radius: 6px; border: 1px solid #ddd; font-size: 0.9rem;" 
+                           placeholder="请输入新的分数，如：100 或 +50 或 -30" 
+                           required>
+                    <small class="form-text text-muted" style="font-size: 0.8rem; margin-top: 0.3rem;">
+                        支持直接输入新分数，或使用 <code>+50</code> / <code>-30</code> 进行增减
+                    </small>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label style="font-weight: 500; color: #555; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                        <span class="text-danger">*</span> 调整原因
+                    </label>
+                    <textarea id="adjust-reason" 
+                              class="form-control" 
+                              style="border-radius: 6px; border: 1px solid #ddd; font-size: 0.9rem; resize: vertical;" 
+                              rows="3" 
+                              placeholder="请说明调整分数的原因（必填）" 
+                              required></textarea>
+                </div>
+                
+                <div class="alert alert-info" style="border-radius: 6px; font-size: 0.85rem; padding: 0.75rem; margin-bottom: 0;">
+                    <i class="fa fa-info-circle"></i>
+                    <strong>温馨提示：</strong>
+                    <ul class="mb-0" style="padding-left: 1.5rem; margin-top: 0.5rem;">
+                        <li>调整分数后会自动通知相关用户</li>
+                        <li>团队赛会同步更新所有队员的个人分数</li>
+                        <li>如关联知识竞赛，综合排行榜会自动更新</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer border-0" style="padding: 0 1.5rem 1.5rem; justify-content: center;">
+                <button type="button" class="btn btn-secondary px-4" data-dismiss="modal" style="border-radius: 6px; font-size: 0.9rem;">
+                    <i class="fa fa-times"></i> 取消
+                </button>
+                <button type="button" class="btn btn-primary px-4" onclick="confirmAdjustScore()" style="border-radius: 6px; font-size: 0.9rem;">
+                    <i class="fa fa-check"></i> 确认调整
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 分数调整确认模态框 -->
+<div class="modal fade" id="adjustScoreConfirmModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+        <div class="modal-content" style="border-radius: 8px;">
+            <div class="modal-header border-0" style="padding: 1.5rem 1.5rem 0;">
+                <h5 class="modal-title" style="font-weight: 600; color: #333;">
+                    <i class="fa fa-exclamation-triangle" style="color: #ffc107;"></i> 确认调整
+                </h5>
+                <button type="button" class="close border-0" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center" style="padding: 1.5rem;">
+                <p id="adjust-confirm-message" style="margin-bottom: 1rem; font-size: 0.95rem; color: #555;"></p>
+            </div>
+            <div class="modal-footer border-0" style="padding: 0 1.5rem 1.5rem; justify-content: center;">
+                <button type="button" class="btn btn-secondary px-3" data-dismiss="modal" style="border-radius: 6px; font-size: 0.85rem;">取消</button>
+                <button type="button" class="btn btn-warning px-3" onclick="submitAdjustScore()" style="border-radius: 6px; font-size: 0.85rem;">
+                    <i class="fa fa-check"></i> 确认
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'public/js/chart.min.js' %}"></script>
+<script>
+// 声明全局变量来存储图表实例
+let solveChart = null;
+let difficultyChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化标签页功能
+    const tabs = document.querySelectorAll('.manage-tab');
+    const tabContents = document.querySelectorAll('.manage-tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+            
+            // 移除所有active类
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+
+           
+            
+            // 添加active类到被点击的标签及其内容
+            this.classList.add('active');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+            
+            // 更新URL但不刷新页面
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('active_tab', tabId);
+            history.pushState({}, '', currentUrl.toString());
+        });
+    });
+
+
+
+
+
+
+
+    // 报名信息搜索功能
+    const registrationSearch = document.getElementById('registrationSearch');
+    if (registrationSearch) {
+        registrationSearch.addEventListener('keyup', function() {
+            const searchValue = this.value.toLowerCase();
+            const tableId = '{{ competition.competition_type }}' === 'individual' ? 'individualTable' : 'teamTable';
+            const table = document.getElementById(tableId);
+            
+            if (table) {
+                const rows = table.getElementsByTagName('tr');
+                
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    const cells = row.getElementsByTagName('td');
+                    let found = false;
+                    
+                    for (let j = 0; j < cells.length; j++) {
+                        const cellText = cells[j].textContent.toLowerCase();
+                        if (cellText.indexOf(searchValue) > -1) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    
+                    row.style.display = found ? '' : 'none';
+                }
+            }
+        });
+    }
+    
+    // 表单验证
+    const competitionForm = document.getElementById('competitionForm');
+    if (competitionForm) {
+        competitionForm.addEventListener('submit', function(event) {
+            const startTimeStr = document.getElementById('start_time').value;
+            const endTimeStr = document.getElementById('end_time').value;
+            
+            if (startTimeStr && endTimeStr) {
+                const startTime = new Date(startTimeStr);
+                const endTime = new Date(endTimeStr);
+                
+                if (endTime <= startTime) {
+                    event.preventDefault();
+                    showErrorToast('时间设置错误', '结束时间必须晚于开始时间');
+                }
+            }
+        });
+    }
+    
+    // 初始化图表
+
+});
+
+
+// 初始化模态框
+let teamMembersModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化模态框
+    teamMembersModal = new bootstrap.Modal(document.getElementById('teamMembersModal'));
+});
+
+// 刷新报名码 - 显示确认模态框
+function refreshInvitationCode() {
+    $('#refreshCodeModal').modal('show');
+}
+
+// 确认刷新报名码
+function confirmRefreshCode() {
+    $('#refreshCodeModal').modal('hide');
+    
+    fetch('{% url "competition:refresh_invitation_code" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: 'slug={{ competition.slug }}'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('invitationCode').textContent = data.new_code;
+            if (typeof showSuccessToast === 'function') {
+                showSuccessToast(data.message);
+            } else {
+                showWarningToast(data.message);
+            }
+        } else {
+            if (typeof showErrorToast === 'function') {
+                showErrorToast(data.message);
+            } else {
+                showWarningToast(data.message);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (typeof showErrorToast === 'function') {
+            showErrorToast('操作失败，请重试');
+        } else {
+            showWarningToast('操作失败，请重试');
+        }
+    });
+}
+
+function viewTeamMembers(teamId) {
+    const modalContent = document.getElementById('teamMembersContent');
+    if (!modalContent) return;
+
+    // 显示加载状态
+    modalContent.innerHTML = `
+        <div class="text-center py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2">加载团队成员信息...</p>
+        </div>
+    `;
+
+    // 先显示模态框
+    teamMembersModal.show();
+
+    // 获取数据
+    fetch(`{% url 'competition:get_team_members' team_id=0 %}`.replace('0', teamId))
+        .then(response => response.json())
+        .then(data => {
+            let html = `
+                <div class="table-responsive">
+                    <table class="manage-table">
+                        <thead>
+                            <tr>
+                                <th>身份</th>
+                                <th>用户名</th>
+                                <th>姓名</th>
+                                <th>学号/身份证号</th>
+                                <th>所属单位</th>
+                                <th>联系方式</th>
+                                <th>审核状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            if (data.members && data.members.length > 0) {
+                data.members.forEach(member => {
+                    html += `
+                        <tr> 
+                            <td>
+                                ${member.is_leader ? 
+                                    '<span class="state-label state-label-danger">队长</span>' : 
+                                    '<span>队员</span>'
+                                }
+                            </td>
+                            <td>${member.username || '-'}</td>
+                            <td>${member.name || '-'}</td>
+                            <td>${member.student_id || '-'}</td>
+                            <td>${member.role || '-'}</td>
+                            <td>
+                                ${member.phone || '-'}
+                                ${member.phone !== '-' ? '<i class="fas fa-shield-alt text-muted ml-1" title="已脱敏"></i>' : ''}
+                            </td>
+                            <td>
+                                ${member.audit =='已审核' ? 
+                                    '<span class="state-label state-label-success">已审核</span>' : 
+                                    '<span class="state-label state-label-warning">未审核</span>'
+                                }
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html += `
+                    <tr>
+                        <td colspan="6" class="text-center">暂无团队成员信息</td>
+                    </tr>
+                `;
+            }
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            modalContent.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('获取团队成员失败:', error);
+            modalContent.innerHTML = `
+                <div class="text-center py-4 text-danger">
+                    <i class="fa fa-exclamation-circle fa-2x"></i>
+                    <p class="mt-2">获取团队成员信息失败，请重试</p>
+                </div>
+            `;
+            if (typeof showErrorToast === 'function') {
+                showErrorToast('获取失败', '获取团队成员信息失败，请重试');
+            }
+        });
+}
+// 删除报名信息
+function deleteRegistration(registrationId) {
+    document.getElementById('delete-registration-id').value = registrationId;
+    $('#deleteRegistrationModal').modal('show');
+}
+
+// 确认删除报名信息
+function confirmDeleteRegistration() {
+    const registrationId = document.getElementById('delete-registration-id').value;
+    
+    fetch(`{% url 'competition:delete_registration' registration_id=0 %}`.replace('0', registrationId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#deleteRegistrationModal').modal('hide');
+        
+        if (data.success) {
+            showSuccessToast('报名信息已成功删除');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showErrorToast('删除失败', data.message);
+        }
+    })
+    .catch(error => {
+        $('#deleteRegistrationModal').modal('hide');
+        console.error('删除报名信息失败:', error);
+        showErrorToast('删除失败', '请求处理过程中发生错误，请重试');
+    });
+}
+
+// 删除团队
+function deleteTeam(teamId) {
+    document.getElementById('delete-team-id').value = teamId;
+    $('#deleteTeamModal').modal('show');
+}
+
+// 确认删除团队
+function confirmDeleteTeam() {
+    const teamId = document.getElementById('delete-team-id').value;
+    
+    fetch(`{% url 'competition:delete_team' team_id=0 %}`.replace('0', teamId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#deleteTeamModal').modal('hide');
+        
+        if (data.success) {
+            showSuccessToast('团队已成功删除');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showErrorToast('删除失败', data.message);
+        }
+    })
+    .catch(error => {
+        $('#deleteTeamModal').modal('hide');
+        console.error('删除团队失败:', error);
+        showErrorToast('删除失败', '请求处理过程中发生错误，请重试');
+    });
+}
+
+// 删除 Writeup
+function deleteWriteup(writeupId) {
+    document.getElementById('delete-writeup-id').value = writeupId;
+    $('#deleteWriteupModal').modal('show');
+}
+
+// 确认删除 Writeup
+function confirmDeleteWriteup() {
+    const writeupId = document.getElementById('delete-writeup-id').value;
+    
+    fetch(`{% url 'competition:delete_writeup' writeup_id=0 %}`.replace('0', writeupId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#deleteWriteupModal').modal('hide');
+        
+        if (data.success) {
+            showSuccessToast('Writeup 已成功删除');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showErrorToast('删除失败', data.message);
+        }
+    })
+    .catch(error => {
+        $('#deleteWriteupModal').modal('hide');
+        console.error('删除 Writeup 失败:', error);
+        showErrorToast('删除失败', '请求处理过程中发生错误，请重试');
+    });
+}
+
+// 从比赛中移除题目
+function removeChallenge(challengeId) {
+    document.getElementById('remove-challenge-id').value = challengeId;
+    $('#removeChallengeModal').modal('show');
+}
+
+// 确认移除题目
+function confirmRemoveChallenge() {
+    const challengeId = document.getElementById('remove-challenge-id').value;
+    
+    fetch(`{% url 'competition:remove_challenge_from_competition' competition_id=competition.id challenge_id=0 %}`.replace('0', challengeId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#removeChallengeModal').modal('hide');
+        
+        if (data.success) {
+            showSuccessToast('题目已成功从比赛中移除');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showErrorToast('移除失败', data.message);
+        }
+    })
+    .catch(error => {
+        $('#removeChallengeModal').modal('hide');
+        console.error('移除题目失败:', error);
+        showErrorToast('移除失败', '请求处理过程中发生错误，请重试');
+    });
+}
+
+// 图片预览功能
+function previewImage(input) {
+    const previewImg = document.getElementById('previewImg');
+    const fileName = document.getElementById('fileName');
+    
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            fileName.textContent = file.name;
+        }
+        
+        reader.readAsDataURL(file);
+        
+        // 更改上传区域样式
+        document.getElementById('fileUploadArea').style.borderStyle = 'solid';
+        document.getElementById('fileUploadArea').style.borderColor = '#6591f1';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 拖拽上传功能
+    const dropArea = document.getElementById('fileUploadArea');
+    
+    if (dropArea) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            dropArea.style.borderColor = '#6591f1';
+            dropArea.style.backgroundColor = '#f5f7ff';
+        }
+        
+        function unhighlight() {
+            dropArea.style.borderColor = '#e0e0e0';
+            dropArea.style.backgroundColor = '#fafafa';
+        }
+        
+        dropArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length) {
+                const imgLink = document.getElementById('img_link');
+                if (imgLink) {
+                    imgLink.files = files;
+                    previewImage(imgLink);
+                }
+            }
+        }
+    }
+    
+    // 显示已有图片
+    const previewImg = document.getElementById('previewImg');
+    const imagePreview = document.getElementById('imagePreview');
+    if (previewImg && previewImg.src && previewImg.src !== window.location.href && imagePreview) {
+        imagePreview.style.display = 'block';
+    }
+});
+
+// 复制报名链接功能
+function copyRegistrationLink() {
+    const linkText = document.querySelector('.manage-link-text').textContent;
+    
+    // 使用现代的Clipboard API
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(linkText)
+            .then(() => {
+                // 显示复制成功的视觉反馈
+                const copyBtn = document.querySelector('.manage-link-copy-btn');
+                const originalIcon = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fa fa-check"></i>';
+                copyBtn.style.color = '#4caf50';
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalIcon;
+                    copyBtn.style.color = '';
+                }, 2000);
+            })
+            .catch(err => {
+                fallbackCopyTextToClipboard(linkText);
+            });
+    } else {
+        // 回退方法
+        fallbackCopyTextToClipboard(linkText);
+    }
+}
+
+
+// 回退的复制方法
+function fallbackCopyTextToClipboard(text) {
+    // 创建临时输入框
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // 设置样式使其不可见
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.width = "2em";
+    textArea.style.height = "2em";
+    textArea.style.padding = "0";
+    textArea.style.border = "none";
+    textArea.style.outline = "none";
+    textArea.style.boxShadow = "none";
+    textArea.style.background = "transparent";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            // 显示复制成功的视觉反馈
+            const copyBtn = document.querySelector('.manage-link-copy-btn');
+            const originalIcon = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fa fa-check"></i>';
+            copyBtn.style.color = '#4caf50';
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalIcon;
+                copyBtn.style.color = '';
+            }, 2000);
+        } else {
+            console.error('复制命令不可用');
+            showErrorToast('复制失败，请手动复制链接');
+            
+        }
+    } catch (err) {
+        console.error('复制过程中出错:', err);
+        showErrorToast('复制失败，请手动复制链接');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// 移除所有元素的黑色边框
+document.querySelectorAll('button, input, select, textarea, .close').forEach(el => {
+    el.addEventListener('focus', function() {
+        this.style.outline = 'none';
+        this.style.boxShadow = 'none';
+    });
+});
+
+
+
+
+
+
+
+
+
+
+
+function viewAudit(registrationId, userId, competitionId, auditComment) {
+    // 设置模态框中隐藏字段的值
+    document.getElementById('audit-registration-id').value = registrationId;
+    document.getElementById('audit-user-id').value = userId;
+    document.getElementById('audit-competition-id').value = competitionId;
+    $('#viewAuditModal').modal('show');
+}
+function submitAudit(isApproved) {
+    const registrationId = document.getElementById('audit-registration-id').value;
+    const userId = document.getElementById('audit-user-id').value;
+    const competitionId = document.getElementById('audit-competition-id').value;
+    const auditComment = document.getElementById('audit-comment').value;
+    
+    // 创建请求数据
+    const formData = new FormData();
+    formData.append('registration_id', registrationId);
+    formData.append('user_id', userId);
+    formData.append('competition_id', competitionId);
+    formData.append('audit', isApproved ? 'approve' : 'reject');
+    formData.append('audit_comment', auditComment);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    // 发送审核请求
+    fetch('{% url "competition:audit_registration" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 关闭模态框
+            $('#viewAuditModal').modal('hide');
+            // 显示成功消息
+            updateAuditStatus(registrationId, isApproved);
+            showSuccessToast(data.message);
+            
+            // 刷新页面以显示更新
+        } else {
+            // 显示错误消息
+            showErrorToast(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showErrorToast('审核请求发送失败，请重试');
+    });
+}
+
+
+
+function updateAuditStatus(registrationId, isApproved) {
+    try {
+        // 获取包含该报名的表格行
+        const row = document.querySelector(`button[onclick*="viewAudit(${registrationId},"`).closest('tr');
+        
+        // 更新状态列
+        const statusCell = row.querySelector('td:nth-child(7)'); // 假设状态列是第7列
+        if (statusCell) {
+            if (isApproved) {
+                statusCell.innerHTML = '<span class="manage-badge manage-badge-success">已审核</span>';
+            } else {
+                statusCell.innerHTML = '<span class="manage-badge manage-badge-danger">已拒绝</span>';
+            }
+        }
+    } catch (e) {
+        // 如果DOM更新失败，回退到页面刷新
+        location.reload();
+    }
+}
+
+// 切换综合分数设置显示
+function toggleCombinedScoreSettings() {
+    const select = document.getElementById('related_quiz');
+    const settings = document.getElementById('combinedScoreSettings');
+    
+    if (select.value) {
+        // 选择了知识竞赛，显示配置
+        settings.style.display = 'block';
+    } else {
+        // 未选择，隐藏配置
+        settings.style.display = 'none';
+    }
+}
+
+// 限制小数位数
+function limitDecimalPlaces(input, maxDecimals) {
+    const value = input.value;
+    if (value.includes('.')) {
+        const parts = value.split('.');
+        if (parts[1] && parts[1].length > maxDecimals) {
+            input.value = parseFloat(value).toFixed(maxDecimals);
+        }
+    }
+}
+
+// ==================== 分数调整功能 ====================
+function openAdjustScoreModal(type, scoreId, name, currentScore) {
+    document.getElementById('adjust-score-type').value = type;
+    document.getElementById('adjust-score-id').value = scoreId;
+    document.getElementById('adjust-score-name').value = name;
+    document.getElementById('adjust-current-score').value = currentScore;
+    document.getElementById('adjust-new-score').value = '';
+    document.getElementById('adjust-reason').value = '';
+    
+    // 更新标签
+    if (type === 'team') {
+        document.getElementById('adjust-score-label').textContent = '队伍名称';
+    } else {
+        document.getElementById('adjust-score-label').textContent = '用户名';
+    }
+    
+    $('#adjustScoreModal').modal('show');
+}
+
+function confirmAdjustScore() {
+    const currentScore = parseFloat(document.getElementById('adjust-current-score').value);
+    let newScoreInput = document.getElementById('adjust-new-score').value.trim();
+    const reason = document.getElementById('adjust-reason').value.trim();
+    
+    // 验证
+    if (!newScoreInput) {
+        showErrorToast('请输入新分数');
+        return;
+    }
+    
+    if (!reason) {
+        showErrorToast('请填写调整原因');
+        return;
+    }
+    
+    // 处理相对分数（+50 或 -30）
+    let newScore;
+    if (newScoreInput.startsWith('+') || newScoreInput.startsWith('-')) {
+        const diff = parseFloat(newScoreInput);
+        if (isNaN(diff)) {
+            showErrorToast('分数格式不正确');
+            return;
+        }
+        newScore = currentScore + diff;
+    } else {
+        newScore = parseFloat(newScoreInput);
+        if (isNaN(newScore)) {
+            showErrorToast('分数格式不正确');
+            return;
+        }
+    }
+    
+    // 显示确认对话框
+    const scoreDiff = newScore - currentScore;
+    const diffText = scoreDiff > 0 ? `+${scoreDiff}` : `${scoreDiff}`;
+    const diffColor = scoreDiff > 0 ? '#28a745' : '#dc3545';
+    
+    document.getElementById('adjust-confirm-message').innerHTML = `
+        <div style="font-size: 1rem; margin-bottom: 0.5rem;">
+            确认将分数调整为：
+        </div>
+        <div style="font-size: 1.5rem; font-weight: bold; color: ${diffColor}; margin: 0.8rem 0;">
+            ${currentScore} → ${newScore} (${diffText})
+        </div>
+        <div style="font-size: 0.9rem; color: #888; margin-top: 0.8rem;">
+            原因：${reason}
+        </div>
+    `;
+    
+    $('#adjustScoreModal').modal('hide');
+    $('#adjustScoreConfirmModal').modal('show');
+}
+
+function submitAdjustScore() {
+    const type = document.getElementById('adjust-score-type').value;
+    const scoreId = document.getElementById('adjust-score-id').value;
+    const currentScore = parseFloat(document.getElementById('adjust-current-score').value);
+    let newScoreInput = document.getElementById('adjust-new-score').value.trim();
+    const reason = document.getElementById('adjust-reason').value.trim();
+    
+    // 处理相对分数
+    let newScore;
+    if (newScoreInput.startsWith('+') || newScoreInput.startsWith('-')) {
+        const diff = parseFloat(newScoreInput);
+        newScore = currentScore + diff;
+    } else {
+        newScore = parseFloat(newScoreInput);
+    }
+    
+    // 发送请求
+    const formData = new FormData();
+    formData.append('type', type);
+    formData.append('score_id', scoreId);
+    formData.append('new_score', newScore);
+    formData.append('reason', reason);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    // 显示加载状态
+    const submitBtn = document.querySelector('#adjustScoreConfirmModal .btn-warning');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 处理中...';
+    
+    fetch('{% url "competition:adjust_score" competition.slug %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        
+        if (data.success) {
+            $('#adjustScoreConfirmModal').modal('hide');
+            showSuccessToast(data.message);
+            
+            // 刷新页面显示更新后的数据
+            setTimeout(() => {
+                window.location.href = window.location.pathname + '?active_tab=rankings';
+            }, 1000);
+        } else {
+            $('#adjustScoreConfirmModal').modal('hide');
+            showErrorToast(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        $('#adjustScoreConfirmModal').modal('hide');
+        showErrorToast('请求失败，请重试');
+    });
+}
+
+</script>
+{% endblock %}

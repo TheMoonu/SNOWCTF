@@ -1,0 +1,13 @@
+{{ object.title }}
+{{ object.title }}
+{{ object.title }}
+{{ object.summary }}
+{% for tag in object.tags.all %}
+{{ tag.name }}
+{% endfor %}
+{% if object.topic %}
+{{ object.topic.name }}
+{{ object.topic.subject.name }}
+{{ object.topic.subject.description }}
+{% endif %}
+{{ object.body_to_markdown }}

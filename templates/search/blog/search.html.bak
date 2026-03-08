@@ -1,0 +1,288 @@
+{# templates/search/blog/search.html #}
+{% extends 'public/base.html' %}
+{% load blog_tags oauth_tags comment_tags %}
+{% load humanize %}
+{% load highlight %}
+{% load static %}
+
+{% block head_title %}文章搜索：{{ query }}{% endblock %}
+{% block metas %}
+    <meta name="description" content="文章搜索：{{ query }}，网站全文搜索功能，按照文章标题和内容建立索引，实现整站搜索，django-haystack全文搜索库的使用">
+    <meta name="keywords" content="{{ query }},全文搜索,django-haystack">
+{% endblock %}
+
+{% block base_content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="description bg-white px-3 pt-3 pb-3 mb-3">
+                    <h1 class="f-20 mb-3"><strong>搜索：{{ query }}</strong></h1>
+                    
+                    {% if query %}
+                    {# 类型过滤标签 #}
+                    <div class="search-type-filter mb-3">
+                        <a href="?q={{ query }}&type=all" class="btn btn-sm {% if search_type == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                            全部 <span class="badge badge-light">{{ total_count }}</span>
+                        </a>
+                        <a href="?q={{ query }}&type=article" class="btn btn-sm {% if search_type == 'article' %}btn-primary{% else %}btn-outline-secondary{% endif %} ml-2">
+                            文章 <span class="badge badge-light">{{ article_count }}</span>
+                        </a>
+                        <a href="?q={{ query }}&type=challenge" class="btn btn-sm {% if search_type == 'challenge' %}btn-success{% else %}btn-outline-secondary{% endif %} ml-2">
+                            靶场题目 <span class="badge badge-light">{{ challenge_count }}</span>
+                        </a>
+                        <a href="?q={{ query }}&type=job" class="btn btn-sm {% if search_type == 'job' %}btn-warning{% else %}btn-outline-secondary{% endif %} ml-2">
+                            安全岗位 <span class="badge badge-light">{{ job_count }}</span>
+                        </a>
+                    </div>
+                    {% endif %}
+                    
+                    <p class="text-muted mb-0">
+                        {% if query %}
+                            找到 <span class="text-primary font-weight-bold">{{ paginator.count }}</span> 条结果
+                        {% else %}
+                            请输入搜索关键词
+                        {% endif %}
+                    </p>
+                </div>
+
+                {% if query %}
+                    {# 搜索结果容器 #}
+                    <div class="row" id="searchResults">
+                    <div class="snow-waterfall">
+                        <!-- 第一列 -->
+                        <div class="snow-column">
+                            {% for article in search_list %}
+                                {% if forloop.counter0|divisibleby:3 %}
+                                    <div class="snow-card" data-id="{{ article.object.id }}">
+                                        <div class="snow-card-image">
+                                            <a href="{{ article.object.get_absolute_url }}">
+                                                <img src="{{ article.object.img_link.url }}" alt="{{ article.object.title }}">
+                                            </a>
+                                        </div>
+                                        <div class="snow-card-content">
+                                            <h2 class="snow-card-title">
+                                                <a href="{{ article.object.get_absolute_url }}">
+                                                    {% my_highlight article.object.title|my_slice:':40' query|my_slice:':20' %}
+                                                </a>
+                                            </h2>
+                                            <div class="snow-card-summary">
+                                                {% with article.object.body_to_markdown|safe as this_body %}
+                                                    {% highlight this_body with query max_length 10 %}
+                                                {% endwith %}
+                                            </div>
+                                            <div class="snow-card-meta">
+                                                <div class="snow-card-tags">
+                                                    <a href="{{ article.object.category.get_absolute_url }}" class="snow-category">
+                                                        <i class="fa fa-folder-open"></i> {{ article.object.category }}
+                                                    </a>
+                                                    {% if article.object.tags.all %}
+                                                        <div class="snow-tags">
+                                                            {% for tag in article.object.tags.all %}
+                                                                <a href="{% url 'blog:tag' tag.slug %}" class="snow-tag">
+                                                                    <i class="fa fa-tag"></i> {{ tag.name }}
+                                                                </a>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="snow-author">
+                                                {% get_user_avatar_tag article.object.author %}
+                                                <a href="{% url 'public:profileViews' article.object.author.uuid %}">
+                                                    {{ article.object.author }}
+                                                </a>
+                                                <span class="snow-stats">
+                                                    <i class="fa fa-eye"></i> {{ article.object.views }}
+                                                    <i class="fa fa-comments ml-2"></i> {% get_comment_count article.object %}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- 第二列 -->
+                        <div class="snow-column">
+                            {% for article in search_list %}
+                                {% if forloop.counter0|add:1|divisibleby:3 %}
+                                    <div class="snow-card" data-id="{{ article.object.id }}">
+                                        <div class="snow-card-image">
+                                            <a href="{{ article.object.get_absolute_url }}">
+                                                <img src="{{ article.object.img_link.url }}" alt="{{ article.object.title }}">
+                                            </a>
+                                        </div>
+                                        <div class="snow-card-content">
+                                            <h2 class="snow-card-title">
+                                                <a href="{{ article.object.get_absolute_url }}">
+                                                    {% my_highlight article.object.title|my_slice:':40' query|my_slice:':20'  %}
+                                                </a>
+                                            </h2>
+                                            <div class="snow-card-summary">
+                                                {% with article.object.body_to_markdown|safe as this_body %}
+                                                    {% highlight this_body with query max_length 10 %}
+                                                {% endwith %}
+                                            </div>
+                                            <div class="snow-card-meta">
+                                                <div class="snow-card-tags">
+                                                    <a href="{{ article.object.category.get_absolute_url }}" class="snow-category">
+                                                        <i class="fa fa-folder-open"></i> {{ article.object.category }}
+                                                    </a>
+                                                    {% if article.object.tags.all %}
+                                                        <div class="snow-tags">
+                                                            {% for tag in article.object.tags.all %}
+                                                                <a href="{% url 'blog:tag' tag.slug %}" class="snow-tag">
+                                                                    <i class="fa fa-tag"></i> {{ tag.name }}
+                                                                </a>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="snow-author">
+                                                {% get_user_avatar_tag article.object.author %}
+                                                <a href="{% url 'public:profileViews' article.object.author.uuid %}">
+                                                    {{ article.object.author }}
+                                                </a>
+                                                <span class="snow-stats">
+                                                    <i class="fa fa-eye"></i> {{ article.object.views }}
+                                                    <i class="fa fa-comments ml-2"></i> {% get_comment_count article.object %}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- 第三列 -->
+                        <div class="snow-column">
+                            {% for article in search_list %}
+                                {% if forloop.counter0|add:2|divisibleby:3 %}
+                                    <div class="snow-card" data-id="{{ article.object.id }}">
+                                        <div class="snow-card-image">
+                                            <a href="{{ article.object.get_absolute_url }}">
+                                                <img src="{{ article.object.img_link.url }}" alt="{{ article.object.title }}">
+                                            </a>
+                                        </div>
+                                        <div class="snow-card-content">
+                                            <h2 class="snow-card-title">
+                                                <a href="{{ article.object.get_absolute_url }}">
+                                                    {% my_highlight article.object.title|my_slice:':40' query %}
+                                                </a>
+                                            </h2>
+                                            <div class="snow-card-summary">
+                                                {% with article.object.body_to_markdown|safe as this_body %}
+                                                    {% highlight this_body with query max_length 10 %}
+                                                {% endwith %}
+                                            </div>
+                                            <div class="snow-card-meta">
+                                                <div class="snow-card-tags">
+                                                    <a href="{{ article.object.category.get_absolute_url }}" class="snow-category">
+                                                        <i class="fa fa-folder-open"></i> {{ article.object.category }}
+                                                    </a>
+                                                    {% if article.object.tags.all %}
+                                                        <div class="snow-tags">
+                                                            {% for tag in article.object.tags.all %}
+                                                                <a href="{% url 'blog:tag' tag.slug %}" class="snow-tag">
+                                                                    <i class="fa fa-tag"></i> {{ tag.name }}
+                                                                </a>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="snow-author">
+                                                {% get_user_avatar_tag article.object.author %}
+                                                <a href="{% url 'public:profileViews' article.object.author.uuid %}">
+                                                    {{ article.object.author }}
+                                                </a>
+                                                <span class="snow-stats">
+                                                    <i class="fa fa-eye"></i> {{ article.object.views }}
+                                                    <i class="fa fa-comments ml-2"></i> {% get_comment_count article.object %}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="p-3 mt-3 bg-white"><p>暂时没有文章!</p></div>
+                {% endif %}
+
+               
+                <div id="infinite-scroll-trigger" class="text-center">
+                    <div class="snow-loading-dots">
+                        <div class="snow-dot"></div>
+                        <div class="snow-dot"></div>
+                        <div class="snow-dot"></div>
+                    </div>
+                </div>
+               
+            </div>
+            <div class="col-lg-4">
+                {% include 'blog/tags/base_right.html' %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let page = 1;
+    let loading = false;
+    const waterfall = document.querySelector('.snow-waterfall');
+    const trigger = document.querySelector('#infinite-scroll-trigger');
+    
+    // 创建观察者
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && !loading) {
+                loadMoreContent();
+            }
+        });
+    });
+
+    // 开始观察触发元素
+    if (trigger) {
+        observer.observe(trigger);
+    }
+
+    function loadMoreContent() {
+        loading = true;
+        const currentUrl = new URL(window.location.href);
+        const searchQuery = currentUrl.searchParams.get('q') || '';
+        
+        fetch(`${window.location.pathname}?q=${searchQuery}&page=${page + 1}`)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newCards = doc.querySelectorAll('.snow-card');
+                
+                if (newCards.length > 0) {
+                    // 将新卡片添加到对应的列中
+                    newCards.forEach((card, index) => {
+                        const columnIndex = index % 3;
+                        const column = waterfall.children[columnIndex];
+                        column.appendChild(card);
+                    });
+                    page++;
+                } else {
+                    // 没有更多内容，移除触发器
+                    trigger.style.display = 'none';
+                    observer.disconnect();
+                }
+                loading = false;
+            })
+            .catch(error => {
+                console.error('加载更多内容时出错:', error);
+                loading = false;
+            });
+    }
+});
+</script>
+{% endblock %}

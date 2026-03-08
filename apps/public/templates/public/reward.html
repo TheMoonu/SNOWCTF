@@ -1,0 +1,527 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% block head_title %}兑奖中心{% endblock %}
+
+{% block top-file %}
+<style>
+/* ============ 兑奖中心样式 ============ */
+.reward-page-header {
+    padding: 1.5rem 0 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.reward-page-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.user-coins-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #fff7ed;
+    color: #f59e0b;
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid #fed7aa;
+}
+
+
+/* 奖品卡片 */
+.reward-card {
+    border: 1px solid #e3e8ef;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(110, 110, 110, 0.12);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #fff;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.reward-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 32px rgba(1, 132, 255, 0.25);
+    border-color: #0184ff;
+}
+
+.reward-card.disabled {
+    opacity: 0.5;
+    filter: grayscale(0.3);
+}
+
+.reward-card.disabled:hover {
+    transform: none;
+    box-shadow: 0 4px 16px rgba(1, 132, 255, 0.12);
+}
+
+/* 图片容器 */
+.reward-image-wrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 75%; /* 4:3 比例 */
+    overflow: hidden;
+    background: #f8f9fa;
+}
+
+.reward-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.reward-card:hover .reward-image {
+    transform: scale(1.05);
+}
+
+/* 状态标签 */
+.reward-status-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    z-index: 1;
+}
+
+.reward-status-badge.sold-out {
+    background: rgba(220, 53, 69, 0.9);
+}
+
+.reward-status-badge.inactive {
+    background: rgba(108, 117, 125, 0.9);
+}
+
+/* 卡片内容 */
+.reward-card-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
+}
+
+.reward-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    min-height: 2.2em;
+    line-height: 1.4;
+}
+
+/* 元信息 */
+.reward-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+}
+
+.reward-coins {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #f59e0b;
+}
+
+.reward-coins i {
+    font-size: 1.3rem;
+}
+
+.reward-stock {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.reward-stock.low-stock {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+/* 兑换按钮 */
+.reward-exchange-btn {
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    margin-top: auto;
+}
+
+.reward-exchange-btn.btn-primary {
+    background: #0184ff;
+    color: #fff;
+}
+
+.reward-exchange-btn.btn-primary:hover:not(:disabled) {
+    background: #0070e0;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(1, 132, 255, 0.4);
+}
+
+.reward-exchange-btn:disabled {
+    background: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+/* 空状态 */
+.reward-empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.reward-empty-icon {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.reward-empty-text {
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+
+/* 模态框优化 */
+.modal-content {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    border-bottom: 1px solid #f1f3f5;
+    padding: 1.5rem;
+}
+
+.modal-title {
+    font-weight: 600;
+    color: #333;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    border-top: 1px solid #f1f3f5;
+    padding: 1rem 1.5rem;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .reward-page-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.75rem;
+        padding: 1rem 0 0.75rem;
+    }
+    
+    .reward-page-title {
+        font-size: 1.3rem;
+    }
+    
+    .reward-card-body {
+        padding: 1rem;
+    }
+    
+    .reward-title {
+        font-size: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-10 offset-lg-1">
+            <!-- 面包屑导航 -->
+          
+            
+            
+            <!-- 奖品列表 -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
+                {% for item in rewards %}
+                    <div class="reward-card {% if not item.is_active or item.stock <= 0 %}disabled{% endif %}">
+                        <div class="reward-image-wrapper">
+                            <img src="{{ item.image.url }}" class="reward-image" alt="{{ item.name }}">
+                            {% if not item.is_active %}
+                            <span class="reward-status-badge inactive">已下架</span>
+                            {% elif item.stock <= 0 %}
+                            <span class="reward-status-badge sold-out">已售罄</span>
+                            {% elif item.stock <= 5 %}
+                            <span class="reward-status-badge">仅剩{{ item.stock }}件</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="reward-card-body">
+                            <h5 class="reward-title">{{ item.name }}</h5>
+                            
+                            <div class="reward-meta">
+                                <div class="reward-coins">
+                                    <span>需{{ item.coins }}金币</span>
+                                </div>
+                                <div class="reward-stock {% if item.stock <= 5 %}low-stock{% endif %}">
+                                    <i class="fa fa-cube"></i>
+                                    <span>库存 {{ item.stock }}</span>
+                                </div>
+                            </div>
+
+                            <button class="btn reward-exchange-btn {% if user.ctfuser.coins >= item.coins and item.stock > 0 and item.is_active %}btn-primary{% endif %} exchange-btn" 
+                                    data-id="{{ item.id }}"
+                                    data-name="{{ item.name }}"
+                                    data-coins="{{ item.coins }}"
+                                    {% if user.ctfuser.coins < item.coins or item.stock <= 0 or not item.is_active %}disabled{% endif %}>
+                                {% if not item.is_active %}
+                                    <i class="fa fa-ban"></i> 已下架
+                                {% elif item.stock <= 0 %}
+                                    <i class="fa fa-times-circle"></i> 已售罄
+                                {% elif user.ctfuser.coins < item.coins %}
+                                    <i class="fa fa-lock"></i> 金币不足
+                                {% else %}
+                                    <i class="fa fa-gift"></i> 立即兑换
+                                {% endif %}
+                            </button>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="col-12">
+                        <div class="reward-empty-state" style="position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%); z-index: 1; text-align: center;">
+                            <i class="fa fa-gift mb-4 d-block" style="font-size: 80px; color: #ddd;"></i>
+                            <p class="text-muted mb-0" style="font-size: 18px; font-weight: 500;">暂无奖品，敬请期待...</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- 兑换确认弹窗 -->
+<div class="modal fade" id="exchangeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title">
+                    <i class="fa fa-gift text-primary"></i>
+                    确认兑换
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- 奖品信息 -->
+                <div class="exchange-info mb-3 p-3 bg-light rounded">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">兑换奖品：</span>
+                        <span class="font-weight-bold" id="exchangeName"></span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">消耗金币：</span>
+                        <span class="font-weight-bold text-warning">
+                            <i class="fa fa-coins"></i>
+                            <span id="exchangeCoins"></span>
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- 提示信息 -->
+                <div class="alert alert-info mb-3">
+                    <i class="fa fa-info-circle"></i>
+                    <small>
+                        请填写您的联系方式，我们会尽快处理兑换请求。
+                        <strong>兑换成功后不支持退货换货</strong>，实物类物品平台包邮。
+                    </small>
+                </div>
+                
+                <!-- 表单 -->
+                <form id="exchangeForm" data-no-loading>
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="font-weight-bold">
+                            <i class="fa fa-phone"></i> 联系方式
+                            <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" name="contact" required 
+                               placeholder="请输入手机号/QQ/微信">
+                        <small class="form-text text-muted">用于接收兑换通知和物流信息</small>
+                    </div>
+                    
+                    <!-- 验证码 -->
+                    <div class="form-group mb-0">
+                        <label class="font-weight-bold">
+                            <i class="fa fa-shield"></i> 安全验证
+                            <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="exchangeCaptchaInput" placeholder="请输入验证码" maxlength="4" required autocomplete="off">
+                            <div class="input-group-append">
+                                <img id="exchangeCaptchaImage" src="" alt="验证码" 
+                                     style="height: 38px; cursor: pointer; border: 1px solid #ced4da; border-left: 0; border-radius: 0 4px 4px 0;" 
+                                     onclick="refreshExchangeCaptcha()" 
+                                     title="点击刷新">
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">
+                            <i class="fa fa-refresh"></i> 看不清？点击验证码图片刷新
+                        </small>
+                    </div>
+                    <input type="hidden" id="exchangeCaptchaKey" name="captcha_key">
+                </form>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-dismiss="modal" data-no-loading>
+                    <i class="fa fa-times"></i> 取消
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmExchange" data-no-loading 
+                        style="background: #0184ff; border: none;">
+                    <i class="fa fa-check"></i> 确认兑换
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let currentItemId = null;
+        let currentCaptchaKey = null;
+        
+        // 刷新验证码
+        window.refreshExchangeCaptcha = function() {
+            const captchaImg = document.getElementById('exchangeCaptchaImage');
+            captchaImg.style.opacity = '0.5';
+            
+            fetch("{% url 'public:get_exchange_captcha' %}")
+                .then(response => response.json())
+                .then(data => {
+                    captchaImg.style.opacity = '1';
+                    if (data.success) {
+                        currentCaptchaKey = data.captcha_key;
+                        captchaImg.src = data.captcha_image;
+                        document.getElementById('exchangeCaptchaInput').value = '';
+                        document.getElementById('exchangeCaptchaKey').value = data.captcha_key;
+                    } else {
+                        showWarningToast('获取验证码失败');
+                    }
+                })
+                .catch(error => {
+                    captchaImg.style.opacity = '1';
+                    showWarningToast('获取验证码失败，请稍后重试');
+                });
+        };
+        
+        // 兑换按钮点击事件
+        document.querySelectorAll('.exchange-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.disabled) return;
+                
+                currentItemId = this.dataset.id;
+                document.getElementById('exchangeName').textContent = this.dataset.name;
+                document.getElementById('exchangeCoins').textContent = this.dataset.coins;
+                
+                // 清空表单
+                document.getElementById('exchangeForm').reset();
+                document.getElementById('exchangeCaptchaInput').value = '';
+                
+                // 显示模态框并加载验证码
+                $('#exchangeModal').modal('show');
+                refreshExchangeCaptcha();
+            });
+        });
+    
+        // 确认兑换
+        document.getElementById('confirmExchange').addEventListener('click', function() {
+            const form = document.getElementById('exchangeForm');
+            const captchaInput = document.getElementById('exchangeCaptchaInput').value.trim();
+            
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            if (!captchaInput) {
+                showWarningToast('请输入验证码');
+                return;
+            }
+            
+            const btn = this;
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 处理中...';
+    
+            $.ajax({
+                url: '{% url "public:exchange_reward" %}',
+                type: 'POST',
+                data: {
+                    'reward_id': currentItemId,
+                    'contact': form.querySelector('[name=contact]').value,
+                    'captcha_key': document.getElementById('exchangeCaptchaKey').value,
+                    'captcha_input': captchaInput,
+                    'csrfmiddlewaretoken': form.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        location.reload();
+                    } else {
+                        // 验证码错误，刷新验证码
+                        if (response.message && response.message.includes('验证码')) {
+                            showWarningToast(response.message);
+                            refreshExchangeCaptcha();
+                            btn.disabled = false;
+                            btn.innerHTML = originalHtml;
+                        } else {
+                            showWarningToast(response.message);
+                            location.reload();
+                        }
+                    }
+                },
+                error: function() {
+                    location.reload();
+                }
+            });
+        });
+        
+        // 模态框关闭时清空验证码
+        $('#exchangeModal').on('hidden.bs.modal', function() {
+            document.getElementById('exchangeForm').reset();
+            document.getElementById('exchangeCaptchaInput').value = '';
+            document.getElementById('exchangeCaptchaImage').src = '';
+            currentCaptchaKey = null;
+        });
+    });
+</script>
+{% endblock %}

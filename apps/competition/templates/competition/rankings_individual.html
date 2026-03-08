@@ -1,0 +1,136 @@
+{% extends 'public/base.html' %}
+{% load static %}
+{% block head_title %}{{competition.title }} - 个人排行榜{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'practice/css/practice.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block base_content %}
+
+<div class="container">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb bg-white border-0 rounded-6 py-2 f-15">
+            <li class="breadcrumb-item">
+                <i class="fa fa-home mr-1"></i><a href="{% url 'competition:CompetitionView' %}">竞赛列表</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'competition:competition_detail' competition.slug %}">{{ competition.title }}</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">个人排行榜</li>
+        </ol>
+    </nav>
+    
+    <div class="ctf-ranking-card border-0 rounded-6 mb-md-3 shadow-sm">
+        <div class="ctf-ranking-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 ctf-ranking-title">
+                    <i class="fa fa-trophy mr-2" style="color: #65b0fe;"></i>
+                    {{ competition.title }} - 个人排行榜
+                </h5>
+                {% if is_team_competition %}
+                <div class="ctf-tab-group">
+                    <a href="{% url 'competition:rankings' competition.slug 'individual' %}" 
+                       class="ctf-tab-btn ctf-tab-active">
+                        <i class="fa fa-user mr-1"></i>个人排行
+                    </a>
+                    <a href="{% url 'competition:rankings' competition.slug 'team' %}" 
+                       class="ctf-tab-btn">
+                        <i class="fa fa-users mr-1"></i>队伍排行
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="ctf-ranking-body">
+            <div class="table-responsive">
+                <table class="ctf-ranking-table">
+                    <thead>
+                        <tr>
+                            <th class="ctf-rank-col">排名</th>
+                            <th class="ctf-user-col">选手</th>
+                            <th class="ctf-score-col">解题数</th>
+                            <th class="ctf-score-col">得分</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rank in rankings %}
+                        <tr class="ctf-ranking-row">
+                            <td class="ctf-rank-col">
+                                <span class="pr-rank-number">{{ forloop.counter }}</span>
+                            </td>
+                            <td class="ctf-user-col">
+                                <div class="ctf-user-info">
+                                    {% if rank.user.avatar %}
+                                        <img src="{{ rank.user.avatar.url }}" class="ctf-user-avatar" alt="{{ rank.user.username }}">
+                                    {% else %}
+                                        <div class="ctf-user-avatar-placeholder">
+                                            <i class="fa fa-user"></i>
+                                        </div>
+                                    {% endif %}
+                                    <a href="{% url 'public:profileViews' rank.user.uuid %}" class="ctf-user-name" title="{{ rank.user.username }}">
+                                        {{ rank.user.username }}
+                                    </a>
+                                </div>
+                            </td>
+                            <td class="ctf-score-col ctf-solved-count">{{ rank.solved_challenges.count }}</td>
+                            <td class="ctf-score-col ctf-points">{{ rank.points }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="ctf-empty-message">
+                                <i class="fa fa-inbox mr-2"></i>暂无排名数据
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 分页在表格卡片底部 -->
+        {% if is_paginated %}
+        <div class="ctf-ranking-footer">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="text-muted f-14">
+                    共 {{ paginator.count }} 条记录，第 {{ page_obj.number }} / {{ paginator.num_pages }} 页
+                </div>
+                <nav aria-label="排行榜分页">
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page in paginator.page_range %}
+                            {% if page_obj.number == page %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page }}</span>
+                                </li>
+                            {% elif page == "..." %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page }}">{{ page }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

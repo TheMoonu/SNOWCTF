@@ -2,19 +2,32 @@
 
 {% load i18n %}
 
-{% block head_title %}{% trans "Sign Out" %}{% endblock %}
-{% block user_title %}{% trans "Sign Out" %}{% endblock %}
+{% block head_title %}退出登录{% endblock %}
+{% block user_title %}退出登录{% endblock %}
+{% block form_description %}确定要退出当前账号吗？{% endblock %}
 
 {% block content %}
-<p>{% trans 'Are you sure you want to sign out?' %}</p>
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    退出后您将无法访问需要登录的功能
+</div>
 
-<form method="post" action="{% url 'account_logout' %}">
+<form class="auth-form" method="post" action="{% url 'account_logout' %}">
     {% csrf_token %}
     {% if redirect_field_value %}
     <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
     {% endif %}
-    <button class="btn btn-primary btn-sm" type="submit">{% trans 'Sign Out' %}</button>
+    
+    <button class="auth-btn" type="submit">
+        <i class="bi bi-box-arrow-right me-2"></i>
+        确认退出
+    </button>
+    
+    <div class="text-center mt-3">
+        <a href="/" class="text-muted text-decoration-none">
+            <i class="bi bi-arrow-left me-1"></i>
+            返回首页
+        </a>
+    </div>
 </form>
-
-
 {% endblock %}

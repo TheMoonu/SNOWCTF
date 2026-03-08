@@ -1,0 +1,1476 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <link rel="shortcut icon" href="{% static 'public/img/favicon.ico' %}" type="image/x-icon"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ competition.title }} - 实时数据大屏</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0e27;
+            color: #fff;
+            font-family: 'PingFang SC', 'PingFang SC', 'Rajdhani', monospace, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 动态背景 */
+        .tech-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
+        }
+
+        /* 网格背景 */
+        .tech-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 1;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* 扫描线效果 */
+        .scan-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0, 255, 255, 0.8) 50%, 
+                transparent 100%);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+            z-index: 2;
+            animation: scanDown 4s linear infinite;
+        }
+
+        @keyframes scanDown {
+            0% { top: 0%; opacity: 0; }
+            5% { opacity: 1; }
+            95% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        /* 主容器 - 完全适配一屏 */
+        .dashboard-container {
+            position: relative;
+            z-index: 10;
+            width: 100vw;
+            height: 100vh;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 顶部标题栏 - 紧凑版 */
+        .tech-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            margin-bottom: 8px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .tech-title-section {
+            flex: 1;
+            text-align: center;
+        }
+
+        .tech-title {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #00f2fe 0%, #4facfe 25%, #00f2fe 50%, #4facfe 75%, #00f2fe 100%);
+            background-size: 300% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 4s linear infinite;
+            letter-spacing: 2px;
+            position: relative;
+            filter: drop-shadow(0 0 8px rgba(0, 242, 254, 0.8)) 
+                    drop-shadow(0 0 15px rgba(0, 242, 254, 0.5));
+            padding: 0 60px;
+        }
+
+        /* 标题左侧装饰线 */
+        .tech-title::before {
+            content: '━━━';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #00f2fe;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.8);
+            animation: lineGlow 2s ease-in-out infinite;
+        }
+
+        /* 标题右侧装饰线 */
+        .tech-title::after {
+            content: '━━━';
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #00f2fe;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.8);
+            animation: lineGlow 2s ease-in-out infinite 1s;
+        }
+
+        @keyframes lineGlow {
+            0%, 100% { 
+                opacity: 0.6;
+                text-shadow: 0 0 8px rgba(0, 242, 254, 0.6);
+            }
+            50% { 
+                opacity: 1;
+                text-shadow: 0 0 15px rgba(0, 242, 254, 1);
+            }
+        }
+
+        /* 移除外层装饰 */
+        .tech-title-section::before,
+        .tech-corner-right {
+            display: none;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 0% center; }
+            100% { background-position: 300% center; }
+        }
+
+        /* 标题容器 */
+        .tech-title-section {
+            position: relative;
+            padding: 12px 0;
+        }
+
+        .tech-subtitle {
+            color: #00f2fe;
+            font-size: 12px;
+            margin-top: 6px;
+            letter-spacing: 2px;
+            opacity: 0.8;
+            font-weight: 500;
+            text-transform: uppercase;
+            text-shadow: 0 0 8px rgba(0, 242, 254, 0.5);
+        }
+
+        /* 倒计时 - 紧凑版 */
+        .countdown-box {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+            background: rgba(10, 14, 39, 0.8);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 10px 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 
+                0 0 15px rgba(0, 255, 255, 0.2),
+                inset 0 0 15px rgba(0, 255, 255, 0.05);
+            min-width: 180px;
+        }
+
+        .countdown-label {
+            color: #7f9db9;
+            font-size: 11px;
+            margin-bottom: 5px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .countdown-value {
+            font-size: 24px;
+            color: #00f2fe;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.8);
+            letter-spacing: 2px;
+        }
+
+        /* 全屏按钮 - 缩小版 */
+        .fullscreen-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(10, 14, 39, 0.7);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            color: #00f2fe;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            opacity: 0.8;
+        }
+
+        .fullscreen-btn:hover {
+            background: rgba(0, 255, 255, 0.15);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            opacity: 1;
+        }
+
+        /* 连接状态指示器 - 缩小版 */
+        .connection-status {
+            position: absolute;
+            top: 10px;
+            left: 90px;
+            padding: 6px 12px;
+            background: rgba(10, 14, 39, 0.7);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 15px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0.8;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #52c41a;
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.connecting {
+            background: #ffa500;
+        }
+
+        .status-dot.disconnected {
+            background: #ff4d4f;
+            animation: none;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { box-shadow: 0 0 5px rgba(82, 196, 26, 0.5); }
+            50% { box-shadow: 0 0 15px rgba(82, 196, 26, 1); }
+        }
+
+        /* 重点数据展示区 - 隐藏以节省空间 */
+        .highlight-section {
+            display: none;
+        }
+
+        /* 重点数据卡片样式 - 已隐藏，保留代码以备后用 */
+
+        /* 统计区域 - 完全统一的样式 */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        /* 统计卡片 - 所有卡片使用相同样式 */
+        .stat-card {
+            background: rgba(10, 14, 39, 0.7);
+            border: 1px solid rgba(0, 255, 255, 0.25);
+            border-radius: 6px;
+            padding: 10px 12px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 
+                0 0 15px rgba(0, 255, 255, 0.08),
+                inset 0 0 15px rgba(0, 255, 255, 0.03);
+        }
+
+        /* 顶部流光线 */
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(0, 255, 255, 0.6), 
+                transparent);
+            animation: topLineFlow 3s ease-in-out infinite;
+        }
+
+        @keyframes topLineFlow {
+            0%, 100% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+        }
+
+        /* 悬停效果 */
+        .stat-card:hover {
+            border-color: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* 统计标签 - 统一样式 */
+        .stat-label {
+            font-size: 11px;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #7f9db9;
+            letter-spacing: 0.5px;
+        }
+
+        /* 统计数值 - 统一样式 */
+        .stat-value {
+            font-size: 20px;
+            color: #00f2fe;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+            line-height: 1.2;
+            margin-bottom: 2px;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+        }
+
+        /* 统计详情 */
+        .stat-detail {
+            font-size: 10px;
+            margin-top: 4px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        /* 数据卡片通用样式 */
+        .tech-card {
+            background: rgba(10, 14, 39, 0.7);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 10px;
+            position: relative;
+            backdrop-filter: blur(10px);
+            box-shadow: 
+                0 0 15px rgba(0, 255, 255, 0.1),
+                inset 0 0 20px rgba(0, 255, 255, 0.02);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tech-card:hover {
+            border-color: rgba(0, 255, 255, 0.5);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.3);
+        }
+
+        .card-title {
+            color: #00f2fe;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            padding-left: 10px;
+            border-left: 3px solid #00f2fe;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+
+        /* 主内容区域 - 完全自适应，一屏展示 */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 0.9fr 3fr 0.9fr;
+            grid-template-rows: 2fr 1fr;
+            gap: 10px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 左侧：排行榜 + 血榜 */
+        .left-panel {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 中间顶部：得分趋势图（核心展示） */
+        .center-top {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        /* 中间底部：分类雷达图 + 解题热力 */
+        .center-bottom {
+            grid-column: 2;
+            grid-row: 2;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        /* 右侧：最近提交 */
+        .right-panel {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 血榜样式 */
+        .blood-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .blood-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(0, 30, 60, 0.3);
+            border-left: 3px solid;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .blood-item:hover {
+            background: rgba(0, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .blood-item.first-blood {
+            border-left-color: #ff0000;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+        }
+
+        .blood-item.second-blood {
+            border-left-color: #ffa500;
+            box-shadow: 0 0 15px rgba(255, 165, 0, 0.3);
+        }
+
+        .blood-item.third-blood {
+            border-left-color: #ffff00;
+            box-shadow: 0 0 15px rgba(255, 255, 0, 0.3);
+        }
+
+        .blood-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .blood-badge.first {
+            background: linear-gradient(135deg, #ff0000, #ff6b6b);
+            animation: bloodPulse 2s ease-in-out infinite;
+        }
+
+        .blood-badge.second {
+            background: linear-gradient(135deg, #ffa500, #ffbe5c);
+        }
+
+        .blood-badge.third {
+            background: linear-gradient(135deg, #ffff00, #ffff88);
+            color: #333;
+        }
+
+        @keyframes bloodPulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(255, 0, 0, 1); }
+        }
+
+        .blood-team {
+            font-weight: 600;
+            color: #00f2fe;
+            margin-right: 10px;
+        }
+
+        .blood-challenge {
+            color: #7f9db9;
+            font-size: 13px;
+        }
+
+        .blood-time {
+            float: right;
+            color: #4facfe;
+            font-size: 12px;
+        }
+
+        /* 最近提交流动效果 */
+        .submissions-stream {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .submission-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(0, 30, 60, 0.3);
+            border-radius: 4px;
+            border-left: 3px solid transparent;
+            animation: slideIn 0.5s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .submission-item:hover {
+            background: rgba(0, 255, 255, 0.1);
+            transform: translateX(-5px);
+        }
+
+        .submission-item.success {
+            border-left-color: #52c41a;
+        }
+
+        .submission-item.wrong {
+            border-left-color: #ff4d4f;
+        }
+
+        .submission-team {
+            font-weight: 600;
+            color: #00f2fe;
+            margin-right: 10px;
+        }
+
+        .submission-challenge {
+            color: #7f9db9;
+            font-size: 13px;
+        }
+
+        .submission-time {
+            float: right;
+            color: #4facfe;
+            font-size: 12px;
+        }
+
+        .submission-points {
+            float: right;
+            margin-right: 15px;
+            color: #52c41a;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 30, 60, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 255, 0.5);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 255, 0.8);
+        }
+
+        /* 响应式 */
+        @media (max-width: 1800px) {
+            .main-grid {
+                grid-template-columns: 1fr 2.5fr 1fr;
+            }
+        }
+
+        @media (max-width: 1600px) {
+            .main-grid {
+                grid-template-columns: 1fr 2fr 1fr;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            .highlight-section {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+            .left-panel, .right-panel {
+                grid-row: auto;
+            }
+            .center-bottom {
+                grid-template-columns: 1fr;
+            }
+            .highlight-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 动态背景层 -->
+    <div class="tech-bg"></div>
+    <div class="tech-grid"></div>
+    <div class="scan-line"></div>
+
+    <!-- 主内容 -->
+    <div class="dashboard-container" id="dashboard">
+        <!-- 全屏按钮 -->
+        <button class="fullscreen-btn" id="fullscreen-toggle">进入全屏</button>
+        
+        <!-- 连接状态 -->
+        <div class="connection-status">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-text">连接中...</span>
+        </div>
+
+        <!-- 标题栏（带倒计时） -->
+        <div class="tech-header">
+            <div class="tech-title-section">
+                <h1 class="tech-title" data-text="🏆 {{ competition.title }}">🏆 {{ competition.title }} 实时数据监控</h1>
+            </div>
+            <div class="countdown-box">
+                <div class="countdown-label">⏱ 比赛倒计时</div>
+                <div class="countdown-value" id="countdown">--:--:--</div>
+            </div>
+        </div>
+
+
+        <!-- 统计区域 - 完全统一的6格布局（带图标） -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-label">👥 参赛队伍</div>
+                <div class="stat-value" id="stat-teams">0</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">📝 题目总数</div>
+                <div class="stat-value" id="stat-challenges">0</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">✅ 已解题目</div>
+                <div class="stat-value" id="stat-solved">0</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">👑 当前领先</div>
+                <div class="stat-value" id="stat-leader" style="font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">---</div>
+                <div class="stat-detail" style="color: #4facfe;" id="stat-leader-score">0 分</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">🔥 最新突破</div>
+                <div class="stat-value" id="stat-latest" style="font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">---</div>
+                <div class="stat-detail" style="color: #52c41a;" id="stat-latest-detail">等待提交...</div>
+        </div>
+
+            <div class="stat-card">
+                <div class="stat-label">⚡ 解题速度</div>
+                <div class="stat-value" id="stat-speed">0.0</div>
+                <div class="stat-detail" style="color: #7f9db9;">题/10分钟</div>
+                </div>
+            </div>
+
+        <!-- 主数据区域 -->
+        <div class="main-grid">
+            <!-- 左侧面板：排行榜 -->
+            <div class="left-panel">
+                <div class="tech-card" style="height: 100%;">
+                    <h3 class="card-title">🏆 实时排行榜</h3>
+                    <div class="chart-container" id="leaderboard-chart"></div>
+                </div>
+            </div>
+
+            <!-- 中间顶部：得分趋势图（核心展示区） -->
+            <div class="center-top">
+                <div class="tech-card" style="height: 100%;">
+                    <h3 class="card-title">📈 实时得分趋势</h3>
+                    <div class="chart-container" id="timeline-chart"></div>
+                </div>
+                </div>
+
+            <!-- 中间底部：分类雷达图 + 解题热力 -->
+            <div class="center-bottom">
+                <div class="tech-card" style="height: 100%;">
+                    <h3 class="card-title">🎯 分类完成度</h3>
+                    <div class="chart-container" id="category-chart"></div>
+                </div>
+                
+                <div class="tech-card" style="height: 100%;">
+                    <h3 class="card-title">🔥 解题热度</h3>
+                    <div class="chart-container" id="heatmap-chart"></div>
+                </div>
+            </div>
+
+            <!-- 右侧面板：最近提交 + 血榜 -->
+            <div class="right-panel">
+                <!-- 最近提交 -->
+                <div class="tech-card" style="flex: 1;">
+                    <h3 class="card-title">⚡ 实时提交</h3>
+                    <div class="submissions-stream" id="submissions-stream">
+                        <div style="text-align: center; color: #7f9db9; padding: 20px;">
+                            暂无提交
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 血榜移到右侧 -->
+                <div class="tech-card" style="flex: 0.8;">
+                    <h3 class="card-title">🩸 血榜</h3>
+                    <div class="blood-list" id="blood-list-right">
+                        <div style="text-align: center; color: #7f9db9; padding: 20px;">
+                            暂无数据
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'public/js/echarts.min.js' %}"></script>
+    <script>
+        // 全局颜色配置
+        const COLORS = {
+            primary: '#00f2fe',
+            secondary: '#4facfe',
+            success: '#52c41a',
+            warning: '#ffa500',
+            error: '#ff4d4f',
+            gradient: ['#00f2fe', '#4facfe', '#00c9ff', '#92fe9d', '#00feca',
+            '#a8edea', '#fed6e3', '#fbc2eb', '#f093fb', '#f5576c',
+            '#ffecd2', '#fcb69f', '#ff9a9e', '#fecfef', '#fda085',
+                       '#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b']
+        };
+
+        // 初始化图表（防止重复初始化）
+        let charts = null;
+        
+        function initCharts() {
+            // 清理旧的图表实例
+            if (charts) {
+                Object.values(charts).forEach(chart => {
+                    if (chart) {
+                        try {
+                            chart.dispose();
+                        } catch (e) {
+                            console.warn('清理图表失败:', e);
+                        }
+                    }
+                });
+            }
+            
+            // 创建新的图表实例
+            charts = {
+                leaderboard: echarts.init(document.getElementById('leaderboard-chart')),
+                timeline: echarts.init(document.getElementById('timeline-chart')),
+                category: echarts.init(document.getElementById('category-chart')),
+                heatmap: echarts.init(document.getElementById('heatmap-chart'))
+            };
+        }
+        
+        // 页面加载时初始化
+        initCharts();
+
+        // SSE 连接管理
+        let eventSource = null;
+        let reconnectTimeout = null;
+        let reconnectDelay = 1000;
+        const MAX_RECONNECT_DELAY = 30000;
+
+        // 更新连接状态
+        function updateConnectionStatus(status) {
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            
+            dot.className = 'status-dot';
+            switch(status) {
+                case 'connected':
+                    text.textContent = '实时连接';
+                    break;
+                case 'connecting':
+                    dot.classList.add('connecting');
+                    text.textContent = '连接中...';
+                    break;
+                case 'disconnected':
+                    dot.classList.add('disconnected');
+                    text.textContent = '连接断开';
+                    break;
+            }
+        }
+
+        // 倒计时更新
+        function updateCountdown() {
+            const now = new Date();
+            const end = new Date('{{ competition.end_time|date:"Y-m-d H:i:s" }}');
+            const diff = end - now;
+
+            const timeStr = diff <= 0 ? '已结束' : 
+                `${Math.floor(diff / (1000 * 60 * 60)).toString().padStart(2, '0')}:${Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0')}:${Math.floor((diff % (1000 * 60)) / 1000).toString().padStart(2, '0')}`;
+
+            // 更新两个倒计时显示
+            const countdownEl = document.getElementById('countdown');
+            const countdownHighlightEl = document.getElementById('countdown-highlight');
+            
+            if (countdownEl) countdownEl.textContent = timeStr;
+            if (countdownHighlightEl) countdownHighlightEl.textContent = timeStr;
+        }
+
+        // 数字跳动动画
+        function animateValue(element, newValue, suffix = '') {
+            const oldValue = parseFloat(element.textContent) || 0;
+            if (oldValue === newValue) return;
+            
+            element.classList.add('pulse');
+            setTimeout(() => element.classList.remove('pulse'), 500);
+            
+            const duration = 800;
+            const steps = 30;
+            const stepValue = (newValue - oldValue) / steps;
+            let currentStep = 0;
+            
+            const timer = setInterval(() => {
+                currentStep++;
+                const current = oldValue + stepValue * currentStep;
+                element.textContent = (typeof newValue === 'number' && newValue % 1 !== 0) 
+                    ? current.toFixed(1) + suffix 
+                    : Math.round(current) + suffix;
+                
+                if (currentStep >= steps) {
+                    clearInterval(timer);
+                    element.textContent = (typeof newValue === 'number' && newValue % 1 !== 0) 
+                        ? newValue.toFixed(1) + suffix 
+                        : newValue + suffix;
+                }
+            }, duration / steps);
+        }
+
+        // 更新统计卡片中的重点数据
+        function updateHighlightsInStats(data) {
+            // 更新领先者
+            if (data.leaderboard && data.leaderboard.length > 0) {
+                const leader = data.leaderboard[0];
+                const leaderName = leader.name.length > 10 
+                    ? leader.name.substring(0, 10) + '...' 
+                    : leader.name;
+                document.getElementById('stat-leader').textContent = leaderName;
+                document.getElementById('stat-leader-score').textContent = leader.score + ' 分';
+            }
+
+            // 更新最新突破
+            if (data.recent_submissions && data.recent_submissions.length > 0) {
+                const latest = data.recent_submissions.find(sub => sub.status === 'success');
+                if (latest) {
+                    const latestTeam = latest.team.length > 10 
+                        ? latest.team.substring(0, 10) + '...' 
+                        : latest.team;
+                    document.getElementById('stat-latest').textContent = latestTeam;
+                    document.getElementById('stat-latest-detail').textContent = 
+                        latest.challenge.substring(0, 15) + (latest.challenge.length > 15 ? '...' : '') + 
+                        ' +' + (latest.points || 0) + '分';
+                }
+            }
+
+            // 更新解题速度
+            if (data.recent_submissions) {
+                const speed = calculateSolveSpeed(data.recent_submissions);
+                document.getElementById('stat-speed').textContent = speed.toFixed(1);
+            }
+        }
+
+        // 计算解题速度（最近10分钟）
+        function calculateSolveSpeed(submissions) {
+            if (!submissions) return 0;
+            const now = new Date();
+            const tenMinutesAgo = new Date(now - 10 * 60 * 1000);
+            
+            const recentCorrect = submissions.filter(sub => {
+                // 由于time是字符串格式HH:MM:SS，我们需要用提交总数来估算
+                return sub.status === 'success';
+            });
+            
+            // 取前10个正确提交作为近期速度
+            const recentCount = Math.min(recentCorrect.length, 10);
+            return recentCount;
+        }
+
+            // 更新统计数据
+        function updateStats(stats) {
+            if (!stats) {
+                console.warn('统计数据为空');
+                return;
+            }
+            
+            animateValue(document.getElementById('stat-teams'), stats.participant_count || 0);
+            animateValue(document.getElementById('stat-challenges'), stats.total_challenges || 0);
+            
+            // 统计已解决的题目数
+            const solvedTotal = stats.solved_challenges || 0;
+            animateValue(document.getElementById('stat-solved'), solvedTotal);
+        }
+
+            // 更新排行榜
+        function updateLeaderboard(leaderboard) {
+            if (!leaderboard || leaderboard.length === 0) {
+                console.info('排行榜数据为空');
+                // 显示空数据提示
+            charts.leaderboard.setOption({
+                    graphic: {
+                        type: 'text',
+                        left: 'center',
+                        top: 'middle',
+                        style: {
+                            text: '暂无排行数据\n等待参赛者提交答案',
+                            fontSize: 16,
+                            fill: '#7f9db9',
+                            textAlign: 'center'
+                        }
+                    }
+                });
+                return;
+            }
+            
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: 'rgba(10, 14, 39, 0.95)',
+                    borderColor: '#00f2fe',
+                    borderWidth: 1,
+                    textStyle: { color: '#fff' }
+                },
+                grid: {
+                    top: '5%',
+                    left: '5%',
+                    right: '5%',
+                    bottom: '5%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#7f9db9', fontSize: 11 },
+                    axisLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.2)' } },
+                    splitLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.1)' } }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: leaderboard.map((item, idx) => {
+                        const prefix = idx === 0 ? '🥇 ' : idx === 1 ? '🥈 ' : idx === 2 ? '🥉 ' : (idx + 1) + '. ';
+                        return prefix + item.name;
+                    }),
+                    axisLabel: { color: '#7f9db9', fontSize: 11 },
+                    axisLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.2)' } }
+                },
+                series: [{
+                    name: '得分',
+                    type: 'bar',
+                    data: leaderboard.map((item, idx) => ({
+                            value: item.score,
+                            itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                { offset: 0, color: idx < 3 ? '#00d4ff' : '#00f2fe' },
+                                { offset: 1, color: idx < 3 ? '#0af' : '#4facfe' }
+                            ]),
+                            borderRadius: [0, 4, 4, 0]
+                        }
+                    })),
+                    label: {
+                        show: true,
+                        position: 'right',
+                        color: '#00f2fe',
+                        fontSize: 11,
+                        fontWeight: 'bold'
+                    }
+                }]
+            };
+            charts.leaderboard.setOption(option);
+        }
+
+        // 更新时间线
+        function updateTimeline(seriesData) {
+            const option = {
+                color: COLORS.gradient,
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross', label: { backgroundColor: '#00f2fe' } },
+                    backgroundColor: 'rgba(10, 14, 39, 0.95)',
+                    borderColor: '#00f2fe',
+                    borderWidth: 1,
+                    textStyle: { color: '#fff', fontSize: 12 }
+                },
+                legend: {
+                    data: seriesData.map(item => item.name),
+                    textStyle: { color: '#7f9db9', fontSize: 11 },
+                    top: '3%',
+                    type: 'scroll'
+                },
+                grid: {
+                    top: '18%',
+                    left: '3%',
+                    right: '3%',
+                    bottom: '5%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'time',
+                    axisLabel: {
+                        color: '#7f9db9',
+                        fontSize: 11,
+                        formatter: function (value) {
+                            const date = new Date(value);
+                            return date.getHours().toString().padStart(2, '0') + ':' +
+                                date.getMinutes().toString().padStart(2, '0');
+                        }
+                    },
+                    axisLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.2)' } },
+                    splitLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.1)' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '累计分数',
+                    nameTextStyle: { color: '#7f9db9', padding: [0, 0, 0, 30] },
+                    axisLabel: { color: '#7f9db9', fontSize: 11 },
+                    axisLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.2)' } },
+                    splitLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.1)' } }
+                },
+                series: seriesData || []
+            };
+            charts.timeline.setOption(option);
+        }
+
+        // 更新分类雷达图
+        function updateCategoryChart(categories) {
+            const option = {
+                tooltip: {
+                    backgroundColor: 'rgba(10, 14, 39, 0.95)',
+                    borderColor: '#00f2fe',
+                    textStyle: { color: '#fff' }
+                },
+                radar: {
+                    indicator: categories.map(cat => ({
+                        name: cat.category,
+                        max: cat.total
+                    })),
+                    axisName: {
+                        color: '#7f9db9',
+                        fontSize: 11
+                    },
+                    splitArea: {
+                        areaStyle: {
+                            color: ['rgba(0, 255, 255, 0.05)', 'rgba(0, 255, 255, 0.1)']
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: { color: 'rgba(0, 255, 255, 0.2)' }
+                    }
+                },
+                series: [{
+                    name: '题目完成度',
+                    type: 'radar',
+                    data: [{
+                        value: categories.map(cat => cat.solved),
+                        name: '已解决',
+                        areaStyle: {
+                            color: new echarts.graphic.RadialGradient(0.5, 0.5, 1, [
+                                { offset: 0, color: 'rgba(0, 242, 254, 0.3)' },
+                                { offset: 1, color: 'rgba(0, 242, 254, 0.05)' }
+                            ])
+                        },
+                        lineStyle: { color: '#00f2fe', width: 2 },
+                        itemStyle: { color: '#00f2fe' }
+                    }]
+                }]
+            };
+            charts.category.setOption(option);
+        }
+
+        // 更新解题热力图
+        function updateHeatmap(submissions) {
+            const hourData = new Array(24).fill(0);
+            submissions.forEach(sub => {
+                if (sub.time && sub.time.includes(':')) {
+                    const hour = parseInt(sub.time.split(':')[0]);
+                    if (!isNaN(hour)) hourData[hour]++;
+                }
+            });
+
+            const option = {
+                tooltip: {
+                    backgroundColor: 'rgba(10, 14, 39, 0.95)',
+                    borderColor: '#00f2fe',
+                    textStyle: { color: '#fff' }
+                },
+                xAxis: {
+                    type: 'category',
+                    data: Array.from({length: 24}, (_, i) => i + 'h'),
+                    axisLabel: { color: '#7f9db9', fontSize: 10 },
+                    axisLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.2)' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#7f9db9', fontSize: 10 },
+                    axisLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.2)' } },
+                    splitLine: { lineStyle: { color: 'rgba(0, 255, 255, 0.1)' } }
+                },
+                series: [{
+                    data: hourData,
+                    type: 'bar',
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#00f2fe' },
+                            { offset: 1, color: 'rgba(0, 242, 254, 0.3)' }
+                        ])
+                    }
+                }]
+            };
+            charts.heatmap.setOption(option);
+        }
+
+        // 更新血榜
+        function updateBloodList(bloods) {
+            const container = document.getElementById('blood-list-right');
+            if (!bloods || bloods.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #7f9db9; padding: 20px;">暂无数据</div>';
+                return;
+            }
+
+            // 只显示前10条，避免滚动过多
+            const displayBloods = bloods.slice(0, 10);
+            
+            container.innerHTML = displayBloods.map(blood => {
+                const badgeClass = blood.rank === 1 ? 'first' : blood.rank === 2 ? 'second' : 'third';
+                const itemClass = blood.rank === 1 ? 'first-blood' : blood.rank === 2 ? 'second-blood' : 'third-blood';
+                const badgeText = blood.rank === 1 ? '一血' : blood.rank === 2 ? '二血' : '三血';
+                
+                return `
+                    <div class="blood-item ${itemClass}">
+                        <span class="blood-badge ${badgeClass}">${badgeText}</span>
+                        <span class="blood-team">${blood.team}</span>
+                        <span class="blood-time">${blood.time}</span>
+                        <div class="blood-challenge">${blood.challenge} (+${blood.points}分)</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 更新实时提交
+        function updateSubmissionsStream(submissions) {
+            const container = document.getElementById('submissions-stream');
+            if (!submissions || submissions.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #7f9db9; padding: 20px;">暂无提交</div>';
+                return;
+            }
+
+            container.innerHTML = submissions.map(sub => `
+                <div class="submission-item ${sub.status}">
+                    <span class="submission-team">${sub.team}</span>
+                    <span class="submission-challenge">${sub.challenge}</span>
+                    ${sub.points > 0 ? `<span class="submission-points">+${sub.points}</span>` : ''}
+                    <span class="submission-time">${sub.time}</span>
+                </div>
+            `).join('');
+        }
+
+        // 更新所有数据
+        function updateAllData(data) {
+            // 更新统计数据
+            updateStats(data.stats);
+
+            // 更新重点数据（现在集成到统计卡片中）
+            updateHighlightsInStats(data);
+
+            // 更新图表
+            if (data.leaderboard && data.leaderboard.length > 0) {
+                updateLeaderboard(data.leaderboard);
+            }
+
+            if (data.series_data && data.series_data.length > 0) {
+                updateTimeline(data.series_data);
+            }
+
+            if (data.category_stats && data.category_stats.length > 0) {
+                updateCategoryChart(data.category_stats);
+            }
+
+            // 更新列表
+            if (data.recent_submissions) {
+                updateSubmissionsStream(data.recent_submissions);
+                updateHeatmap(data.recent_submissions);
+            }
+
+            // 更新血榜
+            if (data.first_bloods) {
+                updateBloodList(data.first_bloods);
+            }
+        }
+
+        // 防止重复加载
+        let isLoading = false;
+        let loadAttempts = 0;
+        const MAX_LOAD_ATTEMPTS = 3;
+        
+        // 初始加载数据
+        function loadInitialData() {
+            // 防止并发加载
+            if (isLoading) {
+                console.log('正在加载数据，跳过重复请求');
+                return;
+            }
+            
+            isLoading = true;
+            loadAttempts++;
+            updateConnectionStatus('connecting');
+            
+            fetch(`{% url 'competition:competition_dashboard_data_optimized' competition.slug %}?top_n=30&max_points=200`, {
+                method: 'GET',
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    isLoading = false;
+                    loadAttempts = 0;
+                    updateConnectionStatus('connected');
+                    
+                    // 检查数据是否有效
+                    if (data && typeof data === 'object') {
+                        updateAllData(data);
+                        
+                        // 建立SSE实时连接
+                        connectSSE();
+                    } else {
+                        console.warn('收到无效数据:', data);
+                        throw new Error('数据格式无效');
+                    }
+                })
+                .catch(error => {
+                    isLoading = false;
+                    console.error('加载数据失败:', error);
+                    updateConnectionStatus('disconnected');
+                    
+                    // 限制重试次数
+                    if (loadAttempts < MAX_LOAD_ATTEMPTS) {
+                        console.log(`${5}秒后重试 (${loadAttempts}/${MAX_LOAD_ATTEMPTS})...`);
+                        setTimeout(loadInitialData, 5000);
+                    } else {
+                        console.error('达到最大重试次数，停止加载');
+                        // 显示错误提示
+                        const statusText = document.getElementById('status-text');
+                        if (statusText) {
+                            statusText.textContent = '加载失败，请刷新页面';
+                        }
+                    }
+                });
+        }
+
+        // 连接 SSE
+        function connectSSE() {
+            // 防止重复连接
+            if (eventSource && eventSource.readyState === EventSource.OPEN) {
+                console.log('SSE 已连接，跳过重复连接');
+                return;
+            }
+            
+            // 关闭旧连接
+            if (eventSource) {
+                try {
+                    eventSource.close();
+                } catch (e) {
+                    console.warn('关闭旧 SSE 连接失败:', e);
+                }
+                eventSource = null;
+            }
+
+            console.log('建立 SSE 连接...');
+            eventSource = new EventSource(`{% url 'competition:dashboard_sse' competition.slug %}`);
+
+            eventSource.onopen = function() {
+                updateConnectionStatus('connected');
+                reconnectDelay = 1000;
+            };
+
+            eventSource.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    
+                    switch(message.type) {
+                        case 'connected':
+                            updateConnectionStatus('connected');
+                            break;
+                        case 'initial':
+                        case 'all':
+                            updateAllData(message.data);
+                            break;
+                    }
+                } catch (e) {
+                    console.error('解析 SSE 数据失败:', e);
+                }
+            };
+
+            eventSource.onerror = function() {
+                updateConnectionStatus('disconnected');
+                eventSource.close();
+                
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = setTimeout(() => {
+                    reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+                    updateConnectionStatus('connecting');
+                    connectSSE();
+                }, reconnectDelay);
+            };
+        }
+
+        // 全屏控制
+        const fullscreenBtn = document.getElementById('fullscreen-toggle');
+        fullscreenBtn.addEventListener('click', function() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                fullscreenBtn.textContent = '退出全屏';
+            } else {
+                    document.exitFullscreen();
+                fullscreenBtn.textContent = '进入全屏';
+            }
+        });
+
+        // 响应式图表
+        window.addEventListener('resize', () => {
+            Object.values(charts).forEach(chart => {
+                if (chart) chart.resize();
+            });
+        });
+
+        // 全屏变化时调整图表
+        document.addEventListener('fullscreenchange', () => {
+            setTimeout(() => {
+            Object.values(charts).forEach(chart => {
+                    if (chart) chart.resize();
+            });
+            }, 100);
+        });
+
+        // 页面卸载时清理资源
+        function cleanup() {
+            console.log('清理资源...');
+            
+            // 关闭 SSE 连接
+            if (eventSource) {
+                try {
+                    eventSource.close();
+                    eventSource = null;
+                } catch (e) {
+                    console.warn('关闭 SSE 失败:', e);
+                }
+            }
+            
+            // 清除定时器
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+            
+            // 销毁图表实例
+            if (charts) {
+                Object.values(charts).forEach(chart => {
+                    if (chart) {
+                        try {
+                            chart.dispose();
+                        } catch (e) {
+                            console.warn('销毁图表失败:', e);
+                        }
+                    }
+                });
+                charts = null;
+            }
+        }
+
+        // 页面关闭时清理
+        window.addEventListener('beforeunload', cleanup);
+        
+        // 页面隐藏时也清理（移动端）
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // 页面隐藏时关闭 SSE，节省资源
+            if (eventSource) {
+                eventSource.close();
+            }
+            } else {
+                // 页面可见时重新连接
+                if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+                    connectSSE();
+                }
+            }
+        });
+
+        // 初始化
+        updateCountdown();
+        loadInitialData();
+        setInterval(updateCountdown, 1000);
+    </script>
+</body>
+
+</html>
+

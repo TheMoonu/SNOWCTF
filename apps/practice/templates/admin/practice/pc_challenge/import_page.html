@@ -1,0 +1,364 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .import-page {
+        padding: 20px;
+    }
+    
+    .page-title {
+        font-size: 24px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    
+    .section {
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+        max-width: 600px;
+    }
+    
+    .section-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 15px;
+    }
+    
+    .info-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .info-list li {
+        padding: 6px 0;
+        color: #666;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    .info-list li:before {
+        content: "• ";
+        color: #999;
+        margin-right: 8px;
+    }
+    
+    .upload-box {
+        border: 2px dashed #d9d9d9;
+        border-radius: 4px;
+        padding: 40px;
+        text-align: center;
+        background: #fafafa;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .upload-box:hover {
+        border-color: #1890ff;
+        background: #f0f8ff;
+    }
+    
+    .upload-box.dragover {
+        border-color: #52c41a;
+        background: #f6ffed;
+    }
+    
+    .upload-icon {
+        font-size: 48px;
+        color: #999;
+        margin-bottom: 10px;
+    }
+    
+    .upload-text {
+        font-size: 16px;
+        color: #333;
+        margin-bottom: 5px;
+    }
+    
+    .upload-hint {
+        color: #999;
+        font-size: 13px;
+    }
+    
+    .file-info {
+        border: 1px solid #52c41a;
+        background: #f6ffed;
+        border-radius: 4px;
+        padding: 15px;
+        display: none;
+    }
+    
+    .file-info.show {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .file-icon {
+        font-size: 32px;
+        color: #52c41a;
+    }
+    
+    .file-details {
+        flex: 1;
+    }
+    
+    .file-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 4px;
+    }
+    
+    .file-size {
+        color: #999;
+        font-size: 12px;
+    }
+    
+    .btn-remove {
+        background: #fff;
+        border: 1px solid #d9d9d9;
+        color: #333;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+    
+    .btn-remove:hover {
+        border-color: #ff4d4f;
+        color: #ff4d4f;
+    }
+    
+    .action-bar {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn {
+        padding: 9px 15px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        border: 1px solid #dcdfe6;
+        background: #fff;
+        color: #606266;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    
+    .btn:hover {
+        color: #409eff;
+        border-color: #c6e2ff;
+        background-color: #ecf5ff;
+    }
+    
+    .btn-primary {
+        background: #409eff;
+        border-color: #409eff;
+        color: #fff;
+    }
+    
+    .btn-primary:hover {
+        background: #66b1ff;
+        border-color: #66b1ff;
+        color: #fff;
+    }
+    
+    .btn-primary:disabled {
+        background: #a0cfff;
+        border-color: #a0cfff;
+        color: #fff;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+    
+    .btn-success {
+        background: #67c23a;
+        border-color: #67c23a;
+        color: #fff;
+    }
+    
+    .btn-success:hover {
+        background: #85ce61;
+        border-color: #85ce61;
+        color: #fff;
+    }
+    
+    .warning-box {
+        background: #fffbe6;
+        border: 1px solid #ffe58f;
+        border-radius: 4px;
+        padding: 15px;
+    }
+    
+    .warning-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 10px;
+    }
+    
+    .warning-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .warning-list li {
+        padding: 4px 0;
+        color: #666;
+        font-size: 13px;
+    }
+    
+    .warning-list li:before {
+        content: "• ";
+        color: #faad14;
+        margin-right: 8px;
+    }
+    
+    #fileInput {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">主页</a>
+    &rsaquo; <a href="{% url 'admin:practice_pc_challenge_changelist' %}">题目配置</a>
+    &rsaquo; 批量导入题目
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="import-page">
+    <h1 class="page-title">批量导入题目</h1>
+    
+
+    
+    <div class="section">
+        <div class="section-title">选择文件</div>
+        
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            
+            <div class="upload-box" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">点击选择 Excel 文件</div>
+                <div class="upload-hint">或将文件拖拽到这里</div>
+            </div>
+            
+            <input type="file" 
+                   id="fileInput" 
+                   name="excel_file" 
+                   accept=".xlsx,.xls">
+            
+            <div class="file-info" id="fileInfo">
+                <div class="file-details">
+                    <div class="file-name" id="fileName"></div>
+                    <div class="file-size" id="fileSize"></div>
+                </div>
+                <button type="button" class="btn-remove" id="btnRemove">移除</button>
+            </div>
+            
+            <div class="action-bar">
+                <a href="{% url 'admin:practice_pc_challenge_changelist' %}" class="btn">返回</a>
+                <button type="submit" class="btn btn-primary" id="btnSubmit" disabled>开始导入</button>
+            </div>
+        </form>
+    </div>
+    
+</div>
+
+<script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const btnRemove = document.getElementById('btnRemove');
+    
+    uploadArea.onclick = function() {
+        fileInput.click();
+    };
+    
+    fileInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            showFileInfo(file);
+        }
+    };
+    
+    function showFileInfo(file) {
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        fileInfo.classList.add('show');
+        uploadArea.style.display = 'none';
+        btnSubmit.disabled = false;
+    }
+    
+    btnRemove.onclick = function() {
+        fileInput.value = '';
+        fileInfo.classList.remove('show');
+        uploadArea.style.display = 'block';
+        btnSubmit.disabled = true;
+    };
+    
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    
+    uploadArea.ondragover = function(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    };
+    
+    uploadArea.ondragleave = function() {
+        uploadArea.classList.remove('dragover');
+    };
+    
+    uploadArea.ondrop = function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                fileInput.files = files;
+                showFileInfo(file);
+            } else {
+                alert('请上传 Excel 文件（.xlsx 或 .xls）');
+            }
+        }
+    };
+    
+    document.getElementById('uploadForm').onsubmit = function(e) {
+        // 防止重复提交
+        if (btnSubmit.disabled) {
+            e.preventDefault();
+            return false;
+        }
+        
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = '导入中...';
+        return true;
+    };
+</script>
+{% endblock %}

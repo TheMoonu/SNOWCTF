@@ -1,0 +1,276 @@
+{% extends 'public/base.html' %}
+{% block head_title %}我的报名记录{% endblock %}
+
+{% block top-file %}
+<style>
+    .registrations-page {
+        background: #f5f7fa;
+        min-height: 100vh;
+        padding: 40px 0;
+    }
+
+    .reg-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid #e9ecef;
+        transition: all 0.3s;
+    }
+
+    .reg-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+
+    .reg-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .reg-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #212529;
+        margin-bottom: 5px;
+    }
+
+    .reg-time {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .status-pending {
+        background: #fff7e6;
+        color: #d48806;
+        border: 1px solid #ffd591;
+    }
+
+    .status-approved {
+        background: #f6ffed;
+        color: #389e0d;
+        border: 1px solid #b7eb8f;
+    }
+
+    .status-rejected {
+        background: #fff1f0;
+        color: #cf1322;
+        border: 1px solid #ffa39e;
+    }
+
+    .reg-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+
+    .reg-info-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .reg-info-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .reg-info-value {
+        color: #212529;
+        font-weight: 500;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+        .registrations-page {
+            padding: 20px 15px;
+        }
+        
+        .reg-header {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .reg-info {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="registrations-page">
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <!-- 页面标题 -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="font-weight-bold mb-0">
+                        <i class="fas fa-clipboard-list text-primary mr-2"></i>我的报名记录
+                    </h2>
+                    <a href="{% url 'quiz:quiz_list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left mr-1"></i>返回竞赛列表
+                    </a>
+                </div>
+
+                <!-- 报名记录列表 -->
+                {% if registrations %}
+                    {% for registration in registrations %}
+                    <div class="reg-card">
+                        <div class="reg-header">
+                            <div class="flex-grow-1">
+                                <div class="reg-title">
+                                    <a href="{% url 'quiz:quiz_detail' registration.quiz.slug %}" class="text-decoration-none text-dark">
+                                        {{ registration.quiz.title }}
+                                    </a>
+                                </div>
+                                <div class="reg-time">
+                                    <i class="far fa-clock mr-1"></i>
+                                    报名时间：{{ registration.created_at|date:"Y-m-d H:i" }}
+                                </div>
+                            </div>
+                            <div>
+                                {% if registration.status == 'pending' %}
+                                    <span class="status-badge status-pending">
+                                        <i class="fas fa-hourglass-half mr-1"></i>待审核
+                                    </span>
+                                {% elif registration.status == 'approved' %}
+                                    <span class="status-badge status-approved">
+                                        <i class="fas fa-check-circle mr-1"></i>已通过
+                                    </span>
+                                {% else %}
+                                    <span class="status-badge status-rejected">
+                                        <i class="fas fa-times-circle mr-1"></i>已拒绝
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="reg-info">
+                            {% if registration.name %}
+                            <div class="reg-info-item">
+                                <i class="fas fa-user text-muted"></i>
+                                <span class="reg-info-label">姓名：</span>
+                                <span class="reg-info-value">{{ registration.name }}</span>
+                            </div>
+                            {% endif %}
+                            
+                            {% if registration.student_id %}
+                            <div class="reg-info-item">
+                                <i class="fas fa-id-card text-muted"></i>
+                                <span class="reg-info-label">学号/工号：</span>
+                                <span class="reg-info-value">{{ registration.student_id }}</span>
+                            </div>
+                            {% endif %}
+                            
+                            {% if registration.role %}
+                            <div class="reg-info-item">
+                                <i class="fas fa-building text-muted"></i>
+                                <span class="reg-info-label">学院/部门：</span>
+                                <span class="reg-info-value">{{ registration.role }}</span>
+                            </div>
+                            {% endif %}
+                            
+                            {% if registration.phone %}
+                            <div class="reg-info-item">
+                                <i class="fas fa-phone text-muted"></i>
+                                <span class="reg-info-label">联系方式：</span>
+                                <span class="reg-info-value">{{ registration.phone }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center">
+                            <div class="text-muted small">
+                                {% if registration.status == 'approved' %}
+                                    <i class="fas fa-info-circle mr-1"></i>您可以开始参加竞赛了
+                                {% elif registration.status == 'pending' %}
+                                    <i class="fas fa-info-circle mr-1"></i>请耐心等待管理员审核
+                                {% else %}
+                                    <i class="fas fa-info-circle mr-1"></i>您的报名未通过审核
+                                {% endif %}
+                            </div>
+                            <a href="{% url 'quiz:quiz_detail' registration.quiz.slug %}" class="btn btn-sm btn-outline-primary">
+                                查看竞赛详情
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- 分页 -->
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="报名记录分页" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+
+                {% else %}
+                    <!-- 空状态 -->
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="empty-state">
+                                <div class="empty-icon">
+                                    <i class="far fa-clipboard"></i>
+                                </div>
+                                <h5 class="font-weight-bold mb-2">暂无报名记录</h5>
+                                <p class="text-muted mb-4">您还没有报名参加任何竞赛</p>
+                                <a href="{% url 'quiz:quiz_list' %}" class="btn btn-primary">
+                                    <i class="fas fa-search mr-1"></i>浏览竞赛
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,153 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% block head_title %}{{ city.name }}招聘_安全岗位{% endblock %}
+
+
+
+{% block base_content %}
+<div class="container">
+    <!-- 城市头部 -->
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+            <li class="breadcrumb-item">
+                <i class="fa fa-home mr-1"></i><a href="{% url 'recruit:job_list' %}">岗位列表</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">{{ city.name }}招聘</li>
+        </ol>
+    </nav>
+    <div class="city-header">
+        <div class="container">
+            <h1 class="mb-0"><i class="fa fa-map-marker-alt mr-2"></i>{{ city.name }}</h1>
+            <div class="city-stats">
+                <div class="city-stat-item">
+                    <div class="city-stat-number">{{ total_jobs }}</div>
+                    <div class="city-stat-label">在招职位</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 城市简介 -->
+    {% if city.description != '暂无描述' %}
+    <div class="city-description">
+        <h5 class="text-primary mb-3"><i class="fa fa-info-circle mr-2"></i>城市简介</h5>
+        <p class="mb-0">{{ city.description }}</p>
+    </div>
+    {% endif %}
+
+    <!-- 职位列表 -->
+    <div class="mb-4">
+        <h4 class="text-primary mb-3">
+            <i class="fa fa-briefcase mr-2"></i>{{ city.name }}的安全岗位
+            <small class="text-muted">(共{{ total_jobs}}个)</small>
+        </h4>
+    </div>
+
+    <div class="row">
+        {% for job in jobs %}
+        <div class="col-lg-6 mb-4">
+            <div class="h-100 card recruit-job-card border-0 rounded-6 recruit-job-card-clickable" 
+                 data-url="{% url 'recruit:jobdetail' job.slug %}" 
+                 style="cursor: pointer;">
+                <div class="card-body d-flex flex-column">
+                    <!-- 标题 + 薪资 -->
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0" style="flex: 1; padding-right: 1rem;">{{ job.title }}</h5>
+                        <span class="badge recruit-salary-badge">{{ job.salary_desc }}</span>
+                    </div>
+
+                    <!-- 元信息 -->
+                    <div class="recruit-job-meta mb-3">
+                        <span>{{ job.get_RecruitmentType_display }}</span>
+                        <span class="recruit-job-meta-separator">|</span>
+                        <span>{{ job.get_track_display }}</span>
+                        
+                        {% for company in job.companyname.all %}
+                        <span class="recruit-job-meta-separator">|</span>
+                        <span>
+                            <i class="fa fa-building mr-1"></i>
+                            <a href="{{ company.get_absolute_url }}" class="recruit-link-hover" onclick="event.stopPropagation();">{{ company.company_name }}</a>
+                        </span>
+                        {% endfor %}
+                        
+                        {% if job.address %}
+                        <span class="recruit-job-meta-separator">|</span>
+                        <span><i class="fa fa-link mr-1"></i>{{ job.address }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 技能标签 -->
+                    <div class="mb-3">
+                        {% for tag in job.page_keywords.all %}
+                        <span class="recruit-skill-tag mr-2 mb-2">{{ tag.name }}</span>
+                        {% empty %}
+                        <span class="text-muted small">暂无标签</span>
+                        {% endfor %}
+                    </div>
+
+                    <!-- 描述 -->
+                    <p class="card-text text-muted flex-grow-1 small mb-3">
+                        {{ job.description|striptags|truncatechars:120 }}
+                    </p>
+
+                    <!-- 底部 -->
+                    <div class="mt-auto">
+                        <small class="recruit-deadline">
+                            <i class="far fa-clock mr-1"></i>截止：{{ job.expire_at|date:'Y-m-d' }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center">
+            <div class="recruit-empty-state">
+                <i class="fa fa-inbox mb-3"></i>
+                <div class="recruit-empty-text">该城市暂无在招职位</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+<script>
+// 岗位卡片点击事件
+document.addEventListener('DOMContentLoaded', function() {
+    const jobCards = document.querySelectorAll('.recruit-job-card-clickable');
+    jobCards.forEach(function(card) {
+        card.addEventListener('click', function(e) {
+            // 如果点击的是链接，不触发卡片跳转
+            if (e.target.tagName === 'A' || e.target.closest('a')) {
+                return;
+            }
+            
+            const url = this.dataset.url;
+            if (url) {
+                window.location.href = url;
+            }
+        });
+        
+        // 添加hover效果
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-4px)';
+            this.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)';
+            this.style.transition = 'all 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+});
+</script>
+
+    <!-- 分页 -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="mt-2 mb-3">
+        {% include 'public/tags/pagecut.html' %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

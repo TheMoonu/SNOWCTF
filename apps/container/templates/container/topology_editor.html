@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>综合题目编排 - {{ topology.name }}</title>
+    <link rel="stylesheet" href="{% static 'container/css/topology.css' %}">
+    <script src="{% static 'container/js/cytoscape.min.js' %}"></script>
+</head>
+<body>
+    <!--  自定义模态框 -->
+    <div id="customModal" class="custom-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-icon" id="modalIcon">⚠️</div>
+                <div class="modal-title" id="modalTitle">提示</div>
+            </div>
+            <div class="modal-body" id="modalBody">
+                这是一条提示信息
+            </div>
+            <div class="modal-footer" id="modalFooter">
+                <button class="modal-btn modal-btn-cancel" onclick="hideModal()">取消</button>
+                <button class="modal-btn modal-btn-confirm" onclick="confirmModal()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 左侧镜像列表 -->
+        <div class="sidebar" id="sidebar">
+            <h3>📦 可用镜像</h3>
+            <div class="help-text" style="margin-bottom: 10px;">拖拽镜像到画布创建节点</div>
+            
+            <!-- 搜索框 -->
+            <div class="form-group" style="margin-bottom: 15px;">
+                <input type="text" id="image-search" placeholder="🔍 搜索镜像名称..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div id="image-list">
+                {% for image in docker_images %}
+                <div class="image-item" draggable="true" data-image-id="{{ image.id }}" data-image-name="{{ image.name }}" data-image-tag="{{ image.tag }}" data-search-text="{{ image.name|lower }} {{ image.category|lower }}" title="{{ image.name }}:{{ image.tag|default:'latest' }}">
+                    <div class="image-name" title="{{ image.name }}">{{ image.name }}</div>
+                    <div class="image-tag" title="{{ image.tag|default:'latest' }} • {{ image.category }}">{{ image.tag|default:"latest" }} • {{ image.category }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 中间画布 -->
+        <div class="canvas-area">
+            <div class="toolbar">
+                <h2>{{ topology.name }}</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <!--  撤销/重做按钮 -->
+                    <span id="unsaved-indicator" style="display: none; color: #ff9800; font-size: 14px; font-weight: bold;">
+                        ● 有未保存的更改
+                    </span>
+                    <button class="btn btn-undo" id="undoBtn" onclick="undo()" disabled title="撤销 (Ctrl+Z)">
+                        ↶ 撤销
+                    </button>
+                    <button class="btn btn-redo" id="redoBtn" onclick="redo()" disabled title="重做 (Ctrl+Y)">
+                        ↷ 恢复
+                    </button>
+                    <span style="color: #ddd; margin: 0 5px;">|</span>
+                    
+                    
+                    <button class="btn btn-primary" onclick="clearCanvas()">清空画布</button>
+                    <button class="btn btn-success" onclick="saveTopology()">保存拓扑</button>
+                    
+                </div>
+            </div>
+            <div id="cy">
+                <!-- 缩放控制按钮 -->
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomIn()" title="放大 (Ctrl + +)">+</button>
+                    <div class="zoom-level" id="zoomLevel">100%</div>
+                    <button class="zoom-btn" onclick="zoomOut()" title="缩小 (Ctrl + -)">−</button>
+                    <button class="zoom-btn" onclick="zoomFit()" title="适应画布 (Ctrl + 0)" style="font-size: 14px;">⊡</button>
+                    <button class="zoom-btn" onclick="zoomReset()" title="重置缩放 (Ctrl + 1)" style="font-size: 16px;">⊙</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧属性面板 -->
+        <div class="properties" id="properties">
+            <h3>属性编辑</h3>
+            <div id="node-properties">
+                <p class="help-text">点击节点或连接线查看属性</p>
+                <div style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-size: 11px;">
+                    <strong>💡 使用提示：</strong><br>
+                    • 使用搜索框过滤镜像<br>
+                    • 拖拽镜像创建节点<br>
+                    • Shift+点击创建连接<br>
+                    • Delete键删除元素<br>
+                    • 支持15种协议配置<br>
+                    • 支持10种网络区域<br><br>
+                    <strong style="color: #2e7d32;">🔒 网络策略说明：</strong><br>
+                    • <span style="color: #2e7d32;">✓ 连线的节点自动互通</span><br>
+                    • 网络策略仅控制外网访问<br>
+                    • 支持反弹shell场景配置
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        //  全局状态管理
+        let hasUnsavedChanges = false;  // 是否有未保存的更改
+        const TOPOLOGY_ID = {{ topology.id }};
+        const AUTO_SAVE_KEY = `topology_autosave_${TOPOLOGY_ID}`;
+        const AUTO_SAVE_INTERVAL = 30000;  // 30秒自动保存一次
+        let autoSaveTimer = null;
+        
+        //  历史记录管理
+        const MAX_HISTORY = 50;  // 最多保存50步历史
+        let historyStack = [];  // 历史记录栈
+        let historyIndex = -1;  // 当前历史位置
+        let isUndoRedoing = false;  // 标记是否正在执行撤销/重做，避免重复记录
+        
+        // 初始化Cytoscape
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+            wheelSensitivity: 0.2,  // 鼠标滚轮缩放灵敏度（降低）
+            minZoom: 0.3,  // 最小缩放（30%）
+            maxZoom: 3,    // 最大缩放（300%）
+            zoom: 1,       // 初始缩放100%
+            pan: { x: 0, y: 0 },  // 初始位置
+            autoungrabify: false,  // 允许拖动节点
+            autounselectify: false,  // 允许选择
+            boxSelectionEnabled: true,  // 允许框选
+            motionBlur: false,  // 禁用动画模糊（减少抖动）
+            textureOnViewport: false,  // 禁用视口纹理（提升性能）
+            pixelRatio: 'auto',  // 自动像素比
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '70px',
+                        'background-color': 'data(bgColor)',
+                        'border-width': 2,
+                        'border-color': '#90a4ae',
+                        'width': 100,
+                        'height': 100,
+                        'font-size': 13,
+                        'font-weight': 'bold',
+                        'color': '#333',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#fff',
+                        'shadow-blur': 10,
+                        'shadow-color': '#00000020',
+                        'shadow-offset-x': 0,
+                        'shadow-offset-y': 2
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'line-color': '#b0bec5',
+                        'target-arrow-color': '#b0bec5',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier',
+                        'label': 'data(label)',
+                        'font-size': 11,
+                        'text-rotation': 'autorotate',
+                        'color': '#546e7a',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#fff'
+                    }
+                },
+                {
+                    selector: ':selected',
+                    style: {
+                        'border-width': 3,
+                        'border-color': '#42a5f5',
+                        'shadow-blur': 20,
+                        'shadow-color': '#2196f3',
+                        'shadow-opacity': 0.5
+                    }
+                }
+            ],
+            layout: { name: 'preset' }
+        });
+
+        // 加载已保存的拓扑数据（带容错处理）
+        let savedData = null;
+        try {
+            savedData = {{ topology_data_json|safe }};
+        } catch (e) {
+            console.warn('拓扑数据解析失败，使用空画布:', e);
+            savedData = {};
+        }
+        
+        //  检查是否有未保存的本地草稿（异步处理）
+        let hasLocalDraft = false;
+        const localDraft = localStorage.getItem(AUTO_SAVE_KEY);
+        let draftProcessed = false;
+        
+        if (localDraft) {
+            try {
+                const draftData = JSON.parse(localDraft);
+                const draftTime = new Date(draftData.timestamp);
+                const timeDiff = Date.now() - draftTime.getTime();
+                
+                // 如果草稿在24小时内，询问是否恢复
+                if (timeDiff < 24 * 60 * 60 * 1000) {
+                    const minutes = Math.floor(timeDiff / 60000);
+                    const hours = Math.floor(minutes / 60);
+                    const timeStr = hours > 0 ? `${hours}小时前` : `${minutes}分钟前`;
+                    
+                    draftProcessed = true;
+                    
+                    //  先加载服务器数据，再询问是否恢复草稿
+                    setTimeout(async () => {
+                        // 先加载服务器数据到画布
+                        loadTopologyData();
+                        
+                        // 等待画布加载完成后再显示弹窗
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                        
+                        const shouldRestore = await showModal({
+                            type: 'info',
+                            title: '发现未保存的草稿',
+                            message: `
+                                <div style="line-height: 1.8;">
+                                    <p>📦 <strong>草稿信息：</strong></p>
+                                    <ul style="margin: 10px 0; padding-left: 20px;">
+                                        <li>保存时间：${timeStr}</li>
+                                        <li>节点数量：${draftData.nodes_count || 0} 个</li>
+                                    </ul>
+                                    <p style="color: #666; font-size: 14px;">
+                                        点击"恢复草稿"继续编辑，或点击"加载服务器数据"使用最后保存的版本
+                                    </p>
+                                </div>
+                            `,
+                            confirmText: '恢复草稿',
+                            cancelText: '加载服务器数据',
+                            confirmType: 'confirm'
+                        });
+                        
+                        if (shouldRestore) {
+                            // 恢复草稿
+                            const restoredData = draftData.data;
+                            if (restoredData && restoredData.elements) {
+                                cy.elements().remove();  // 先清空
+                                cy.json({ elements: restoredData.elements });
+                                hasUnsavedChanges = true;
+                                const indicator = document.getElementById('unsaved-indicator');
+                                if (indicator) indicator.style.display = 'inline';
+                                showMessage('已恢复本地草稿，记得保存！', 'warning');
+                                console.log('✓ 已恢复本地草稿');
+                                
+                                // 立即恢复草稿的视图状态
+                                if (restoredData.zoom !== undefined && restoredData.pan !== undefined) {
+                                    // 恢复保存的缩放和位置
+                                    cy.zoom(restoredData.zoom);
+                                    cy.pan(restoredData.pan);
+                                    console.log(`✓ 已恢复草稿视图状态: 缩放=${Math.round(restoredData.zoom * 100)}%`);
+                                } else {
+                                    // 如果草稿没有视图状态，智能适应
+                                    const nodeCount = cy.nodes().length;
+                                    if (nodeCount > 0) {
+                                        cy.fit(cy.nodes(), 80);
+                                        const currentZoom = cy.zoom();
+                                        if (currentZoom < 0.5) {
+                                            cy.zoom(0.5);
+                                        } else if (currentZoom > 1.5) {
+                                            cy.zoom(1.5);
+                                        }
+                                    }
+                                }
+                                updateZoomLevel();
+                            }
+                        } else {
+                            // 用户选择不恢复，清除草稿，保持服务器数据
+                            localStorage.removeItem(AUTO_SAVE_KEY);
+                            showMessage('已加载服务器数据', 'success');
+                            console.log('✓ 已清除本地草稿，保持服务器数据');
+                        }
+                    }, 100);  // 延迟100ms确保页面完全加载
+                } else {
+                    // 草稿过期，自动清除
+                    localStorage.removeItem(AUTO_SAVE_KEY);
+                }
+            } catch (e) {
+                console.warn('本地草稿解析失败:', e);
+                localStorage.removeItem(AUTO_SAVE_KEY);
+            }
+        }
+        
+        // 加载数据到画布
+        function loadTopologyData() {
+            if (savedData && savedData.elements) {
+                // 新格式: { elements: { nodes: [...], edges: [...] }, zoom, pan }
+                try {
+                    cy.json({ elements: savedData.elements });
+                    const nodeCount = savedData.elements.nodes ? savedData.elements.nodes.length : 0;
+                    console.log(`已加载拓扑数据${hasLocalDraft ? '(本地草稿)' : ''}: ${nodeCount} 个节点`);
+                    if (hasLocalDraft) {
+                        showMessage('已恢复本地草稿，记得保存！', 'warning');
+                        hasUnsavedChanges = true;
+                    }
+                    
+                    // 立即恢复保存的缩放和位置（不延迟）
+                    if (savedData.zoom !== undefined && savedData.pan !== undefined) {
+                        // 如果保存了缩放和位置，直接恢复
+                        cy.zoom(savedData.zoom);
+                        cy.pan(savedData.pan);
+                        console.log(`✓ 已恢复视图状态: 缩放=${Math.round(savedData.zoom * 100)}%`);
+                    } else if (nodeCount > 0) {
+                        // 如果没有保存的视图状态，智能适应画布
+                        cy.fit(cy.nodes(), 80);
+                        const currentZoom = cy.zoom();
+                        if (currentZoom < 0.5) {
+                            cy.zoom(0.5);
+                        } else if (currentZoom > 1.5) {
+                            cy.zoom(1.5);
+                        }
+                    }
+                    updateZoomLevel();
+                    
+                    // 显示画布（淡入效果）
+                    document.getElementById('cy').classList.add('loaded');
+                } catch (e) {
+                    console.error('加载拓扑数据失败:', e);
+                    document.getElementById('cy').classList.add('loaded');
+                }
+            } else if (savedData && savedData.nodes) {
+                // 旧格式兼容: { nodes: [...], edges: [...] }
+                try {
+                    cy.json({ elements: savedData });
+                    const nodeCount = savedData.nodes ? savedData.nodes.length : 0;
+                    console.log('已加载拓扑数据(旧格式): ' + nodeCount + ' 个节点');
+                    
+                    // 旧格式没有保存视图状态，智能适应
+                    if (nodeCount > 0) {
+                        cy.fit(cy.nodes(), 80);
+                        const currentZoom = cy.zoom();
+                        if (currentZoom < 0.5) {
+                            cy.zoom(0.5);
+                        } else if (currentZoom > 1.5) {
+                            cy.zoom(1.5);
+                        }
+                    }
+                    updateZoomLevel();
+                    
+                    // 显示画布
+                    document.getElementById('cy').classList.add('loaded');
+                } catch (e) {
+                    console.error('加载拓扑数据失败:', e);
+                    document.getElementById('cy').classList.add('loaded');
+                }
+            } else {
+                console.log('空拓扑画布，开始编排');
+                // 显示画布
+                document.getElementById('cy').classList.add('loaded');
+            }
+        }
+        
+        // 如果没有草稿需要处理，直接加载数据
+        if (!draftProcessed) {
+            setTimeout(loadTopologyData, 50);
+        }
+        
+        //  保存初始状态到历史记录（延迟到数据加载完成后）
+        setTimeout(() => {
+            saveHistory();
+            console.log('✓ 已保存初始状态');
+        }, 150);
+        
+        //  检测屏幕尺寸并显示提示
+        function checkScreenSize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            if (width < 768) {
+                console.warn('⚠️ 检测到小屏幕设备（宽度: ' + width + 'px）');
+                console.log('💡 建议使用横屏模式以获得更好的编辑体验');
+                
+                // 如果是竖屏且宽度小于640px，显示一次性提示
+                if (width < 640 && height > width) {
+                    setTimeout(() => {
+                        const shouldShowTip = localStorage.getItem('topology_mobile_tip_shown') !== 'true';
+                        if (shouldShowTip) {
+                            showMessage('💡 建议横屏使用以获得更好体验', 'info');
+                            localStorage.setItem('topology_mobile_tip_shown', 'true');
+                        }
+                    }, 1000);
+                }
+            }
+        }
+        
+        // 页面加载时检测
+        checkScreenSize();
+        
+        // 监听屏幕旋转
+        window.addEventListener('resize', function() {
+            // 调整画布大小
+            cy.resize();
+        });
+
+        //  自动保存到浏览器
+        function autoSaveToLocal() {
+            try {
+                const currentData = cy.json();
+                const saveData = {
+                    timestamp: new Date().toISOString(),
+                    nodes_count: currentData.elements.nodes.length,
+                    data: {
+                        elements: currentData.elements,
+                        zoom: cy.zoom(),  // 保存缩放
+                        pan: cy.pan()     // 保存平移位置
+                    }
+                };
+                localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(saveData));
+                console.log('✓ 自动保存到浏览器: ' + saveData.nodes_count + ' 个节点');
+            } catch (e) {
+                console.error('自动保存失败:', e);
+            }
+        }
+        
+        //  标记有未保存更改并启动自动保存
+        function markAsChanged() {
+            if (!hasUnsavedChanges) {
+                hasUnsavedChanges = true;
+                // 显示未保存指示器
+                const indicator = document.getElementById('unsaved-indicator');
+                if (indicator) {
+                    indicator.style.display = 'inline';
+                }
+                console.log('检测到更改，已标记为未保存状态');
+            }
+            
+            // 重置自动保存定时器
+            if (autoSaveTimer) {
+                clearTimeout(autoSaveTimer);
+            }
+            autoSaveTimer = setTimeout(() => {
+                autoSaveToLocal();
+            }, AUTO_SAVE_INTERVAL);
+        }
+        
+        //  清除未保存标记和本地草稿
+        function clearUnsavedState() {
+            hasUnsavedChanges = false;
+            localStorage.removeItem(AUTO_SAVE_KEY);
+            if (autoSaveTimer) {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = null;
+            }
+            // 隐藏未保存指示器
+            const indicator = document.getElementById('unsaved-indicator');
+            if (indicator) {
+                indicator.style.display = 'none';
+            }
+            console.log('✓ 已清除未保存状态和本地草稿');
+        }
+        
+        //  保存当前状态到历史记录（包含视图状态）
+        function saveHistory() {
+            if (isUndoRedoing) return;  // 撤销/重做时不保存历史
+            
+            const currentState = cy.json();
+            // 添加视图状态
+            const stateWithView = {
+                elements: currentState.elements,
+                zoom: cy.zoom(),
+                pan: cy.pan()
+            };
+            
+            // 如果当前不在历史栈顶部，删除后面的所有记录
+            if (historyIndex < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+            }
+            
+            // 添加新状态
+            historyStack.push(JSON.stringify(stateWithView));
+            
+            // 限制历史记录数量
+            if (historyStack.length > MAX_HISTORY) {
+                historyStack.shift();
+            } else {
+                historyIndex++;
+            }
+            
+            // 更新按钮状态
+            updateUndoRedoButtons();
+            
+            console.log(`💾 保存历史 [${historyIndex + 1}/${historyStack.length}]`);
+        }
+        
+        //  撤销操作（恢复视图状态）
+        function undo() {
+            if (historyIndex > 0) {
+                isUndoRedoing = true;
+                historyIndex--;
+                const state = JSON.parse(historyStack[historyIndex]);
+                
+                // 恢复元素
+                if (state.elements) {
+                    cy.json({ elements: state.elements });
+                } else {
+                    cy.json(state);  // 兼容旧格式
+                }
+                
+                // 恢复视图状态
+                if (state.zoom !== undefined && state.pan !== undefined) {
+                    cy.zoom(state.zoom);
+                    cy.pan(state.pan);
+                }
+                
+                isUndoRedoing = false;
+                updateUndoRedoButtons();
+                updateZoomLevel();
+                markAsChanged();
+            }
+        }
+        
+        //  重做操作（恢复视图状态）
+        function redo() {
+            if (historyIndex < historyStack.length - 1) {
+                isUndoRedoing = true;
+                historyIndex++;
+                const state = JSON.parse(historyStack[historyIndex]);
+                
+                // 恢复元素
+                if (state.elements) {
+                    cy.json({ elements: state.elements });
+                } else {
+                    cy.json(state);  // 兼容旧格式
+                }
+                
+                // 恢复视图状态
+                if (state.zoom !== undefined && state.pan !== undefined) {
+                    cy.zoom(state.zoom);
+                    cy.pan(state.pan);
+                }
+                
+                isUndoRedoing = false;
+                updateUndoRedoButtons();
+                updateZoomLevel();
+                markAsChanged();
+            }
+        }
+        
+        //  更新撤销/重做按钮状态
+        function updateUndoRedoButtons() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            
+            if (undoBtn) {
+                undoBtn.disabled = historyIndex <= 0;
+            }
+            if (redoBtn) {
+                redoBtn.disabled = historyIndex >= historyStack.length - 1;
+            }
+        }
+        
+        // 网络区域颜色映射（浅色背景，深色文字）
+        const zoneColors = {
+            'DMZ': '#ffcdd2',
+            'OFFICE': '#bbdefb',
+            'INTRANET': '#e1bee7',
+            'DATABASE': '#ffe0b2',
+            'INTERNET': '#c8e6c9',
+            'FIREWALL': '#ffccbc',
+            'GATEWAY': '#b2dfdb',
+            'VPN': '#d1c4e9',
+            'WAF': '#f8bbd0',
+            'IDS_IPS': '#fff9c4'
+        };
+
+        // 镜像搜索功能
+        const imageSearch = document.getElementById('image-search');
+        const imageItems = document.querySelectorAll('.image-item');
+        
+        imageSearch.addEventListener('input', function(e) {
+            const searchText = e.target.value.toLowerCase().trim();
+            let visibleCount = 0;
+            
+            imageItems.forEach(item => {
+                const itemText = item.dataset.searchText || '';
+                if (searchText === '' || itemText.includes(searchText)) {
+                    item.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // 显示搜索结果数量
+            if (searchText !== '') {
+                console.log(`搜索 "${searchText}"，找到 ${visibleCount} 个镜像`);
+            }
+        });
+        
+        // 拖拽功能
+        imageItems.forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('imageId', item.dataset.imageId);
+                e.dataTransfer.setData('imageName', item.dataset.imageName);
+                e.dataTransfer.setData('imageTag', item.dataset.imageTag);
+                //  添加拖拽样式
+                item.classList.add('dragging');
+            });
+            
+            item.addEventListener('dragend', (e) => {
+                //  移除拖拽样式
+                item.classList.remove('dragging');
+            });
+        });
+
+        document.getElementById('cy').addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        document.getElementById('cy').addEventListener('drop', (e) => {
+            e.preventDefault();
+            const imageId = e.dataTransfer.getData('imageId');
+            const imageName = e.dataTransfer.getData('imageName');
+            const imageTag = e.dataTransfer.getData('imageTag');
+            
+            // 自动缩短长标签
+            let displayLabel = imageName;
+            if (displayLabel.length > 15) {
+                displayLabel = displayLabel.substring(0, 12) + '...';
+            }
+            
+            const nodeId = 'node-' + Date.now();
+            const rect = document.getElementById('cy').getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            cy.add({
+                group: 'nodes',
+                data: {
+                    id: nodeId,
+                    label: displayLabel,
+                    imageId: imageId,
+                    imageName: imageName,
+                    imageTag: imageTag,
+                    networkZone: 'INTRANET',
+                    isEntryPoint: false,
+                    isTarget: false,
+                    bgColor: zoneColors['INTRANET'],
+                    // 默认网络策略：完全隔离（最安全）
+                    networkPolicy: 'ISOLATED',
+                    allowReverseShell: false,
+                    egressWhitelist: ''
+                },
+                position: { x: x, y: y }
+            });
+            
+            //  标记有未保存的更改
+            markAsChanged();
+            //  保存到历史记录
+            saveHistory();
+        });
+
+        // 节点点击事件
+        cy.on('tap', 'node', function(evt) {
+            const node = evt.target;
+            showNodeProperties(node);
+        });
+
+        // 连接线点击事件
+        cy.on('tap', 'edge', function(evt) {
+            const edge = evt.target;
+            showEdgeProperties(edge);
+        });
+
+        // 双击空白处添加连接线
+        let firstNode = null;
+        cy.on('tap', 'node', function(evt) {
+            const node = evt.target;
+            if (evt.originalEvent.shiftKey) {
+                if (!firstNode) {
+                    firstNode = node;
+                    node.style('border-color', '#ff5722');
+                    node.style('border-width', 4);
+                } else {
+                    const edgeId = 'edge-' + Date.now();
+                    cy.add({
+                        group: 'edges',
+                        data: {
+                            id: edgeId,
+                            source: firstNode.id(),
+                            target: node.id(),
+                            label: 'TCP'
+                        }
+                    });
+                    firstNode.style('border-color', '#90a4ae');
+                    firstNode.style('border-width', 2);
+                    firstNode = null;
+                    
+                    //  标记有未保存的更改
+                    markAsChanged();
+                    //  保存到历史记录
+                    saveHistory();
+                }
+            }
+        });
+
+        // 删除节点/边（按Delete键）+ 撤销/重做快捷键
+        document.addEventListener('keydown', (e) => {
+            // Delete键：删除选中元素
+            if (e.key === 'Delete') {
+                const selectedCount = cy.$(':selected').length;
+                if (selectedCount > 0) {
+                    cy.$(':selected').remove();
+                    // 注意：清空属性面板和标记更改由remove事件统一处理
+                }
+            }
+            
+            //  Ctrl+Z：撤销
+            if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undo();
+            }
+            
+            //  Ctrl+Y 或 Ctrl+Shift+Z：重做
+            if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && e.key === 'z')) {
+                e.preventDefault();
+                redo();
+            }
+        });
+        
+        //  监听节点/边删除事件，自动清空属性面板
+        cy.on('remove', 'node, edge', function(evt) {
+            // 清空属性面板（无论删除的是什么元素）
+            const propertiesPanel = document.getElementById('node-properties');
+            if (propertiesPanel) {
+                const hasProperties = propertiesPanel.innerHTML.includes('updateNodeProperties') || 
+                                     propertiesPanel.innerHTML.includes('updateEdgeProperties');
+                if (hasProperties) {
+                    propertiesPanel.innerHTML = '<p class="help-text">点击节点或连接线查看属性</p>';
+                }
+            }
+            
+            // 标记有未保存的更改
+            markAsChanged();
+            //  保存到历史记录
+            if (!isUndoRedoing) {
+                saveHistory();
+            }
+        });
+        
+        //  监听节点拖动结束事件，保存位置变化到历史记录
+        cy.on('dragfree', 'node', function(evt) {
+            if (!isUndoRedoing) {
+                markAsChanged();
+                saveHistory();
+            }
+        });
+
+        // 显示节点属性
+        function showNodeProperties(node) {
+            const data = node.data();
+            const html = `
+                <div class="form-group">
+                    <label>镜像</label>
+                    <input type="text" value="${data.imageName}:${data.imageTag}" readonly style="font-size: 11px;">
+                </div>
+                <div class="form-group">
+                    <label>节点标签（画布显示）</label>
+                    <input type="text" id="node-label" value="${data.label}" placeholder="建议不超过10个字符">
+                    <div class="help-text">建议使用简短名称，如：Web01、DB、Jump等</div>
+                </div>
+                <div class="form-group">
+                    <label>网络区域</label>
+                    <select id="node-zone">
+                        <option value="INTERNET" ${data.networkZone==='INTERNET'?'selected':''}>互联网</option>
+                        <option value="DMZ" ${data.networkZone==='DMZ'?'selected':''}>DMZ区</option>
+                        <option value="FIREWALL" ${data.networkZone==='FIREWALL'?'selected':''}>防火墙</option>
+                        <option value="WAF" ${data.networkZone==='WAF'?'selected':''}>WAF（Web应用防火墙）</option>
+                        <option value="GATEWAY" ${data.networkZone==='GATEWAY'?'selected':''}>网关</option>
+                        <option value="VPN" ${data.networkZone==='VPN'?'selected':''}>VPN服务器</option>
+                        <option value="IDS_IPS" ${data.networkZone==='IDS_IPS'?'selected':''}>IDS/IPS</option>
+                        <option value="OFFICE" ${data.networkZone==='OFFICE'?'selected':''}>办公区</option>
+                        <option value="INTRANET" ${data.networkZone==='INTRANET'?'selected':''}>内网</option>
+                        <option value="DATABASE" ${data.networkZone==='DATABASE'?'selected':''}>数据库区</option>
+                    </select>
+                    <div class="help-text">选择节点所属的网络区域</div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="node-entry" ${data.isEntryPoint?'checked':''}>
+                        入口点（用户首先访问）
+                    </label>
+                </div>
+                <div class="form-group" id="entry-protocol-group" style="display:${data.isEntryPoint?'block':'none'}">
+                    <label>入口协议</label>
+                    <select id="node-protocol">
+                        <option value="http" ${data.protocol==='http'?'selected':''}>HTTP (网页服务)</option>
+                        <option value="https" ${data.protocol==='https'?'selected':''}>HTTPS (安全网页)</option>
+                        <option value="ssh" ${data.protocol==='ssh'?'selected':''}>SSH (远程终端)</option>
+                        <option value="rdp" ${data.protocol==='rdp'?'selected':''}>RDP (远程桌面)</option>
+                        <option value="vnc" ${data.protocol==='vnc'?'selected':''}>VNC (远程桌面)</option>
+                        <option value="ftp" ${data.protocol==='ftp'?'selected':''}>FTP (文件传输)</option>
+                        <option value="mysql" ${data.protocol==='mysql'?'selected':''}>MySQL (数据库)</option>
+                        <option value="redis" ${data.protocol==='redis'?'selected':''}>Redis (缓存)</option>
+                        <option value="mongodb" ${data.protocol==='mongodb'?'selected':''}>MongoDB (数据库)</option>
+                        <option value="postgresql" ${data.protocol==='postgresql'?'selected':''}>PostgreSQL (数据库)</option>
+                    </select>
+                    <div class="help-text">选择入口节点使用的协议类型</div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="node-target" ${data.isTarget?'checked':''}>
+                        攻击目标
+                    </label>
+                </div>
+                
+                <!--  网络策略配置 -->
+                <div class="form-group" style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #e0e0e0;">
+                    <label style="font-weight: bold; color: #d32f2f;">网络隔离策略</label>
+                    <select id="node-network-policy">
+                        <option value="ISOLATED" ${(data.networkPolicy||'ISOLATED')==='ISOLATED'?'selected':''}>隔离外网（默认）</option>
+                        <option value="ALLOW_INGRESS" ${data.networkPolicy==='ALLOW_INGRESS'?'selected':''}>允许反连</option>
+                        <option value="ALLOW_EGRESS" ${data.networkPolicy==='ALLOW_EGRESS'?'selected':''}>允许出网</option>
+                        <option value="ALLOW_BOTH" ${data.networkPolicy==='ALLOW_BOTH'?'selected':''}>双向通信</option>
+                    </select>
+                    <div class="help-text" style="margin-top: 8px; line-height: 1.6; background: #fff3cd; padding: 10px; border-radius: 4px; border-left: 3px solid #ff9800;">
+                        • <strong>隔离外网</strong>：仅拓扑内通信，无法出网/反连<br>
+                        • <strong>允许反连</strong>：+可以反弹shell到外部攻击机<br>
+                        • <strong>允许出网</strong>：+可以wget、curl外部资源<br>
+                        • <strong>双向通信</strong>：+既可反连也可出网<br><br>
+                        <strong style="color: #d32f2f;">⚠️ 注意：</strong>这些策略只有在容器引擎启用了网络策略功能时才生效
+                    </div>
+                </div>
+                
+                <!--  反连配置（当选择允许反连时显示） -->
+                <div class="form-group" id="reverse-shell-config" style="display:${(data.networkPolicy==='ALLOW_INGRESS'||data.networkPolicy==='ALLOW_BOTH')?'block':'none'}">
+                    <label>
+                        <input type="checkbox" id="node-allow-reverse-shell" ${data.allowReverseShell?'checked':''}>
+                        启用反弹shell支持
+                    </label>
+                    <div class="help-text">
+                        勾选后，容器可以向外部攻击机发起TCP连接（如nc反弹shell）
+                    </div>
+                </div>
+                
+                <!--  出网配置（当选择允许出网时显示） -->
+                <div class="form-group" id="egress-config" style="display:${(data.networkPolicy==='ALLOW_EGRESS'||data.networkPolicy==='ALLOW_BOTH')?'block':'none'}">
+                    <label>允许访问的外部地址（可选）</label>
+                    <textarea id="node-egress-whitelist" placeholder="留空表示允许所有外网&#10;或填写白名单，每行一个：&#10;8.8.8.8&#10;github.com&#10;192.168.1.0/24">${data.egressWhitelist||''}</textarea>
+                    <div class="help-text">
+                        留空=允许所有外网地址；填写后仅允许列表中的地址
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="updateNodeProperties('${node.id()}')">应用</button>
+                <button class="btn" onclick="cy.$('#${node.id()}').remove()" style="background:#f44336;color:#fff;margin-left:10px;">删除节点</button>
+            `;
+            document.getElementById('node-properties').innerHTML = html;
+            
+            // 在设置HTML后，手动添加事件监听器（避免在模板字符串中使用<script>标签）
+            setTimeout(function() {
+                const entryCheckbox = document.getElementById('node-entry');
+                const protocolGroup = document.getElementById('entry-protocol-group');
+                
+                if (entryCheckbox && protocolGroup) {
+                    entryCheckbox.addEventListener('change', function() {
+                        protocolGroup.style.display = this.checked ? 'block' : 'none';
+                        // 如果不是入口点，重置协议选择
+                        if (!this.checked) {
+                            const protocolSelect = document.getElementById('node-protocol');
+                            if (protocolSelect) {
+                                protocolSelect.value = 'http';
+                            }
+                        }
+                    });
+                }
+                
+                //  网络策略选择器事件
+                const networkPolicySelect = document.getElementById('node-network-policy');
+                const reverseShellConfig = document.getElementById('reverse-shell-config');
+                const egressConfig = document.getElementById('egress-config');
+                
+                if (networkPolicySelect && reverseShellConfig && egressConfig) {
+                    networkPolicySelect.addEventListener('change', function() {
+                        const policy = this.value;
+                        
+                        // 根据策略显示/隐藏相关配置
+                        if (policy === 'ALLOW_INGRESS' || policy === 'ALLOW_BOTH') {
+                            reverseShellConfig.style.display = 'block';
+                        } else {
+                            reverseShellConfig.style.display = 'none';
+                        }
+                        
+                        if (policy === 'ALLOW_EGRESS' || policy === 'ALLOW_BOTH') {
+                            egressConfig.style.display = 'block';
+                        } else {
+                            egressConfig.style.display = 'none';
+                        }
+                    });
+                }
+            }, 0);
+        }
+
+        // 显示连接线属性
+        function showEdgeProperties(edge) {
+            const data = edge.data();
+            const sourceNode = cy.$('#' + data.source);
+            const targetNode = cy.$('#' + data.target);
+            
+            const html = `
+                <div class="form-group">
+                    <label>连接</label>
+                    <input type="text" value="${sourceNode.data('label')} → ${targetNode.data('label')}" readonly>
+                </div>
+                <div class="form-group">
+                    <label>协议/端口</label>
+                    <select id="edge-protocol">
+                        <option value="TCP" ${data.label==='TCP'?'selected':''}>TCP</option>
+                        <option value="UDP" ${data.label==='UDP'?'selected':''}>UDP</option>
+                        <option value="HTTP" ${data.label==='HTTP'?'selected':''}>HTTP</option>
+                        <option value="HTTPS" ${data.label==='HTTPS'?'selected':''}>HTTPS</option>
+                        <option value="SSH" ${data.label==='SSH'?'selected':''}>SSH (22)</option>
+                        <option value="RDP" ${data.label==='RDP'?'selected':''}>RDP (3389)</option>
+                        <option value="FTP" ${data.label==='FTP'?'selected':''}>FTP (21)</option>
+                        <option value="SMTP" ${data.label==='SMTP'?'selected':''}>SMTP (25)</option>
+                        <option value="MySQL" ${data.label==='MySQL'?'selected':''}>MySQL (3306)</option>
+                        <option value="Redis" ${data.label==='Redis'?'selected':''}>Redis (6379)</option>
+                        <option value="MongoDB" ${data.label==='MongoDB'?'selected':''}>MongoDB (27017)</option>
+                        <option value="DNS" ${data.label==='DNS'?'selected':''}>DNS (53)</option>
+                        <option value="LDAP" ${data.label==='LDAP'?'selected':''}>LDAP (389)</option>
+                        <option value="SMB" ${data.label==='SMB'?'selected':''}>SMB (445)</option>
+                        <option value="VNC" ${data.label==='VNC'?'selected':''}>VNC (5900)</option>
+                    </select>
+                    <div class="help-text">选择网络连接使用的协议</div>
+                </div>
+                <button class="btn btn-primary" onclick="updateEdgeProperties('${edge.id()}')">应用</button>
+                <button class="btn" onclick="cy.$('#${edge.id()}').remove();document.getElementById('node-properties').innerHTML='<p class=help-text>已删除连接线</p>'" style="background:#f44336;color:#fff;margin-left:10px;">删除连接线</button>
+            `;
+            document.getElementById('node-properties').innerHTML = html;
+        }
+
+        // 更新连接线属性
+        function updateEdgeProperties(edgeId) {
+            const edge = cy.$('#' + edgeId);
+            const protocol = document.getElementById('edge-protocol').value;
+            edge.data('label', protocol);
+            //  标记有未保存的更改
+            markAsChanged();
+            //  保存到历史记录
+            saveHistory();
+            showMessage('连接协议已更新: ' + protocol);
+        }
+
+        // 更新节点属性
+        function updateNodeProperties(nodeId) {
+            const node = cy.$('#' + nodeId);
+            const label = document.getElementById('node-label').value;
+            const zone = document.getElementById('node-zone').value;
+            const isEntry = document.getElementById('node-entry').checked;
+            const isTarget = document.getElementById('node-target').checked;
+            
+            //  获取协议（仅当是入口点时）
+            let protocol = 'http';  // 默认值
+            if (isEntry && document.getElementById('node-protocol')) {
+                protocol = document.getElementById('node-protocol').value;
+            }
+            
+            //  获取网络策略配置
+            const networkPolicy = document.getElementById('node-network-policy').value;
+            const allowReverseShell = document.getElementById('node-allow-reverse-shell') ? 
+                document.getElementById('node-allow-reverse-shell').checked : false;
+            const egressWhitelist = document.getElementById('node-egress-whitelist') ? 
+                document.getElementById('node-egress-whitelist').value.trim() : '';
+            
+            node.data('label', label);
+            node.data('networkZone', zone);
+            node.data('isEntryPoint', isEntry);
+            node.data('isTarget', isTarget);
+            node.data('protocol', protocol);  //  保存协议信息
+            node.data('bgColor', zoneColors[zone] || '#999');
+            
+            //  保存网络策略配置
+            node.data('networkPolicy', networkPolicy);
+            node.data('allowReverseShell', allowReverseShell);
+            node.data('egressWhitelist', egressWhitelist);
+            
+            //  如果不是入口点，清除协议信息
+            if (!isEntry) {
+                node.removeData('protocol');
+            }
+            
+            //  标记有未保存的更改
+            markAsChanged();
+            //  保存到历史记录
+            saveHistory();
+            
+            // 构建更新消息
+            let updateMsg = '属性已更新';
+            if (isEntry) {
+                updateMsg += ` (协议: ${protocol.toUpperCase()})`;
+            }
+            const policyNames = {
+                'ISOLATED': '隔离外网',
+                'ALLOW_INGRESS': '允许反连',
+                'ALLOW_EGRESS': '允许出网',
+                'ALLOW_BOTH': '双向通信'
+            };
+            updateMsg += ` | 网络策略: ${policyNames[networkPolicy]}`;
+            
+            showMessage(updateMsg);
+        }
+
+        // 清空画布
+        async function clearCanvas() {
+            const nodeCount = cy.nodes().length;
+            const edgeCount = cy.edges().length;
+            
+            //  使用自定义模态框
+            const shouldClear = await showModal({
+                type: 'warning',
+                title: '清空画布',
+                message: `
+                    <div style="line-height: 1.8;">
+                        <p>⚠️ 此操作将清空画布上的所有内容：</p>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>${nodeCount} 个节点</li>
+                            <li>${edgeCount} 条连接线</li>
+                        </ul>
+                        <p style="color: #f44336; font-weight: bold;">
+                            此操作不可恢复，确定要继续吗？
+                        </p>
+                    </div>
+                `,
+                confirmText: '确定清空',
+                cancelText: '取消',
+                confirmType: 'danger'
+            });
+            
+            if (shouldClear) {
+                cy.elements().remove();
+                //  标记有未保存的更改
+                markAsChanged();
+                //  保存到历史记录（remove事件会触发，但这里确保只保存一次）
+                setTimeout(() => saveHistory(), 50);
+                showMessage('画布已清空', 'success');
+            }
+        }
+
+        // 保存拓扑
+        function saveTopology() {
+            const elements = cy.json().elements;
+            // 包装成后端期望的格式: { elements: { nodes: [...], edges: [...] }, zoom, pan }
+            const data = { 
+                elements: elements,
+                zoom: cy.zoom(),      // 保存当前缩放
+                pan: cy.pan()         // 保存当前位置
+            };
+            
+            fetch('{% url "container:save_topology" topology.id %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.success) {
+                    //  清除未保存状态和本地草稿
+                    clearUnsavedState();
+                    //  重置历史记录（保存后作为新的起点）
+                    historyStack = [];
+                    historyIndex = -1;
+                    saveHistory();  // 保存当前状态作为新起点
+                    showMessage('保存成功！节点数：' + result.nodes_count, 'success');
+                } else {
+                    //  使用自定义模态框显示错误
+                    showModal({
+                        type: 'error',
+                        title: '保存失败',
+                        message: `<p style="color: #f44336;">${result.error || '未知错误'}</p>`,
+                        showCancel: false,
+                        confirmText: '知道了',
+                        confirmType: 'danger'
+                    });
+                }
+            })
+            .catch(err => {
+                //  使用自定义模态框显示错误
+                showModal({
+                    type: 'error',
+                    title: '保存失败',
+                    message: `<p style="color: #f44336;">网络错误：${err.message}</p>`,
+                    showCancel: false,
+                    confirmText: '知道了',
+                    confirmType: 'danger'
+                });
+            });
+        }
+
+        // 显示消息
+        function showMessage(msg, type = 'success') {
+            const div = document.createElement('div');
+            div.className = 'message message-' + type;
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+        
+        //  自定义模态框功能
+        let modalResolve = null;
+        
+        function showModal(options) {
+            return new Promise((resolve) => {
+                modalResolve = resolve;
+                
+                const modal = document.getElementById('customModal');
+                const icon = document.getElementById('modalIcon');
+                const title = document.getElementById('modalTitle');
+                const body = document.getElementById('modalBody');
+                const footer = document.getElementById('modalFooter');
+                
+                // 设置图标和样式
+                const iconConfig = {
+                    confirm: { icon: '⚠️', class: 'confirm' },
+                    info: { icon: 'ℹ️', class: 'info' },
+                    warning: { icon: '⚠️', class: 'warning' },
+                    success: { icon: '✓', class: 'success' }
+                };
+                const config = iconConfig[options.type || 'confirm'];
+                icon.textContent = config.icon;
+                icon.className = 'modal-header-icon ' + config.class;
+                
+                // 设置标题和内容
+                title.textContent = options.title || '提示';
+                body.innerHTML = options.message || '';
+                
+                // 设置按钮
+                footer.innerHTML = '';
+                if (options.showCancel !== false) {
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.className = 'modal-btn modal-btn-cancel';
+                    cancelBtn.textContent = options.cancelText || '取消';
+                    cancelBtn.onclick = () => {
+                        hideModal();
+                        if (modalResolve) modalResolve(false);
+                    };
+                    footer.appendChild(cancelBtn);
+                }
+                
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'modal-btn modal-btn-' + (options.confirmType || 'confirm');
+                confirmBtn.textContent = options.confirmText || '确定';
+                confirmBtn.onclick = () => {
+                    hideModal();
+                    if (modalResolve) modalResolve(true);
+                };
+                footer.appendChild(confirmBtn);
+                
+                // 显示模态框
+                modal.classList.add('show');
+                
+                // ESC键关闭
+                const escHandler = (e) => {
+                    if (e.key === 'Escape') {
+                        hideModal();
+                        if (modalResolve) modalResolve(false);
+                        document.removeEventListener('keydown', escHandler);
+                    }
+                };
+                document.addEventListener('keydown', escHandler);
+            });
+        }
+        
+        function hideModal() {
+            const modal = document.getElementById('customModal');
+            modal.classList.remove('show');
+        }
+        
+        // 点击背景关闭模态框
+        document.addEventListener('click', function(e) {
+            const modal = document.getElementById('customModal');
+            if (e.target === modal) {
+                hideModal();
+                if (modalResolve) modalResolve(false);
+            }
+        });
+        
+        //  页面离开前提醒（浏览器原生，无法自定义样式）
+        window.addEventListener('beforeunload', function(e) {
+            if (hasUnsavedChanges) {
+                const message = '您有未保存的编排数据，确定要离开吗？';
+                e.preventDefault();
+                e.returnValue = message;  // Chrome需要这个
+                return message;  // 其他浏览器需要这个
+            }
+        });
+
+        //  缩放控制函数
+        function updateZoomLevel() {
+            const zoom = cy.zoom();
+            const zoomPercent = Math.round(zoom * 100);
+            const zoomLevelEl = document.getElementById('zoomLevel');
+            if (zoomLevelEl) {
+                zoomLevelEl.textContent = zoomPercent + '%';
+            }
+        }
+        
+        function zoomIn() {
+            const currentZoom = cy.zoom();
+            const newZoom = Math.min(currentZoom * 1.2, 3);  // 每次放大20%，最大300%
+            cy.zoom({
+                level: newZoom,
+                renderedPosition: { 
+                    x: cy.width() / 2, 
+                    y: cy.height() / 2 
+                }
+            });
+            updateZoomLevel();
+        }
+        
+        function zoomOut() {
+            const currentZoom = cy.zoom();
+            const newZoom = Math.max(currentZoom / 1.2, 0.3);  // 每次缩小20%，最小30%
+            cy.zoom({
+                level: newZoom,
+                renderedPosition: { 
+                    x: cy.width() / 2, 
+                    y: cy.height() / 2 
+                }
+            });
+            updateZoomLevel();
+        }
+        
+        function zoomFit() {
+            if (cy.nodes().length > 0) {
+                cy.fit(cy.nodes(), 50);  // 适应所有节点，留50px边距
+            } else {
+                cy.reset();  // 如果没有节点，重置视图
+            }
+            updateZoomLevel();
+        }
+        
+        function zoomReset() {
+            cy.zoom(1);  // 重置到100%
+            cy.center();  // 居中显示
+            updateZoomLevel();
+        }
+        
+        // 监听缩放变化
+        let viewChangeTimer = null;
+        cy.on('zoom', function() {
+            updateZoomLevel();
+            // 防抖：缩放停止1秒后才标记为有未保存的更改
+            if (!isUndoRedoing) {
+                clearTimeout(viewChangeTimer);
+                viewChangeTimer = setTimeout(() => {
+                    markAsChanged();
+                }, 1000);
+            }
+        });
+        
+        // 监听平移变化
+        cy.on('pan', function() {
+            // 防抖：平移停止1秒后才标记为有未保存的更改
+            if (!isUndoRedoing) {
+                clearTimeout(viewChangeTimer);
+                viewChangeTimer = setTimeout(() => {
+                    markAsChanged();
+                }, 1000);
+            }
+        });
+        
+        // 初始化缩放显示
+        updateZoomLevel();
+        
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + + 或 Ctrl + =：放大
+            if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+                e.preventDefault();
+                zoomIn();
+            }
+            // Ctrl + -：缩小
+            if (e.ctrlKey && e.key === '-') {
+                e.preventDefault();
+                zoomOut();
+            }
+            // Ctrl + 0：适应画布
+            if (e.ctrlKey && e.key === '0') {
+                e.preventDefault();
+                zoomFit();
+            }
+            // Ctrl + 1：重置缩放
+            if (e.ctrlKey && e.key === '1') {
+                e.preventDefault();
+                zoomReset();
+            }
+        });
+        
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,819 @@
+{% load blog_tags static %}
+{% load com_tags %}
+{% load humanize %}
+
+<!-- 科技风格侧边栏 -->
+<div class="tech-sidebar">
+
+
+    <!-- 比赛倒计时 -->
+    {% if request.user.is_staff or request.user.is_superuser or competition.author == request.user %}    
+    <div class="tech-hint-box">
+        
+        <span>您好，欢迎来到CTF题目面板，你是管理员可对题目进行验证测试，测试不影响分数和排名。
+        <p style="margin: 0;">您也可以去<a href="{% url 'competition:competition_manage' competition.slug %}" 
+               >
+                管理页面
+            </a></p>
+    </div>
+    {% endif %}
+
+    <div class="tech-sidebar-card mb-4">
+        {% now "U" as current_timestamp %}
+        <div class="tech-sidebar-header">
+            <span class="tech-glow-text">
+                <i class="fa fa-clock-o"></i> 
+                {% if competition.start_time|date:"U" > current_timestamp %}
+                    距离比赛开始还有
+                {% elif competition.end_time|date:"U" > current_timestamp %}
+                    距离比赛结束还有
+                {% else %}
+                    比赛已结束
+                {% endif %}
+            </span>
+        </div>
+        <div class="tech-sidebar-body">
+            {% if competition %}
+                
+                {% if competition.start_time|date:"U" > current_timestamp %}
+                    {# 比赛尚未开始 #}
+                    <div class="tech-countdown-wrapper">
+                        
+                        <div class="tech-countdown-timer" data-start-time="{{ competition.start_time|date:'Y/m/d H:i:s' }}">
+                            <div class="tech-time-unit">
+                                <div class="tech-time-value tech-days">00</div>
+                                
+                            </div>
+                            <div class="tech-time-colon">:</div>
+                            <div class="tech-time-unit">
+                                <div class="tech-time-value tech-hours">00</div>
+                                
+                            </div>
+                            <div class="tech-time-colon">:</div>
+                            <div class="tech-time-unit">
+                                <div class="tech-time-value tech-minutes">00</div>
+                                
+                            </div>
+                            <div class="tech-time-colon">:</div>
+                            <div class="tech-time-unit">
+                                <div class="tech-time-value tech-seconds">00</div>
+                               
+                            </div>
+                        </div>
+                    </div>
+                {% elif competition.end_time|date:"U" > current_timestamp %}
+                    {# 比赛进行中 #}
+                    <div class="tech-countdown-wrapper">
+                        
+                        <div class="tech-countdown-timer" data-end-time="{{ competition.end_time|date:'Y/m/d H:i:s' }}">
+                            <div class="tech-time-unit">
+                                <div class="tech-time-value tech-days">00</div>
+                                
+                            </div>
+                            <div class="tech-time-colon">:</div>
+                            <div class="tech-time-unit">
+                                <div class="tech-time-value tech-hours">00</div>
+                               
+                            </div>
+                            <div class="tech-time-colon">:</div>
+                            <div class="tech-time-unit">
+                                <div class="tech-time-value tech-minutes">00</div>
+                                
+                            </div>
+                            <div class="tech-time-colon">:</div>
+                            <div class="tech-time-unit">
+                                <div class="tech-time-value tech-seconds">00</div>
+                               
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    {# 比赛已结束 #}
+                    <div class="tech-countdown-status">
+                        <div class="tech-status-badge tech-status-ended">
+                            <i class="fa fa-check-circle"></i> 已结束
+                        </div>
+                    </div>
+                    
+                {% endif %}
+            {% else %}
+                <div class="tech-empty">
+                    <i class="fa fa-info-circle"></i>
+                    <span>暂无比赛信息</span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <!-- CTF空间卡片 -->
+    <div class="tech-sidebar-card mb-4">
+        <div class="tech-sidebar-header">
+            <span class="tech-glow-text">
+                <i class="fa fa-dashboard"></i> CTF 空间
+            </span>
+            
+        </div>
+        
+        <div class="tech-sidebar-body">
+            <div class="tech-quick-links">
+                <a href="{% url 'competition:submission_dynamic' competition.slug %}" 
+                   class="tech-quick-link" title="解题动态">
+                    <i class="fa fa-bolt"></i>
+                    <span>解题列表</span>
+                </a>
+                <a href="{% url 'competition:rankings' competition.slug 'individual' %}" 
+                   class="tech-quick-link" title="排行榜">
+                    <i class="fa fa-trophy"></i>
+                    <span>排行榜</span>
+                </a>
+                {% if competition.competition_type == 'team' %}
+                <a href="{% url 'competition:competition_dashboard' competition.slug %}" 
+                   class="tech-quick-link" title="实时数据">
+                        <i class="fa fa-bar-chart"></i>
+                        <span>数据大屏</span>
+                    </a>
+                {% else %}
+                <a href="{% url 'competition:individual_dashboard' competition.slug %}" 
+                   class="tech-quick-link" title="实时数据">
+                        <i class="fa fa-bar-chart"></i>
+                        <span>数据大屏</span>
+                    </a>
+                {% endif %}
+            </div>
+
+            {% get_user_ctf_stats user competition as stats %}
+            <div class="tech-stats-grid">
+                <div class="tech-stat-item">
+                    <div class="tech-stat-value">{{ stats.solved_count }}</div>
+                    <div class="tech-stat-label">我的解题数</div>
+                </div>
+                <div class="tech-stat-item">
+                    <div class="tech-stat-value">{{ stats.user_points }}</div>
+                    <div class="tech-stat-label">我的分数</div>
+                </div>
+                {% if stats.is_team_competition %}
+
+                <div class="tech-stat-item">
+                    <div class="tech-stat-value">{{ stats.team_rank }}</div>
+                    <div class="tech-stat-label">团队排名</div>
+                </div>
+                <div class="tech-stat-item">
+                    <div class="tech-stat-value">{{ stats.team_score }}</div>
+                    <div class="tech-stat-label">团队分数</div>
+                </div>
+                
+                {% else %}
+                <div class="tech-stat-item">
+                    <div class="tech-stat-value">{{ stats.user_rank }}</div>
+                    <div class="tech-stat-label">我的排名</div>
+                </div>
+                {% endif %}
+            </div>
+
+            
+
+            <!-- Writeup 提交 -->
+            {% if request.user.is_authenticated %}
+            {% if competition.is_ended %}
+            {% check_user_writeup_exists competition as user_writeup_exists %}
+            <div class="tech-divider" style="margin: 20px 0; border-top: 1px solid rgba(178, 185, 191, 0.3);"></div>
+            <div class="tech-action-section">
+                <div class="tech-section-title" style="margin-bottom: 15px; color: #1e293b; font-weight: bold;">
+                    <i class="fa fa-file-pdf-o"></i> Writeup 提交
+                </div>
+                {% if user_writeup_exists %}
+                    <div class="tech-status-info tech-status-success">
+                        <div class="tech-status-icon">
+                            <i class="fa fa-check-circle"></i>
+                        </div>
+                        <div class="tech-status-text">已提交 Writeup</div>
+                        <div class="tech-status-desc">您已成功提交 Writeup</div>
+                    </div>
+                {% else %}
+                    <div class="tech-action-container">
+                        <div class="tech-action-desc">
+                            比赛已结束，快来分享你的解题思路吧！
+                        </div>
+                        <button type="button" 
+                                class="tech-info-btn"
+                                onclick="openTechModal()" data-no-loading>
+                            <i class="fa fa-upload"></i>
+                            <span>上传 Writeup</span>
+                            
+                        </button>
+                        <div class="tech-action-hint">
+                            <i class="fa fa-info-circle"></i> 支持 PDF 格式，最大 20MB
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 我的容器卡片 -->
+    {% if user.is_authenticated %}
+    {% get_user_competition_container user competition as container %}
+    
+    
+    {% if container and not container.is_current %}
+    <div class="tech-sidebar-card mb-4">
+        <div class="tech-sidebar-header">
+            <span class="tech-glow-text">
+                <i class="fa fa-cube"></i> 我的靶机
+            </span>
+        </div>
+        <div class="tech-sidebar-body">
+            <div class="anime-container-item">
+                <div class="anime-container-header">
+                    <a href="{{ container.challenge_url }}" class="anime-container-title" title="查看{{ container.challenge_title }}">
+                        <i class="fa fa-flag" style="color: #10b981;"></i>
+                        <span>{{ container.challenge_title|truncatechars:20 }}</span>
+                    </a>
+                    <span class="anime-container-time">
+                        <i class="fa fa-clock-o"></i>
+                        剩余{{ container.expires_at|timeuntil }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+ 
+
+
+    
+    
+    <script>
+    // 高性能倒计时优化版
+    (function() {
+        const timerElement = document.querySelector('.tech-countdown-timer');
+        if (!timerElement) return;
+        
+        const startTime = timerElement.dataset.startTime;
+        const endTime = timerElement.dataset.endTime;
+        const targetTime = startTime || endTime;
+        
+        if (!targetTime) return;
+
+        // 缓存DOM元素，避免重复查询
+        const elements = {
+            days: timerElement.querySelector('.tech-days'),
+            hours: timerElement.querySelector('.tech-hours'),
+            minutes: timerElement.querySelector('.tech-minutes'),
+            seconds: timerElement.querySelector('.tech-seconds')
+        };
+
+        const targetTimestamp = new Date(targetTime).getTime();
+        let lastSecond = -1;
+        let animationFrameId;
+
+        function updateTimer() {
+            const now = Date.now();
+            const distance = targetTimestamp - now;
+
+            if (distance < 0) {
+                cancelAnimationFrame(animationFrameId);
+                location.reload();
+                return;
+            }
+
+            const currentSecond = Math.floor(distance / 1000);
+            
+            // 只在秒数变化时更新DOM，避免不必要的重绘
+            if (currentSecond !== lastSecond) {
+                lastSecond = currentSecond;
+                
+                const days = Math.floor(distance / 86400000);
+                const hours = Math.floor((distance % 86400000) / 3600000);
+                const minutes = Math.floor((distance % 3600000) / 60000);
+                const seconds = Math.floor((distance % 60000) / 1000);
+
+                // 使用 requestAnimationFrame 批量更新DOM
+                requestAnimationFrame(() => {
+                    elements.days.textContent = String(days).padStart(2, '0');
+                    elements.hours.textContent = String(hours).padStart(2, '0');
+                    elements.minutes.textContent = String(minutes).padStart(2, '0');
+                    elements.seconds.textContent = String(seconds).padStart(2, '0');
+                });
+            }
+
+            animationFrameId = requestAnimationFrame(updateTimer);
+        }
+
+        updateTimer();
+
+        // 页面隐藏时停止动画，节省资源
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                cancelAnimationFrame(animationFrameId);
+            } else {
+                lastSecond = -1; // 强制更新
+                updateTimer();
+            }
+        });
+    })();
+    </script>
+
+    <!-- 个人排行榜 -->
+    {% if competition.competition_type == 'individual' %}
+    {% get_users_ranked_by_solves competition=competition limit=10 as top_users %}
+    <div class="tech-sidebar-card mb-4">
+        <div class="tech-sidebar-header">
+            <span class="tech-glow-text">
+                <i class="fa fa-user"></i> 个人排行
+            </span>
+            <a href="{% url 'competition:rankings' competition.slug 'individual' %}" 
+               class="tech-link ml-auto">
+                更多
+            </a>
+        </div>
+        <div class="tech-sidebar-body">
+            <div class="tech-ranking-list">
+                {% for user in top_users %}
+                <div class="tech-rank-item " data-user-id="{{ user.user_id }}" data-is-me="{{ user.is_current_user }}" data-is-teammate="{{ user.is_teammate }}">
+                    <div class="tech-rank-number">{{ forloop.counter }}</div>
+                    {% if user.avatar %}
+                    <img src="{{ user.avatar }}" alt="{{ user.user }}" class="tech-avatar">
+                    {% else %}
+                    <div class="tech-avatar-placeholder">
+                        <i class="fa fa-user"></i>
+                    </div>
+                    {% endif %}
+                    <div class="tech-rank-score">{{ user.score }}</div>
+                </div>
+                {% empty %}
+                <div class="tech-empty">
+                    <i class="fa fa-database"></i>
+                    <span>暂无数据</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <!-- 队伍排行榜 -->
+    {% if competition.competition_type == 'team' %}
+    {% get_teams_ranked_by_solves competition=competition limit=10 as top_teams %}
+    <div class="tech-sidebar-card mb-4">
+        <div class="tech-sidebar-header">
+            <span class="tech-glow-text">
+                <i class="fa fa-users"></i> 队伍排行
+            </span>
+            <a href="{% url 'competition:rankings' competition.slug 'team' %}" 
+               class="tech-link ml-auto">
+                更多
+            </a>
+        </div>
+        <div class="tech-sidebar-body">
+            <div class="tech-ranking-list">
+                {% for team in top_teams %}
+                <div class="tech-rank-item " data-team-id="{{ team.team_id }}" data-is-my-team="{{ team.is_my_team }}">
+                    <div class="tech-rank-number">{{ forloop.counter }}</div>
+                    <div class="tech-team-icon">
+                        <i class="fa fa-shield"></i>
+                    </div>
+                    <div class="tech-username" title="{{ team.team_name }}">
+                        {{ team.team_name|truncatechars:12 }}
+                        {% if team.is_my_team %}
+                        <span class="tech-label-my-team">我的队伍</span>
+                        {% endif %}
+                    </div>
+                    <div class="tech-team">
+                        {{ team.solved_count }} 题
+                    </div>
+                    <div class="tech-rank-score">{{ team.score }}</div>
+                </div>
+                {% empty %}
+                <div class="tech-empty">
+                    <i class="fa fa-database"></i>
+                    <span>暂无数据</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+
+</style>
+
+<!-- 科技风格模态框 -->
+<div class="tech-modal" id="writeupModal">
+    <div class="tech-modal-overlay"></div>
+    <div class="tech-modal-container">
+        <div class="tech-modal-content">
+            <!-- 扫描线效果 -->
+            <div class="tech-modal-scanline"></div>
+            
+            <!-- 模态框头部 -->
+            <div class="tech-modal-header">
+                <div class="tech-modal-header-line"></div>
+                <h5 class="tech-modal-title">
+                    <i class="fa fa-upload mr-2"></i>
+                    <span>WRITEUP 提交</span>
+                </h5>
+                <button type="button" class="tech-modal-close" onclick="closeTechModal()">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <!-- 模态框主体 -->
+            <div class="tech-modal-body">
+                <form id="writeupForm" method="post" enctype="multipart/form-data" data-no-loading>
+                    {% csrf_token %}
+                    <!-- 比赛信息 -->
+                    <div class="mb-3 p-3" style="background: #eaf3fc; border: 1px solid rgba(178, 185, 191, 0.35); border-radius: 10px;">
+                        <div class="text-center">
+                            <h6 class="font-weight-bold mb-1" style="color: #1e293b;">{{ competition.title }}</h6>
+                            <p class="mb-0" style="color: #64748b; font-size: 13px;">
+                                提交者：<span style="color: #1e293b; font-weight: 500;">{{ user.username }}</span>
+                                {% if competition.competition_type == 'team' and user_team %}
+                                    <span class="ml-2">队伍：<span style="color: #1e293b; font-weight: 500;">{{ user_team.name }}</span></span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Writeup 模板 -->
+                    {% if competition.writeup_templates.all %}
+                    <div class="mb-3 p-2" style="background: #eaf3fc; border-left: 3px solid #64748b; border-radius: 4px;">
+                        <small style="color: #64748b;">
+                            <i class="fa fa-download mr-1"></i>
+                            <strong>下载模板：</strong>
+                            {% for template in competition.writeup_templates.all %}
+                                {% if template.is_active %}
+                                    <a href="/ctf/api/v1/writeup/template/{{ template.uuid }}/download/" 
+                                       style="color: #475569; text-decoration: underline;"
+                                       download>
+                                        <i class="fa fa-file-word-o"></i> {{ template.title }}
+                                    </a>
+                                    {% if not forloop.last %} | {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </small>
+                    </div>
+                    {% endif %}
+
+                    <!-- 标题 -->
+                    <div class="form-group">
+                        <label class="font-weight-bold mb-2" style="color: #1e293b;">
+                            <i class="fa fa-tag mr-1"></i>Writeup 标题 <span style="color: #ef4444;">*</span>
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               name="title" 
+                               id="writeupTitle" 
+                               placeholder="例如：2024 某某比赛 Writeup" 
+                               maxlength="255" 
+                               required>
+                    </div>
+
+                    <!-- 简介 -->
+                    <div class="form-group">
+                        <label class="font-weight-bold mb-2" style="color: #1e293b;">
+                            <i class="fa fa-align-left mr-1"></i>Writeup 简介
+                        </label>
+                        <textarea class="form-control" 
+                                  name="description" 
+                                  id="writeupDescription" 
+                                  rows="3" 
+                                  placeholder="简要介绍解题思路或亮点（可选）"
+                                  maxlength="500"></textarea>
+                    </div>
+
+                    <!-- PDF 上传 -->
+                    <div class="form-group">
+                        <label class="font-weight-bold mb-2" style="color: #1e293b;">
+                            <i class="fa fa-file-pdf-o mr-1"></i>PDF 文件 <span style="color: #ef4444;">*</span>
+                        </label>
+                        <div id="dropZone" class="text-center p-4" style="border: 2px dashed #cdd6df; background: #eaf3fc; border-radius: 10px; cursor: pointer; transition: all 0.15s ease;">
+                            <input type="file" 
+                                   name="pdf_file" 
+                                   id="writeupFile" 
+                                   accept=".pdf"
+                                   style="display: none;">
+                            <div id="dropZoneContent">
+                                <i class="fa fa-cloud-upload" style="font-size: 48px; color: #94a3b8; margin-bottom: 10px;"></i>
+                                <p class="mb-1" style="color: #475569; font-weight: 500;">
+                                    点击选择文件或拖拽到此处
+                                </p>
+                                <small style="color: #64748b;">
+                                    <i class="fa fa-info-circle mr-1"></i>仅支持 PDF 格式，最大 20MB
+                                </small>
+                            </div>
+                        </div>
+                        <div id="fileInfo" class="mt-2" style="display: none;">
+                            <div class="p-2" style="background: #dbe4eb; border: 1px solid rgba(178, 185, 191, 0.4); border-radius: 8px;">
+                                <div class="d-flex align-items-center">
+                                    <i class="fa fa-file-pdf-o mr-2" style="font-size: 20px; color: #dc2626;"></i>
+                                    <div class="flex-grow-1">
+                                        <small class="font-weight-bold d-block" id="fileName" style="color: #1e293b;"></small>
+                                        <small id="fileSize" style="color: #64748b;"></small>
+                                    </div>
+                                    <i class="fa fa-check-circle" style="font-size: 20px; color: #16a34a;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 提示 -->
+                    <div class="mb-3 p-2" style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; border-radius: 4px;">
+                        <small style="color: #92400e;">
+                            <i class="fa fa-exclamation-triangle mr-1" style="color: #d97706;"></i>
+                            <strong>温馨提示：</strong>
+                            {% if competition.competition_type == 'team' %}
+                            每个队伍只能提交一次 Writeup，
+                            {% else %}
+                            每人只能提交一次 Writeup，
+                            {% endif %}
+                            请确保内容准确无误后再提交
+                        </small>
+                    </div>
+
+                    <!-- 验证码 -->
+                    <div class="form-group mb-4">
+                        <label class="font-weight-bold mb-2" style="color: #1e293b;">
+                            <i class="fa fa-shield mr-1"></i>安全验证 <span style="color: #ef4444;">*</span>
+                        </label>
+                        <input type="hidden" name="captcha_key" id="writeupCaptchaKey">
+                        <div class="input-group">
+                            <input type="text" 
+                                   class="form-control" 
+                                   name="captcha" 
+                                   id="writeupCaptcha" 
+                                   placeholder="请输入验证码" 
+                                   maxlength="6" 
+                                   required
+                                   style="height: 38px;">
+                            <div class="input-group-append">
+                                <img id="writeupCaptchaImage" 
+                                     src="" 
+                                     alt="验证码" 
+                                     style="height: 38px; width: auto; cursor: pointer; border: 1px solid rgba(178, 185, 191, 0.5); border-left: 0; border-radius: 0 8px 8px 0; display: block; background: #eaf3fc;" 
+                                     onclick="refreshWriteupCaptcha()" 
+                                     title="点击刷新">
+                            </div>
+                        </div>
+                        <small style="color: #64748b; font-size: 11px; margin-top: 5px; display: block;">
+                            <i class="fa fa-refresh mr-1"></i>看不清？点击验证码图片刷新
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <!-- 底部按钮移到 form 外部 -->
+            <div class="tech-modal-footer">
+                <button type="button" class="tech-modal-btn tech-modal-btn-cancel" onclick="closeTechModal()">
+                    <i class="fa fa-times mr-1"></i>取消
+                </button>
+                <button type="submit" form="writeupForm" class="tech-modal-btn tech-modal-btn-submit" id="writeupSubmitBtn">
+                    <i class="fa fa-check mr-1"></i>提交 Writeup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+// 科技风格模态框控制
+function openTechModal() {
+    const modal = document.getElementById('writeupModal');
+    if (modal) {
+        modal.classList.add('active');
+        // 防止滚动条抖动
+        if (document.body.scrollHeight > window.innerHeight) {
+            document.body.classList.add('tech-no-scroll');
+        }
+        // 延迟加载验证码
+        setTimeout(refreshWriteupCaptcha, 100);
+    }
+}
+
+function closeTechModal() {
+    const modal = document.getElementById('writeupModal');
+    if (modal) {
+        modal.classList.remove('active');
+        // 恢复滚动
+        document.body.classList.remove('tech-no-scroll');
+        // 重置表单
+        resetWriteupForm();
+    }
+}
+
+// 点击遮罩层关闭
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('writeupModal');
+    const overlay = document.querySelector('.tech-modal-overlay');
+    
+    if (overlay) {
+        overlay.addEventListener('click', closeTechModal);
+    }
+    
+    // ESC 键关闭
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
+            closeTechModal();
+        }
+    });
+});
+
+// Writeup 上传相关脚本
+(function() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('writeupFile');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const dropZoneContent = document.getElementById('dropZoneContent');
+
+    if (!dropZone || !fileInput) return;
+
+    // 点击触发选择
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // 拖拽事件
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.style.borderColor = '#b2b9bf';
+            dropZone.style.background = '#dbe4eb';
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.style.borderColor = '#cdd6df';
+            dropZone.style.background = '#eaf3fc';
+        });
+    });
+
+    dropZone.addEventListener('drop', e => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileSelect(files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', e => {
+        if (e.target.files.length > 0) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+
+    function handleFileSelect(file) {
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+            showWarningToast('请选择 PDF 格式的文件！');
+            fileInput.value = '';
+            resetDropZone();
+            return;
+        }
+
+        const maxSize = 20 * 1024 * 1024;
+        if (file.size > maxSize) {
+            showWarningToast('文件大小不能超过 20MB！');
+            fileInput.value = '';
+            resetDropZone();
+            return;
+        }
+
+        fileName.textContent = file.name;
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        fileSize.textContent = sizeMB + ' MB';
+        fileInfo.style.display = 'block';
+
+        dropZoneContent.innerHTML = `
+            <i class="fa fa-file-pdf-o" style="font-size: 48px; color: #dc2626; margin-bottom: 10px;"></i>
+            <p class="mb-1" style="color: #1e293b; font-weight: 500;">
+                ${file.name}
+            </p>
+            <small style="color: #64748b;">
+                ${sizeMB} MB - 点击可重新选择
+            </small>
+        `;
+    }
+
+    function resetDropZone() {
+        dropZoneContent.innerHTML = `
+            <i class="fa fa-cloud-upload" style="font-size: 48px; color: #94a3b8; margin-bottom: 10px;"></i>
+            <p class="mb-1" style="color: #475569; font-weight: 500;">
+                点击选择文件或拖拽到此处
+            </p>
+            <small style="color: #64748b;">
+                <i class="fa fa-info-circle mr-1"></i>仅支持 PDF 格式，最大 20MB
+            </small>
+        `;
+        fileInfo.style.display = 'none';
+    }
+
+    window.refreshWriteupCaptcha = function() {
+        const img = document.getElementById('writeupCaptchaImage');
+        if (!img) return;
+        
+        img.style.opacity = '0.5';
+        
+        fetch("/ctf/api/v1/writeup/captcha/")
+            .then(response => response.json())
+            .then(data => {
+                img.src = data.captcha_image;
+                img.style.opacity = '1';
+                document.getElementById('writeupCaptchaKey').value = data.captcha_key;
+            })
+            .catch(error => {
+                console.error('验证码加载失败:', error);
+                img.style.opacity = '1';
+                showWarningToast('验证码加载失败，请重试');
+            });
+    };
+
+    // 重置表单
+    window.resetWriteupForm = function() {
+        document.getElementById('writeupForm').reset();
+        resetDropZone();
+        document.getElementById('writeupCaptcha').value = '';
+        document.getElementById('writeupCaptchaKey').value = '';
+        const img = document.getElementById('writeupCaptchaImage');
+        if (img) img.src = '';
+        
+        const submitBtn = document.getElementById('writeupSubmitBtn');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa fa-check mr-1"></i>提交 Writeup';
+    };
+
+    // 表单提交
+    document.getElementById('writeupForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('writeupSubmitBtn');
+        const formData = new FormData(this);
+        
+        const title = document.getElementById('writeupTitle').value.trim();
+        const file = document.getElementById('writeupFile').files[0];
+        const captcha = document.getElementById('writeupCaptcha').value.trim();
+        
+        if (!title) {
+            showWarningToast('请输入 Writeup 标题！');
+            return;
+        }
+        
+        if (!file) {
+            showWarningToast('请选择 PDF 文件！');
+            return;
+        }
+        
+        if (!captcha) {
+            showWarningToast('请输入验证码！');
+            return;
+        }
+        
+        // 禁用按钮并显示加载状态
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>提交中...';
+        
+        fetch("/ctf/api/v1/writeup/submit/{{ competition.slug }}/", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessToast('✅ ' + data.message);
+                closeTechModal();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showWarningToast(' ' + data.message);
+                refreshWriteupCaptcha();
+                document.getElementById('writeupCaptcha').value = '';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showWarningToast(' 提交失败，请稍后重试！');
+            refreshWriteupCaptcha();
+        })
+        .finally(() => {
+            // 恢复按钮状态
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa fa-check mr-1"></i>提交 Writeup';
+        });
+    });
+})();
+</script>
+

@@ -1,0 +1,22 @@
+<div class="ctf-quote-section mt-4 mb-3">
+    <div id="encouragementQuotes" class="carousel slide" data-ride="carousel" data-interval="5000">
+        <div class="carousel-inner">
+            {% for quote in quotes %}
+                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                    <div class="ctf-quote-wrapper">
+                        <div class="ctf-quote-content">{{ quote.content }}</div>
+                        {% if quote.author %}
+                            <div class="ctf-quote-author">——{{ quote.author }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                <div class="carousel-item active">
+                    <div class="ctf-quote-wrapper">
+                        <div class="ctf-quote-content">永不放弃，胜利就在下一步！</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

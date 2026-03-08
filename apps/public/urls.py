@@ -1,27 +1,11 @@
-# -*- coding: utf-8 -*-
 from django.urls import path
-from django.conf import settings
-from .views import (challenge_detail,create_web_container,remove_container,
-    verify_flag,destroy_web_container,check_container_status,delete_challenge,
-    CompetitionViewList,Competition_detail,registrationView,RankingsView,competition_dashboard,get_dashboard_data,refresh_captcha,SubmissionDynamicView, SubmissionDynamicAPIView)
+from .views import indexViews, profileViews, licenseViews, reward_list, exchange_reward, get_exchange_captcha
 
 urlpatterns = [
-    path('',CompetitionViewList,name='CompetitionView'),  # 主页，自然排序
-    path('<slug:slug>/<uuid:uuid>/', challenge_detail, name='challenge_detail'),
-    path('<slug:slug>/dashboard/', competition_dashboard, name='competition_dashboard'),
-    path('api/v1/<slug:slug>/create_web_container/', create_web_container, name='create_web_container'),
-    path('remove_container/<str:container_id>/', remove_container, name='remove_container'),
-    path('api/v1/<slug:slug>/verify-flag/', verify_flag, name='verify_flag'),
-    path('api/v1/destroy_web_container/', destroy_web_container, name='destroy_web_container'),
-    path('api/v1/check_container_status/', check_container_status, name='check_container_status'),
-
-    path('api/v1/challenge/delete/', delete_challenge, name='challenge_delete'),
-    path('api/v1/competition/<slug:slug>/dashboard-data/', get_dashboard_data, name='competition_dashboard_data'),
-    path('api/v1/refresh-captcha/', refresh_captcha, name='refresh_captcha'),
-    path('<slug:slug>/', Competition_detail.as_view(), name='competition_detail'),
-    
-    path('rankings/<slug:slug>/<str:ranking_type>/', RankingsView.as_view(), name='rankings'),
-
-    path('<slug:slug>/submissions/', SubmissionDynamicView.as_view(), name='submission_dynamic'),
-    path('api/v1/<slug:slug>/submissions/', SubmissionDynamicAPIView.as_view(), name='submission_dynamic_api'),
+    path('', indexViews, name='indexViews'),
+    path('profile/<int:user_uuid>/', profileViews, name='profileViews'),
+    path('license/', licenseViews, name='licenseViews'),
+    path('reward/', reward_list, name='reward_list'),
+    path('public/api/v1/exchange/', exchange_reward, name='exchange_reward'),
+    path('public/api/v1/exchange/captcha/', get_exchange_captcha, name='get_exchange_captcha'),
 ]

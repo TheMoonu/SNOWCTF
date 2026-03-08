@@ -1,5 +1,5 @@
 {% extends 'public/base.html' %}
-{% block head_title %}{{ competition.title }}_比赛报名{% endblock %}
+{% block head_title %}比赛报名 - SonwCTF{% endblock %}
 {% block metas %}
 
 <meta name="description" content="比赛报名">
@@ -174,12 +174,11 @@
                 // 清空验证码输入框
                 document.querySelector('input[name="captcha"]').value = '';
             } else {
-                alert('刷新验证码失败，请重试');
+                showWarningToast('刷新验证码失败，请重试');
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('刷新验证码失败，请重试');
+            showWarningToast('刷新验证码失败，请重试');
         });
     }
 </script>

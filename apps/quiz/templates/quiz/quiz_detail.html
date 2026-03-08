@@ -1,0 +1,532 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block head_title %}{{ quiz.title }}{% endblock %}
+
+{% block metas %}
+<meta name="description" content="{{ quiz.description }}">
+{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'quiz/css/quiz.css' %}?v=20260123.01" rel="stylesheet">
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-9">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'quiz:quiz_list' %}">知识竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ quiz.title }}</li>
+                </ol>
+            </nav>
+
+            <!-- 竞赛头部 -->
+            <div class="quiz-detail-header card border-0 rounded-6 mb-3">
+                <h2 class="mb-3">{{ quiz.title }}</h2>
+                
+                
+                <div class="quiz-stats-grid">
+                    <div class="quiz-stat-item">
+                        <span class="quiz-stat-value">{{ quiz.total_score }}</span>
+                        <span class="quiz-stat-label">总分</span>
+                    </div>
+                    {% if quiz.enable_pass_score %}
+                    <div class="quiz-stat-item">
+                        <span class="quiz-stat-value">{{ quiz.pass_score }}</span>
+                        <span class="quiz-stat-label">及格分</span>
+                    </div>
+                    {% endif %}
+                    <div class="quiz-stat-item">
+                        <span class="quiz-stat-value">{{ quiz.duration }}</span>
+                        <span class="quiz-stat-label">分钟</span>
+                    </div>
+                    <div class="quiz-stat-item">
+                        <span class="quiz-stat-value">{{ quiz.quiz_questions.count }}</span>
+                        <span class="quiz-stat-label">题目数</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 时间信息 -->
+            {% if quiz.start_time and quiz.end_time %}
+            <div class="card border-0 rounded-6 mb-3">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="bi bi-calendar-event mr-2"></i>竞赛时间</h6>
+                    <div class="quiz-info-item">
+                        <i class="bi bi-calendar-check"></i>
+                        <span>开始时间：{{ quiz.start_time|date:"Y-m-d H:i" }}</span>
+                    </div>
+                    <div class="quiz-info-item">
+                        <i class="bi bi-calendar-x"></i>
+                        <span>结束时间：{{ quiz.end_time|date:"Y-m-d H:i" }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 进行中的答题 -->
+            {% if existing_record %}
+            <div class="card border-0 rounded-6 mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-2">
+                                <i class="bi bi-exclamation-circle text-warning mr-2"></i>
+                                您有一份未完成的答题
+                            </h6>
+                            <p class="text-muted mb-0 f-14">
+                                开始时间：{{ existing_record.start_time|date:"Y-m-d H:i:s" }}
+                            </p>
+                        </div>
+                        <div>
+                            <a href="{% url 'quiz:quiz_answer' existing_record.uuid %}" 
+                                class="btn quiz-btn-primary"
+                                id="continue-quiz-btn">
+                                <i class="bi bi-play-circle"></i> 继续答题
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+
+             <!-- 答题说明 -->
+             <div class="card border-0 rounded-6 mb-3">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="bi bi-info-circle mr-2"></i>答题说明</h6>
+                    {% if quiz.description %}
+                        <p class="mb-4">{{ quiz.description }}</p>
+
+                    {% else %}
+                        <p class="mb-4">暂无答题说明</p>
+                    {% endif %}
+                    
+
+                </div>
+            </div>
+            <!-- 报名状态和答题操作 -->
+            {% if quiz.require_registration %}
+                <!-- 需要报名的竞赛 -->
+                {% if not is_registered %}
+                    <!-- 未报名 -->
+                    <div class="card border-0 rounded-6 mb-3">
+                        <div class="card-body">
+                            <h6 class="mb-3">
+                                <i class="bi bi-clipboard-check mr-2"></i>参赛条件
+                            </h6>
+                            <p class="text-muted mb-3 f-14">
+                                本竞赛需要报名参加。
+                                {% if quiz.require_approval %}
+                                报名后需要等待管理员审核通过。
+                                {% else %}
+                                报名成功后即可开始答题。
+                                {% endif %}
+                            </p>
+                            
+                            {% if quiz_status == 'upcoming' %}
+                                <p class="text-muted mb-3 f-14">
+                                    <i class="bi bi-clock mr-1"></i>
+                                    竞赛还未开始，您可以先报名
+                                </p>
+                            {% elif quiz_status == 'ended' %}
+                                <p class="text-muted mb-0 f-14">
+                                    <i class="bi bi-x-circle mr-1"></i>
+                                    竞赛已结束，无法报名
+                                </p>
+                            {% endif %}
+                            
+                            {% if quiz_status != 'ended' %}
+                            <div class="text-center mt-3">
+                                <a href="{% url 'quiz:quiz_register' quiz.slug %}" 
+                                    class="btn btn-warning btn-lg">
+                                    <i class="bi bi-pencil-square mr-2"></i>立即报名
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% elif registration.status == 'pending' %}
+                    <!-- 待审核 -->
+                    <div class="card border-0 rounded-6 mb-3">
+                        <div class="card-body">
+                            <h6 class="mb-3">
+                                <i class="bi bi-hourglass-split mr-2"></i>报名状态
+                            </h6>
+                            <p class="text-muted mb-2 f-14">
+                                您的报名申请正在审核中，请耐心等待管理员审核。
+                            </p>
+                            <p class="text-muted mb-0 f-14">
+                                <i class="bi bi-clock mr-1"></i>
+                                报名时间：{{ registration.created_at|date:"Y-m-d H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                {% elif registration.status == 'rejected' %}
+                    <!-- 已拒绝 -->
+                    <div class="card border-0 rounded-6 mb-3">
+                        <div class="card-body">
+                            <h6 class="mb-3">
+                                <i class="bi bi-x-circle mr-2"></i>报名状态
+                            </h6>
+                            <p class="text-muted mb-0 f-14">
+                                您的报名申请未通过审核，如有疑问请联系管理员。
+                            </p>
+                        </div>
+                    </div>
+                {% else %}
+                    <!-- 已报名通过，显示答题入口 -->
+                    <div class="card border-0 rounded-6 mb-3">
+                        <div class="card-body">
+                            {% if quiz_status == 'upcoming' %}
+                                <h6 class="mb-3">
+                                    <i class="bi bi-clock-history mr-2"></i>竞赛状态
+                                </h6>
+                                <p class="text-muted mb-3 f-14">
+                                    <i class="bi bi-check-circle text-success mr-1"></i>您已成功报名
+                                </p>
+                                <p class="text-muted mb-0 f-14">竞赛还未开始，请等待开始时间。</p>
+                            {% elif quiz_status == 'ended' %}
+                                <h6 class="mb-3">
+                                    <i class="bi bi-x-circle mr-2"></i>竞赛状态
+                                </h6>
+                                <p class="text-muted mb-0 f-14">竞赛已结束</p>
+                            {% elif not can_attempt %}
+                                <h6 class="mb-3">
+                                    <i class="bi bi-info-circle mr-2"></i>答题状态
+                                </h6>
+                                <p class="text-muted mb-0 f-14">{{ attempt_message }}</p>
+                            {% else %}
+                                {% if quiz.max_attempts > 0 %}
+                                <p class="text-muted mb-3 f-14">
+                                    <i class="bi bi-check-circle text-success mr-1"></i>已报名 
+                                    <span class="ml-2">{{ attempt_message }}</span>
+                                </p>
+                                {% else %}
+                                <p class="text-muted mb-3 f-14">
+                                    <i class="bi bi-check-circle text-success mr-1"></i>您已成功报名该竞赛
+                                </p>
+                                {% endif %}
+                                
+                                <!-- 答题按钮 -->
+                                {% if can_start %}
+                                <div class="text-center">
+                                    <a href="{% url 'quiz:start_quiz' quiz.slug %}" 
+                                        class="btn quiz-btn-primary btn-lg"
+                                        id="start-quiz-btn">
+                                        <i class="bi bi-play-circle mr-2"></i>开始答题
+                                    </a>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                <!-- 无需报名的竞赛 -->
+                <div class="card border-0 rounded-6 mb-3">
+                    <div class="card-body">
+                        {% if quiz_status == 'upcoming' %}
+                            <h6 class="mb-3">
+                                <i class="bi bi-clock-history mr-2"></i>竞赛状态
+                            </h6>
+                            <p class="text-muted mb-0 f-14">竞赛还未开始，请等待开始时间。</p>
+                        {% elif quiz_status == 'ended' %}
+                            <h6 class="mb-3">
+                                <i class="bi bi-x-circle mr-2"></i>竞赛状态
+                            </h6>
+                            <p class="text-muted mb-0 f-14">竞赛已结束</p>
+                        {% elif not can_attempt %}
+                            <h6 class="mb-3">
+                                <i class="bi bi-info-circle mr-2"></i>答题状态
+                            </h6>
+                            <p class="text-muted mb-0 f-14">{{ attempt_message }}</p>
+                        {% else %}
+                            {% if quiz.max_attempts > 0 %}
+                            <p class="text-muted mb-3 f-14">
+                                <i class="bi bi-info-circle mr-1"></i>{{ attempt_message }}
+                            </p>
+                            {% endif %}
+                            
+                            <!-- 答题按钮 -->
+                            {% if can_start %}
+                            <div class="text-center">
+                                <a href="{% url 'quiz:start_quiz' quiz.slug %}" 
+                                    class="btn quiz-btn-primary btn-lg"
+                                    id="start-quiz-btn">
+                                    <i class="bi bi-play-circle mr-2"></i>开始答题
+                                </a>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            {% endif %}
+
+           
+
+            <!-- 历史记录 -->
+            {% if history_records %}
+            <div class="card border-0 rounded-6 mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0"><i class="bi bi-clock-history mr-2"></i>答题记录</h6>
+                        {% if history_records.count > 5 %}
+                        <a href="{% url 'quiz:my_records' %}" class="btn btn-sm btn-primary">
+                            查看全部记录
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 dynamic-table">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th style="width: 35%;">提交时间</th>
+                                    <th style="width: 25%;">状态</th>
+                                    <th style="width: 10%;" ">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in history_records|slice:":5" %}
+                                <tr>
+                                    <td>{{ record.submit_time|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if quiz.enable_pass_score %}
+                                            {% if record.score >= quiz.pass_score %}
+                                            <span class="state-label state-label-success">及格</span>
+                                            {% else %}
+                                            <span class="state-label state-label-danger">不及格</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="state-label state-label-info">已完成</span>
+                                        {% endif %}
+                                    </td>
+                                    <td >
+                                        <a href="{% url 'quiz:quiz_result' record.uuid %}" 
+                                            class="btn btn-sm btn-primary">
+                                            查看成绩
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- 右侧边栏 -->
+        <div class="col-lg-3 d-none d-lg-block">
+            {% include 'quiz/tags/quiz_sidebar.html' with quiz=quiz leaderboard=leaderboard %}
+        </div>
+    </div>
+</div>
+
+<!-- 开始答题确认模态框 -->
+<div class="modal fade" id="startQuizModal" tabindex="-1" role="dialog" aria-labelledby="startQuizModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="startQuizModalLabel">
+                    {% if enable_anti_cheat %}
+                    <i class="bi bi-shield-exclamation text-primary mr-2"></i>防作弊答题系统
+                    {% else %}
+                    <i class="bi bi-info-circle text-primary mr-2"></i>开始答题
+                    {% endif %}
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                {% if enable_anti_cheat %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle mr-2"></i>
+                    <strong>重要提示：</strong>仅支持电脑端答题！
+                </div>
+                
+                <h6 class="font-weight-bold mb-3">答题规则：</h6>
+                <ul class="mb-3">
+                    <li>必须全屏答题，不得退出全屏</li>
+                    <li>不得切换窗口或标签页</li>
+                    <li>不得使用其他软件或工具</li>
+                    <li>禁止使用开发者工具和右键菜单</li>
+                    <li class="text-danger"><strong>违规{{ quiz.max_violations|default:5 }}次将强制提交试卷</strong></li>
+                </ul>
+                
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle mr-2"></i>
+                    点击确认后将自动进入全屏答题模式
+                </div>
+                {% else %}
+                
+                <h6 class="font-weight-bold mb-3">答题信息：</h6>
+                <ul class="mb-0">
+                    <li>考试时长：{{ quiz.duration }} 分钟</li>
+                    <li>题目数量：{{ quiz.quiz_questions.count }} 题</li>
+                    <li>总分：{{ quiz.total_score }} 分</li>
+                    {% if quiz.enable_pass_score %}
+                    <li>及格分数：{{ quiz.pass_score }} 分</li>
+                    {% endif %}
+                </ul>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="bi bi-x-circle mr-1"></i>取消
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmStartQuiz">
+                    <i class="bi bi-check-circle mr-1"></i>确认开始答题
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 继续答题确认模态框 -->
+<div class="modal fade" id="continueQuizModal" tabindex="-1" role="dialog" aria-labelledby="continueQuizModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="continueQuizModalLabel">
+                    {% if enable_anti_cheat %}
+                    <i class="bi bi-shield-exclamation text-primary mr-2"></i>防作弊提醒
+                    {% else %}
+                    <i class="bi bi-info-circle text-primary mr-2"></i>继续答题
+                    {% endif %}
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                {% if enable_anti_cheat %}
+                <h6 class="font-weight-bold mb-3">继续答题将启用防作弊监控：</h6>
+                <ul class="mb-3">
+                    <li>自动全屏</li>
+                    <li>禁止切换窗口</li>
+                    <li class="text-danger"><strong>违规{{ quiz.max_violations|default:5 }}次强制提交</strong></li>
+                </ul>
+                
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle mr-2"></i>
+                    点击确认后将自动进入全屏模式
+                </div>
+                {% else %}
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle mr-2"></i>
+                    您有一份未完成的答题，确认继续？
+                </div>
+                <p class="text-muted mb-0 f-14">
+                    <i class="bi bi-clock mr-1"></i>剩余答题时间将继续计时
+                </p>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="bi bi-x-circle mr-1"></i>取消
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmContinueQuiz">
+                    <i class="bi bi-check-circle mr-1"></i>确认继续答题
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'quiz/js/quiz.js' %}?v=20260125.01"></script>
+<script>
+// 防作弊答题提示和全屏请求
+document.addEventListener('DOMContentLoaded', function() {
+    let targetUrl = '';
+    const enableAntiCheat = {{ enable_anti_cheat|yesno:"true,false" }};
+    
+    // 进入全屏并跳转的函数
+    function enterFullscreenAndRedirect(url) {
+        if (!enableAntiCheat) {
+            // 如果未启用防作弊，直接跳转
+            window.location.href = url;
+            return;
+        }
+        
+        // 启用了防作弊，尝试进入全屏
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().then(() => {
+                window.location.href = url;
+            }).catch(() => {
+                // 即使全屏失败也跳转（页面会再次尝试）
+                window.location.href = url;
+            });
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+            setTimeout(() => {
+                window.location.href = url;
+            }, 100);
+        } else if (elem.mozRequestFullScreen) {
+            elem.mozRequestFullScreen();
+            setTimeout(() => {
+                window.location.href = url;
+            }, 100);
+        } else {
+            // 不支持全屏API的浏览器
+            window.location.href = url;
+        }
+    }
+    
+    // 处理"开始答题"按钮
+    const startBtn = document.getElementById('start-quiz-btn');
+    if (startBtn) {
+        startBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            targetUrl = this.href;
+            $('#startQuizModal').modal('show');
+        });
+    }
+    
+    // 确认开始答题
+    const confirmStartBtn = document.getElementById('confirmStartQuiz');
+    if (confirmStartBtn) {
+        confirmStartBtn.addEventListener('click', function() {
+            $('#startQuizModal').modal('hide');
+            setTimeout(() => {
+                enterFullscreenAndRedirect(targetUrl);
+            }, 300); // 等待模态框关闭动画完成
+        });
+    }
+    
+    // 处理"继续答题"按钮
+    const continueBtn = document.getElementById('continue-quiz-btn');
+    if (continueBtn) {
+        continueBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            targetUrl = this.href;
+            $('#continueQuizModal').modal('show');
+        });
+    }
+    
+    // 确认继续答题
+    const confirmContinueBtn = document.getElementById('confirmContinueQuiz');
+    if (confirmContinueBtn) {
+        confirmContinueBtn.addEventListener('click', function() {
+            $('#continueQuizModal').modal('hide');
+            setTimeout(() => {
+                enterFullscreenAndRedirect(targetUrl);
+            }, 300); // 等待模态框关闭动画完成
+        });
+    }
+});
+</script>
+{% endblock %}
+

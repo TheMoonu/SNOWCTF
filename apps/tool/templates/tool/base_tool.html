@@ -1,0 +1,34 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block top-file %}
+<link href="{% static 'tool/css/tool.css' %}?v=20260129.09" rel="stylesheet">
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 f-16">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'tool:total' %}">在线工具</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">{% block tool_name %}{% endblock %}</li>
+                </ol>
+            </nav>
+            <div class="card rounded-6 border-0 p-2 p-lg-3">
+                {% block left_content %}{% endblock %}
+            </div>
+        </div>
+        <div class="col-lg-4 d-none d-lg-block">
+            {% include 'tool/tags/tool_list.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'tool/js/tool.js'%}?v=20251230.01"></script>
+{% block end_f %}{% endblock %}
+{% endblock %}

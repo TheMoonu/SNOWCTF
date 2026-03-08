@@ -1,0 +1,181 @@
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="custom-pagination-container mt-4">
+    <nav aria-label="分页导航">
+        <ul class="pagination pagination-sm justify-content-center custom-pagination">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link border-0 text-primary pagination-link" 
+                   data-page="{{ page_obj.previous_page_number }}" 
+                   data-param="{{ param_name }}" 
+                   data-tab="{{ active_tab }}" 
+                   href="javascript:void(0);" 
+                   aria-label="上一页">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <a class="page-link border-0" href="#" aria-label="上一页" data-no-loading>
+                    <i class="fa fa-angle-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% if page_obj.number > 3 %}
+            <li class="page-item">
+                <a class="page-link border-0 pagination-link" 
+                   data-page="1" 
+                   data-param="{{ param_name }}" 
+                   data-tab="{{ active_tab }}" 
+                   href="javascript:void(0);">1</a>
+            </li>
+            {% if page_obj.number > 4 %}
+            <li class="page-item disabled">
+                <span class="page-link border-0">...</span>
+            </li>
+            {% endif %}
+            {% endif %}
+            
+            {% for i in page_obj.paginator.page_range %}
+                {% if page_obj.number == i %}
+                <li class="page-item active">
+                    <a class="page-link border-0" href="#" data-no-loading>{{ i }}</a>
+                </li>
+                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link border-0 text-dark pagination-link" 
+                       data-page="{{ i }}" 
+                       data-param="{{ param_name }}" 
+                       data-tab="{{ active_tab }}" 
+                       href="javascript:void(0);">{{ i }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.number < page_obj.paginator.num_pages|add:'-2' %}
+            {% if page_obj.number < page_obj.paginator.num_pages|add:'-3' %}
+            <li class="page-item disabled">
+                <span class="page-link border-0">...</span>
+            </li>
+            {% endif %}
+            <li class="page-item">
+                <a class="page-link border-0 pagination-link" 
+                   data-page="{{ page_obj.paginator.num_pages }}" 
+                   data-param="{{ param_name }}" 
+                   data-tab="{{ active_tab }}" 
+                   href="javascript:void(0);">{{ page_obj.paginator.num_pages }}</a>
+            </li>
+            {% endif %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link border-0 text-primary pagination-link" 
+                   data-page="{{ page_obj.next_page_number }}" 
+                   data-param="{{ param_name }}" 
+                   data-tab="{{ active_tab }}" 
+                   href="javascript:void(0);" 
+                   aria-label="下一页">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <a class="page-link border-0" href="#" aria-label="下一页" data-no-loading>
+                    <i class="fa fa-angle-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+<style>
+.custom-pagination-container {
+    font-size: 14px;
+}
+
+.custom-pagination .page-link {
+    padding: 0.375rem 0.75rem;
+    color: #333;  /* 更深的黑色文字 */
+    background-color: transparent;
+    transition: all 0.2s ease;
+    min-width: 32px;
+    height: 32px;
+    line-height: 20px;
+    text-align: center;
+    margin: 0 3px;
+}
+
+.custom-pagination .page-item.active .page-link {
+    color: #333;  /* 激活状态也使用黑色文字 */
+    background-color: #fff;  /* 白色背景 */
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);  /* 轻微的阴影效果 */
+    border: 1px solid #e8e8e8;  /* 添加边框使白色背景更明显 */
+}
+
+.custom-pagination .page-link:hover {
+    color: #333;
+    background-color: #f5f5f5;  /* 悬停时浅灰色背景 */
+    border-radius: 4px;
+}
+
+.custom-pagination .page-item.disabled .page-link {
+    color: #ccc;
+}
+
+.custom-pagination .fa {
+    font-size: 12px;
+}
+</style>
+
+<!-- 添加JavaScript处理分页链接点击 -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 为所有分页链接添加点击事件
+    document.querySelectorAll('.pagination-link').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // 获取数据属性
+            const page = this.getAttribute('data-page');
+            const paramName = this.getAttribute('data-param');
+            const activeTab = this.getAttribute('data-tab');
+            
+            // 构建URL，只保留当前标签页的分页参数
+            let url = new URL(window.location.href);
+            
+            // 清除所有分页参数
+            url.searchParams.delete('reg_page');
+            url.searchParams.delete('score_page');
+            url.searchParams.delete('team_page');
+            url.searchParams.delete('team_score_page');
+            url.searchParams.delete('challenges_page');
+            url.searchParams.delete('audit_page');
+            url.searchParams.delete('writeup_page');
+            url.searchParams.delete('not_submitted_page');
+            
+            // 设置当前标签页的分页参数
+            url.searchParams.set(paramName, page);
+            url.searchParams.set('active_tab', activeTab);
+            
+            // 添加锚点，让页面跳转后定位到对应的标签页内容区域
+            url.hash = activeTab + '-tab';
+            
+            // 跳转到新URL
+            window.location.href = url.toString();
+        });
+    });
+    
+    // 页面加载时，如果URL中有锚点，平滑滚动到对应位置
+    if (window.location.hash) {
+        setTimeout(function() {
+            const targetElement = document.querySelector(window.location.hash);
+            if (targetElement) {
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+    }
+});
+</script>
+{% endif %}

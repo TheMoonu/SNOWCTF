@@ -1,0 +1,1145 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}容器引擎健康监控{% endblock %}
+
+{% block top-file %}
+<style>
+    :root {
+        --primary-color: #4f46e5;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+        --gray-color: #6b7280;
+        --info-color: #3b82f6;
+        --k8s-color: #326ce5;
+    }
+    
+    /* 页面标题卡片 */
+    .dashboard-header {
+        background: white;
+        color: #333;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid #f0f0f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    .dashboard-title {
+        font-size: 1.875rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        color: #333;
+    }
+    
+    .dashboard-subtitle {
+        color: #666;
+        margin: 0;
+        font-size: 0.95rem;
+    }
+    
+    /* 统计卡片 - 简洁现代设计 */
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1.2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.8rem 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border: 1px solid #f0f0f0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .stat-card.total::before { background: linear-gradient(90deg, var(--info-color), #60a5fa); }
+    .stat-card.healthy::before { background: linear-gradient(90deg, var(--success-color), #34d399); }
+    .stat-card.warning::before { background: linear-gradient(90deg, var(--warning-color), #fbbf24); }
+    .stat-card.critical::before { background: linear-gradient(90deg, var(--danger-color), #f87171); }
+    .stat-card.offline::before { background: linear-gradient(90deg, var(--gray-color), #9ca3af); }
+    
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+        border-color: transparent;
+    }
+    
+    .stat-card:hover::before {
+        opacity: 1;
+    }
+    
+    .stat-number {
+        font-size: 2.75rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 0.6rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    .stat-card.total .stat-number { 
+        background: linear-gradient(135deg, var(--info-color), #60a5fa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .stat-card.healthy .stat-number { 
+        background: linear-gradient(135deg, var(--success-color), #34d399);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .stat-card.warning .stat-number { 
+        background: linear-gradient(135deg, var(--warning-color), #fbbf24);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .stat-card.critical .stat-number { 
+        background: linear-gradient(135deg, var(--danger-color), #f87171);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .stat-card.offline .stat-number { 
+        background: linear-gradient(135deg, var(--gray-color), #9ca3af);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .stat-label {
+        color: #6b7280;
+        font-size: 0.813rem;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+        margin: 0;
+    }
+    
+    /* 引擎卡片 */
+    .engines-grid {
+        display: grid;
+        gap: 1.5rem;
+    }
+    
+    .engine-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid #f0f0f0;
+        transition: all 0.3s ease;
+    }
+    
+    .engine-card:hover {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+        border-color: #e0e0e0;
+    }
+    
+    .engine-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #f3f4f6;
+    }
+    
+    .engine-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #111827;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .engine-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .status-badge.HEALTHY {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-badge.WARNING {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-badge.CRITICAL {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .status-badge.OFFLINE {
+        background: #f3f4f6;
+        color: #374151;
+    }
+    
+    .status-icon {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-badge.HEALTHY .status-icon { background: #10b981; }
+    .status-badge.WARNING .status-icon { background: #f59e0b; }
+    .status-badge.CRITICAL .status-icon { background: #ef4444; }
+    .status-badge.OFFLINE .status-icon { background: #6b7280; }
+    
+    /* 引擎类型徽章 */
+    .engine-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .engine-type-badge.docker {
+        background: #e0f2fe;
+        color: #0c4a6e;
+    }
+    
+    .engine-type-badge.k8s {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+    
+    /* 资源使用情况 */
+    .resources-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .resource-item {
+        background: #f9fafb;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #f3f4f6;
+    }
+    
+    .resource-label {
+        color: #6b7280;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+    
+    .resource-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 0.5rem;
+    }
+    
+    .progress-bar-container {
+        height: 6px;
+        background: #e5e7eb;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        transition: width 0.3s ease;
+        border-radius: 3px;
+    }
+    
+    .progress-bar.low { background: linear-gradient(90deg, #10b981, #34d399); }
+    .progress-bar.medium { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .progress-bar.high { background: linear-gradient(90deg, #ef4444, #f87171); }
+    
+    /* K8s 节点状态指示器 */
+    .k8s-node-status {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+    }
+    
+    .k8s-node-status.ready { 
+        background: #10b981;
+        animation: pulse-green 2s infinite;
+    }
+    
+    .k8s-node-status.notready { 
+        background: #ef4444;
+        animation: pulse-red 2s infinite;
+    }
+    
+    @keyframes pulse-green {
+        0%, 100% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3); }
+        50% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1); }
+    }
+    
+    @keyframes pulse-red {
+        0%, 100% { box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3); }
+        50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
+    }
+    
+    /* 元信息 */
+    .meta-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #f3f4f6;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+    
+    .meta-label {
+        color: #6b7280;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .meta-value {
+        color: #111827;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    /* 错误提示 */
+    .error-alert {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .error-alert-title {
+        color: #991b1b;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    .error-alert-message {
+        color: #dc2626;
+        font-size: 0.875rem;
+        font-family: monospace;
+        word-break: break-all;
+    }
+    
+    /* 按钮 */
+    .btn-modern {
+        padding: 0.625rem 1.25rem;
+        border-radius: 8px;
+        border: none;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-primary-modern {
+        background: #0184ff;
+        color: white;
+    }
+    
+    .btn-primary-modern:hover {
+        background: #0066cc;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(1, 132, 255, 0.3);
+    }
+    
+    .btn-primary-modern:active {
+        background: #004d99;
+        color: white;
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(1, 132, 255, 0.2);
+    }
+    
+    .btn-success-modern {
+        background: #0184ff;
+        color: white;
+    }
+    
+    .btn-success-modern:hover {
+        background: #0066cc;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(1, 132, 255, 0.3);
+    }
+    
+    .btn-success-modern:active {
+        background: #004d99;
+        color: white;
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(1, 132, 255, 0.2);
+    }
+    
+    .btn-outline-modern {
+        background: white;
+        color: #0184ff;
+        border: 1px solid #0184ff;
+    }
+    
+    .btn-outline-modern:hover {
+        background: #0184ff;
+        color: white;
+        border-color: #0184ff;
+    }
+    
+    .btn-outline-modern:active {
+        background: #004d99;
+        color: white;
+        border-color: #004d99;
+        transform: translateY(0);
+    }
+    
+    /* 修复链接按钮的样式（覆盖 a 标签默认样式） */
+    a.btn-modern {
+        color: inherit;
+        text-decoration: none;
+    }
+    
+    a.btn-modern:visited {
+        color: inherit;
+    }
+    
+    a.btn-modern:active {
+        color: white;
+    }
+    
+    a.btn-success-modern,
+    a.btn-success-modern:visited,
+    a.btn-success-modern:hover,
+    a.btn-success-modern:active {
+        color: white !important;
+    }
+    
+    /* 加载动画 */
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 0.5rem;
+    }
+    
+    .spinner {
+        width: 36px;
+        height: 36px;
+        border: 3px solid #e5f2ff;
+        border-top-color: #0184ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 0.5rem;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    /* 空状态 */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #f0f0f0;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="dashboard-header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 class="dashboard-title">
+                    <i class="fa fa-heartbeat"></i> 容器引擎健康监控
+                </h1>
+                <p class="dashboard-subtitle">实时监控 Docker 和 Kubernetes 引擎状态</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn-modern btn-primary-modern" onclick="refreshAllHealth()">
+                    <i class="fa fa-refresh"></i> 刷新
+                </button>
+                <button class="btn-modern btn-success-modern" onclick="checkAllEngines()">
+                    <i class="fa fa-check-circle"></i> 批量检查
+                </button>
+            </div>
+        </div>
+        
+        <!-- 缓存状态指示器 -->
+        <div style="margin-top: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+            <span id="cacheStatus" style="font-size: 0.875rem; color: #6b7280; display: none;">
+                <i class="fa fa-database"></i>
+                <span>使用缓存数据（点击刷新更新）</span>
+            </span>
+            <span style="font-size: 0.875rem; color: #6b7280;" id="lastUpdateTime">
+                最后更新: --:--:--
+            </span>
+        </div>
+    </div>
+    
+    <!-- 统计概览 -->
+    <div class="summary-grid">
+        <div class="stat-card total">
+            <div class="stat-number" id="totalCount">-</div>
+            <div class="stat-label">总引擎数</div>
+        </div>
+        <div class="stat-card healthy">
+            <div class="stat-number" id="healthyCount">-</div>
+            <div class="stat-label">健康</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-number" id="warningCount">-</div>
+            <div class="stat-label">警告</div>
+        </div>
+        <div class="stat-card critical">
+            <div class="stat-number" id="criticalCount">-</div>
+            <div class="stat-label">严重</div>
+        </div>
+        <div class="stat-card offline">
+            <div class="stat-number" id="offlineCount">-</div>
+            <div class="stat-label">离线</div>
+        </div>
+    </div>
+    
+    <!-- 引擎列表 -->
+    <div class="engines-grid" id="enginesList">
+        <div class="engine-card">
+            <div class="loading-container">
+                <div class="spinner"></div>
+                <p style="color: #0184ff; font-weight: 500;">加载中...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量检查确认模态框 -->
+<div class="modal fade" id="checkAllModal" tabindex="-1" role="dialog" aria-labelledby="checkAllModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="checkAllModalLabel">
+                    <i class="fa fa-exclamation-circle text-warning"></i> 确认批量检查
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">确定要批量检查所有容器引擎吗？</p>
+                <p class="text-muted mb-0">
+                    <i class="fa fa-info-circle"></i> 这可能需要一些时间，请耐心等待。
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">
+                    <i class="fa fa-times"></i> 取消
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="confirmCheckAllBtn">
+                    <i class="fa fa-check"></i> 确认检查
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+// 加载健康状态
+function loadHealthStatus() {
+    // 显示加载状态
+    const container = document.getElementById('enginesList');
+    const currentHTML = container.innerHTML;
+    
+    // 只在完全空白时显示 loading
+    if (!container.querySelector('.engine-card')) {
+        container.innerHTML = `
+            <div class="engine-card">
+                <div class="loading-container">
+                    <div class="spinner"></div>
+                    <p style="color: #0184ff; font-weight: 500;">加载中...</p>
+                </div>
+            </div>
+        `;
+    }
+    
+    fetch('/container/api/v1/engines/health/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateSummary(data.summary);
+                renderEngines(data.engines);
+                updateCacheStatus(data.cached);
+                updateLastUpdateTime();
+            } else {
+                showErrorToast('加载失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误: ' + error.message);
+            // 恢复原内容
+            if (currentHTML && currentHTML !== container.innerHTML) {
+                container.innerHTML = currentHTML;
+            }
+        });
+}
+
+// 更新缓存状态指示
+function updateCacheStatus(isCached) {
+    const cacheStatus = document.getElementById('cacheStatus');
+    if (isCached) {
+        cacheStatus.style.display = 'inline-flex';
+        cacheStatus.style.alignItems = 'center';
+        cacheStatus.style.gap = '0.5rem';
+    } else {
+        cacheStatus.style.display = 'none';
+    }
+}
+
+// 更新最后更新时间
+function updateLastUpdateTime() {
+    const now = new Date();
+    document.getElementById('lastUpdateTime').textContent = 
+        '最后更新: ' + now.toLocaleTimeString('zh-CN');
+}
+
+// 更新汇总统计
+function updateSummary(summary) {
+    document.getElementById('totalCount').textContent = summary.total;
+    document.getElementById('healthyCount').textContent = summary.healthy;
+    document.getElementById('warningCount').textContent = summary.warning;
+    document.getElementById('criticalCount').textContent = summary.critical;
+    document.getElementById('offlineCount').textContent = summary.offline;
+}
+
+// 渲染引擎列表（支持 Docker 和 K8s）
+function renderEngines(engines) {
+    const container = document.getElementById('enginesList');
+    
+    if (engines.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📦</div>
+                <h3>暂无容器引擎</h3>
+                <p>请先在系统中配置 Docker 或 Kubernetes 引擎</p>
+            </div>
+        `;
+        return;
+    }
+    
+    
+    container.innerHTML = engines.map(engine => {
+        if (engine.engine_type === 'KUBERNETES') {
+            return renderK8sEngine(engine);
+        } else {
+            return renderDockerEngine(engine);
+        }
+    }).join('');
+}
+
+// 渲染 Docker 引擎
+function renderDockerEngine(engine) {
+    const cpu = engine.resource_usage?.cpu;
+    const memory = engine.resource_usage?.memory;
+    const disk = engine.resource_usage?.disk;
+    
+    return `
+        <div class="engine-card">
+            <div class="engine-header">
+                <h3 class="engine-name">
+                    <i class="fa fa-${engine.host_type === 'LOCAL' ? 'desktop' : 'cloud'}"></i>
+                    ${engine.name}
+                    <span class="engine-type-badge docker">
+                        <i class="fa fa-docker"></i> Docker
+                    </span>
+                </h3>
+                <div class="engine-actions">
+                    <span class="status-badge ${engine.status}">
+                        <span class="status-icon"></span>
+                        ${engine.status_display}
+                    </span>
+                    <button class="btn-modern btn-outline-modern" onclick="checkSingleEngine(${engine.id})">
+                        <i class="fa fa-refresh"></i> 检查
+                    </button>
+                </div>
+            </div>
+            
+            <div class="resources-grid">
+                ${renderResourceItem('CPU', cpu, 'microchip')}
+                ${renderResourceItem('内存', memory, 'memory')}
+                ${renderResourceItem('磁盘', disk, 'hdd')}
+                ${renderContainerItem(engine.running_containers, engine.total_containers, '容器')}
+            </div>
+            
+            <div class="meta-info">
+                <div class="meta-item">
+                    <span class="meta-label">
+                        <i class="fa fa-sitemap"></i> 主机类型
+                    </span>
+                    <span class="meta-value">${engine.host_type === 'LOCAL' ? '本地' : '远程'}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">
+                        <i class="fa fa-clock-o"></i> 响应时间
+                    </span>
+                    <span class="meta-value">
+                        ${engine.response_time ? engine.response_time.toFixed(0) + ' ms' : '未知'}
+                    </span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">
+                        <i class="fa fa-calendar-check-o"></i> 最后检查
+                    </span>
+                    <span class="meta-value">${engine.last_check_display}</span>
+                </div>
+            </div>
+            
+            ${engine.error ? `
+                <div class="error-alert">
+                    <div class="error-alert-title">
+                        <i class="fa fa-exclamation-triangle"></i> 错误信息
+                    </div>
+                    <div class="error-alert-message">${engine.error}</div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// 渲染 K8s 引擎
+function renderK8sEngine(engine) {
+    const k8s = engine.k8s_info || {};
+    const cpu = engine.cpu_usage;
+    const memory = engine.memory_usage;
+    
+    return `
+        <div class="engine-card">
+            <div class="engine-header">
+                <h3 class="engine-name">
+                    <i class="fa fa-cubes"></i>
+                    ${engine.name}
+                    <span class="engine-type-badge k8s">
+                        ☸ Kubernetes
+                    </span>
+                </h3>
+                <div class="engine-actions">
+                    <span class="status-badge ${engine.status}">
+                        <span class="status-icon"></span>
+                        ${engine.status_display}
+                    </span>
+                    <a href="/container/security/" class="btn-modern btn-success-modern" style="text-decoration: none;" title="打开 K8s 安全监控面板">
+                        <i class="fa fa-shield"></i> 安全监控
+                    </a>
+                    <button class="btn-modern btn-outline-modern" onclick="checkSingleEngine(${engine.id})">
+                        <i class="fa fa-refresh"></i> 检查
+                    </button>
+                </div>
+            </div>
+            
+            ${k8s.warnings && k8s.warnings.length > 0 ? `
+                <div class="error-alert" style="background: #fff7ed; border: 1px solid #fed7aa; margin-bottom: 1.5rem;">
+                    <div class="error-alert-title" style="color: #9a3412;">
+                        <i class="fa fa-exclamation-triangle"></i> 警告信息
+                    </div>
+                    <div style="font-size: 0.875rem; color: #c2410c; margin-top: 0.5rem;">
+                        ${k8s.warnings.map(w => `<div style="margin-bottom: 0.25rem;">• ${w}</div>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            
+            <div class="resources-grid">
+                ${renderK8sResourceItem('节点数', k8s.nodes_total, k8s.nodes_ready, 'server')}
+                ${renderContainerItem(k8s.pods_running, k8s.pods_total, 'Pods')}
+                ${cpu !== null && cpu !== undefined ? renderResourceItem('CPU', cpu, 'microchip') : renderK8sSimpleItem('CPU', '需要 metrics-server', 'microchip')}
+                ${memory !== null && memory !== undefined ? renderResourceItem('内存', memory, 'memory') : renderK8sSimpleItem('内存', '需要 metrics-server', 'memory')}
+                ${renderK8sSimpleItem('命名空间', k8s.namespace || 'default', 'folder-open')}
+                ${renderK8sSimpleItem('版本', k8s.version || '未知', 'info-circle')}
+            </div>
+            
+            ${k8s.nodes && k8s.nodes.length > 0 ? `
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f3f4f6;">
+                    <div class="resource-label" style="margin-bottom: 0.75rem;">
+                        <i class="fa fa-server"></i> 节点详细信息 
+                        <span style="color: #9ca3af; font-weight: normal; font-size: 0.75rem;">
+                            (${k8s.nodes.length} 个节点，汇总显示所有节点资源)
+                        </span>
+                    </div>
+                    <div style="display: grid; gap: 0.75rem;">
+                        ${k8s.nodes.map(node => {
+                            // 使用预测使用量（包含pending）
+                            const cpuPredicted = node.cpu_predicted || node.cpu_usage;
+                            const memoryPredicted = node.memory_predicted || node.memory_usage;
+                            
+                            const cpuUsagePercent = node.cpu_capacity > 0 ? (node.cpu_usage / node.cpu_capacity * 100) : 0;
+                            const cpuPredictedPercent = node.cpu_capacity > 0 ? (cpuPredicted / node.cpu_capacity * 100) : 0;
+                            
+                            const memoryUsagePercent = node.memory_capacity > 0 ? (node.memory_usage / node.memory_capacity * 100) : 0;
+                            const memoryPredictedPercent = node.memory_capacity > 0 ? (memoryPredicted / node.memory_capacity * 100) : 0;
+                            
+                            const memoryUsageGiB = node.memory_usage / (1024**3);
+                            const memoryPredictedGiB = memoryPredicted / (1024**3);
+                            const memoryCapacityGiB = node.memory_capacity / (1024**3);
+                            
+                            const hasPending = (node.cpu_pending && node.cpu_pending > 0) || (node.memory_pending && node.memory_pending > 0);
+                            
+                            return `
+                            <div style="background: #f9fafb; padding: 1rem; border-radius: 8px; border: 1px solid ${node.ready ? '#d1fae5' : '#fee2e2'};">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span class="k8s-node-status ${node.ready ? 'ready' : 'notready'}"></span>
+                                        <strong style="font-size: 0.875rem; color: #374151;">${node.name}</strong>
+                                        ${hasPending ? '<span style="font-size: 0.65rem; background: #fef3c7; color: #92400e; padding: 0.125rem 0.375rem; border-radius: 4px; margin-left: 0.25rem;">预占中</span>' : ''}
+                                    </div>
+                                    <span style="font-size: 0.75rem; color: ${node.ready ? '#065f46' : '#991b1b'}; font-weight: 600;">
+                                        ${node.ready ? 'Ready' : 'NotReady'}
+                                    </span>
+                                </div>
+                                
+                                ${node.cpu_capacity > 0 ? `
+                                    <div style="margin-bottom: 0.5rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                            <span style="font-size: 0.75rem; color: #6b7280;">
+                                                <i class="fa fa-microchip"></i> CPU ${hasPending ? '(实时→预测)' : ''}
+                                            </span>
+                                            <span style="font-size: 0.75rem; font-weight: 600; color: #374151;">
+                                                ${hasPending 
+                                                    ? `${node.cpu_usage.toFixed(2)}→${cpuPredicted.toFixed(2)} / ${node.cpu_capacity.toFixed(2)} cores (${cpuPredictedPercent.toFixed(1)}%)`
+                                                    : `${node.cpu_usage.toFixed(2)} / ${node.cpu_capacity.toFixed(2)} cores (${cpuUsagePercent.toFixed(1)}%)`
+                                                }
+                                            </span>
+                                        </div>
+                                        <div class="progress-bar-container" style="height: 4px;">
+                                            ${hasPending 
+                                                ? `<div class="progress-bar" style="width: ${cpuUsagePercent}%; background: #10b981;"></div><div class="progress-bar" style="width: ${cpuPredictedPercent - cpuUsagePercent}%; background: #fbbf24;"></div>`
+                                                : `<div class="progress-bar ${getProgressClass(cpuUsagePercent)}" style="width: ${cpuUsagePercent}%"></div>`
+                                            }
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${node.memory_capacity > 0 ? `
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                            <span style="font-size: 0.75rem; color: #6b7280;">
+                                                <i class="fa fa-memory"></i> 内存 ${hasPending ? '(实时→预测)' : ''}
+                                            </span>
+                                            <span style="font-size: 0.75rem; font-weight: 600; color: #374151;">
+                                                ${hasPending
+                                                    ? `${memoryUsageGiB.toFixed(2)}→${memoryPredictedGiB.toFixed(2)} / ${memoryCapacityGiB.toFixed(2)} GiB (${memoryPredictedPercent.toFixed(1)}%)`
+                                                    : `${memoryUsageGiB.toFixed(2)} / ${memoryCapacityGiB.toFixed(2)} GiB (${memoryUsagePercent.toFixed(1)}%)`
+                                                }
+                                            </span>
+                                        </div>
+                                        <div class="progress-bar-container" style="height: 4px;">
+                                            ${hasPending
+                                                ? `<div class="progress-bar" style="width: ${memoryUsagePercent}%; background: #10b981;"></div><div class="progress-bar" style="width: ${memoryPredictedPercent - memoryUsagePercent}%; background: #fbbf24;"></div>`
+                                                : `<div class="progress-bar ${getProgressClass(memoryUsagePercent)}" style="width: ${memoryUsagePercent}%"></div>`
+                                            }
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                        }).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            
+            <div class="meta-info">
+                <div class="meta-item">
+                    <span class="meta-label">
+                        <i class="fa fa-folder"></i> 命名空间
+                    </span>
+                    <span class="meta-value">${k8s.namespace || 'default'}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">
+                        <i class="fa fa-clock-o"></i> 响应时间
+                    </span>
+                    <span class="meta-value">
+                        ${engine.response_time ? engine.response_time.toFixed(0) + ' ms' : '未知'}
+                    </span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">
+                        <i class="fa fa-calendar-check-o"></i> 最后检查
+                    </span>
+                    <span class="meta-value">${engine.last_check_display}</span>
+                </div>
+            </div>
+            
+            ${engine.error ? `
+                <div class="error-alert">
+                    <div class="error-alert-title">
+                        <i class="fa fa-exclamation-triangle"></i> 错误信息
+                    </div>
+                    <div class="error-alert-message">${engine.error}</div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// 渲染 K8s 资源项（节点）
+function renderK8sResourceItem(label, total, ready, icon) {
+    const percentage = total > 0 ? (ready / total * 100) : 0;
+    const progressClass = percentage >= 80 ? 'low' : percentage >= 50 ? 'medium' : 'high';
+    
+    return `
+        <div class="resource-item">
+            <div class="resource-label">
+                <i class="fa fa-${icon}"></i> ${label}
+            </div>
+            <div class="resource-value">${ready}<small style="font-size: 0.75rem; color: #999; font-weight: normal;"> / ${total}</small></div>
+            <div class="progress-bar-container">
+                <div class="progress-bar ${progressClass}" style="width: ${percentage}%"></div>
+            </div>
+        </div>
+    `;
+}
+
+// 渲染 K8s 简单项
+function renderK8sSimpleItem(label, value, icon) {
+    return `
+        <div class="resource-item">
+            <div class="resource-label">
+                <i class="fa fa-${icon}"></i> ${label}
+            </div>
+            <div class="resource-value" style="font-size: 1.25rem;">${value || '未知'}</div>
+        </div>
+    `;
+}
+
+// 渲染资源项
+function renderResourceItem(label, value, icon) {
+    const percentage = value !== null && value !== undefined ? value : null;
+    const displayValue = percentage !== null ? `${percentage.toFixed(1)}%` : '未知';
+    const progressClass = percentage !== null ? getProgressClass(percentage) : 'low';
+    const progressWidth = percentage !== null ? percentage : 0;
+    
+    return `
+        <div class="resource-item">
+            <div class="resource-label">
+                <i class="fa fa-${icon}"></i> ${label}
+            </div>
+            <div class="resource-value">${displayValue}</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar ${progressClass}" style="width: ${progressWidth}%"></div>
+            </div>
+        </div>
+    `;
+}
+
+// 渲染容器/Pod 项
+function renderContainerItem(running, total, label) {
+    const percentage = total > 0 ? (running / total * 100) : 0;
+    
+    return `
+        <div class="resource-item">
+            <div class="resource-label">
+                <i class="fa fa-cube"></i> ${label}
+            </div>
+            <div class="resource-value">${running}<small style="font-size: 0.75rem; color: #999; font-weight: normal;"> 个运行中</small></div>
+            <div style="font-size: 0.75rem; color: #999; margin-top: 0.25rem;">
+                总计: ${total} 个
+            </div>
+        </div>
+    `;
+}
+
+// 获取进度条颜色类
+function getProgressClass(percentage) {
+    if (percentage >= 80) return 'high';
+    if (percentage >= 50) return 'medium';
+    return 'low';
+}
+
+// 检查单个引擎
+function checkSingleEngine(engineId) {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 检查中...';
+    btn.disabled = true;
+    
+    // 强制刷新：force=true 清除缓存，获取最新数据
+    fetch(`/container/api/v1/engine/${engineId}/health/?force=true`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // ✅ 检查完成后立即刷新列表（使用强制刷新确保数据同步）
+                fetch('/container/api/v1/engines/health/?force=true')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateSummary(data.summary);
+                            renderEngines(data.engines);
+                            updateCacheStatus(false); // 检查后显示非缓存状态
+                            updateLastUpdateTime();
+                            showSuccessToast('健康检查完成', '成功');
+                        }
+                    })
+                    .catch(error => {
+                        showErrorToast('刷新失败: ' + error.message, '错误');
+                    })
+                    .finally(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                    });
+            } else {
+                showErrorToast('检查失败: ' + data.error, '错误');
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误: ' + error.message, '错误');
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        });
+}
+
+// 刷新所有
+function refreshAllHealth() {
+    const btn = event?.target?.closest('.btn');
+    if (btn) {
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中...';
+        btn.disabled = true;
+        
+        // 强制刷新：force=true 清除缓存，获取最新数据
+        fetch('/container/api/v1/engines/health/?force=true')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateSummary(data.summary);
+                    renderEngines(data.engines);
+                    updateCacheStatus(false); // 刷新后显示非缓存状态
+                    updateLastUpdateTime();
+                    showSuccessToast('数据已更新', '成功');
+                } else {
+                    showErrorToast('加载失败: ' + data.error);
+                }
+            })
+            .catch(error => {
+                showErrorToast('网络错误: ' + error.message);
+            })
+            .finally(() => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            });
+    } else {
+        loadHealthStatus();
+    }
+}
+
+// 批量检查
+function checkAllEngines() {
+    $('#checkAllModal').modal('show');
+}
+
+// 执行批量检查
+function performCheckAll() {
+    $('#checkAllModal').modal('hide');
+    
+    const btn = document.querySelector('.btn-success-modern');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 检查中...';
+    btn.disabled = true;
+    
+    showInfoToast('正在批量检查所有引擎...', '提示', 2000);
+    
+    fetch('/container/api/v1/engines/check-all/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const results = data.results;
+                const message = `检查完成！健康: ${results.healthy}, 警告: ${results.warning}, 离线: ${results.offline}`;
+                showSuccessToast(message, '批量检查完成', 5000);
+                loadHealthStatus();
+            } else {
+                showErrorToast('检查失败: ' + data.error, '错误');
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误: ' + error.message, '错误');
+        })
+        .finally(() => {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        });
+}
+
+
+
+// 页面加载时执行
+document.addEventListener('DOMContentLoaded', function() {
+    loadHealthStatus();
+    
+    // 绑定模态框确认按钮事件
+    document.getElementById('confirmCheckAllBtn').addEventListener('click', performCheckAll);
+});
+</script>
+{% endblock %}

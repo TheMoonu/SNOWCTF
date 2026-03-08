@@ -1,0 +1,378 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load quiz_tags %}
+{% load humanize %}
+
+{% block head_title %}{{ record.quiz.title }} - 成绩查看{% endblock %}
+
+{% block metas %}
+<meta name="description" content="查看知识竞赛成绩">
+{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'quiz/css/quiz.css' %}?v=20260125.01" rel="stylesheet">
+<link href="{% static 'public/css/monokai-2.css' %}?v=20260125.01" rel="stylesheet">
+<style>
+    /* 填空题和简答题样式 */
+    .quiz-type-fill {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .quiz-type-essay {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+    
+    .quiz-review-status.partial {
+        background: #fff9c4;
+        color: #f57f17;
+        border-color: #f9a825;
+    }
+    
+    /* 答案卡片圆角 */
+    .card.border-0 {
+        border-radius: 8px;
+    }
+    
+    .card.border-primary {
+        border-radius: 8px;
+    }
+    
+    /* 自定义答案卡片样式 - 强制覆盖所有可能的冲突 */
+    .answer-box,
+    .answer-box * {
+        box-sizing: border-box;
+    }
+    
+    .answer-box {
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        text-align: left !important;
+        direction: ltr !important;
+    }
+    
+    .answer-box-user {
+        background: #f8f9fa !important;
+        border: 1px solid #e9ecef !important;
+    }
+    
+    .answer-box-standard {
+        background: #e8f5e9 !important;
+        border: 1px solid #c8e6c9 !important;
+    }
+    
+    .answer-box-review {
+        background: #fff !important;
+        border: 2px solid #007bff !important;
+    }
+    
+    .answer-box-header {
+        padding: 12px 16px !important;
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+        color: #6c757d !important;
+        background: rgba(0,0,0,0.02) !important;
+        text-align: left !important;
+        direction: ltr !important;
+    }
+    
+    .answer-box-standard .answer-box-header {
+        color: #28a745 !important;
+    }
+    
+    .answer-box-header-flex {
+        padding: 12px 16px !important;
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+        color: #007bff !important;
+        background: rgba(0,123,255,0.05) !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        text-align: left !important;
+        direction: ltr !important;
+    }
+    
+    .answer-box-badge {
+        background: #007bff !important;
+        color: white !important;
+        padding: 4px 10px !important;
+        border-radius: 4px !important;
+        font-size: 0.8rem !important;
+    }
+    
+    .answer-box-content {
+        padding: 16px !important;
+        color: #333 !important;
+        line-height: 1.6 !important;
+       
+    }
+    
+    .answer-box-comment {
+        padding: 12px 16px !important;
+        color: #495057 !important;
+        font-size: 0.875rem !important;
+        text-align: left !important;
+        direction: ltr !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    
+    .answer-box-meta {
+        padding: 8px 16px !important;
+        color: #6c757d !important;
+        font-size: 0.8rem !important;
+        border-top: 1px solid #e9ecef !important;
+        text-align: left !important;
+        direction: ltr !important;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'quiz:quiz_list' %}">知识竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'quiz:quiz_detail' record.quiz.slug %}">{{ record.quiz.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">成绩查看</li>
+                </ol>
+            </nav>
+
+            <!-- 成绩头部 -->
+            <div class="quiz-result-header ">
+                {% if enable_pass_score %}
+                <div class="quiz-result-status">
+                    {% if is_passed %}
+                    <i class="bi bi-check-circle-fill"></i> 恭喜你，考试通过！
+                    {% else %}
+                    <i class="bi bi-x-circle-fill"></i> 很遗憾，未能通过考试
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="quiz-result-status">
+                    <i class="bi bi-check-circle-fill"></i> 答题完成！
+                </div>
+                {% endif %}
+                
+                <div class="quiz-result-score">
+                    您的得分为：<span class="score-number">{{ record.score }}</span> 分！
+                </div>
+                
+                {% if has_subjective and pending_subjective > 0 %}
+                    您有 {{ pending_subjective }} 道主观题待批改，成绩可能会有变化
+                {% endif %}
+                
+                <div class="f-16">
+                    <i class="bi bi-calendar-check mr-2"></i>
+                    提交时间：{{ record.submit_time|date:"Y-m-d H:i:s" }}
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="quiz-stats-row">
+                <div class="quiz-stat-card card">
+                    <span class="quiz-stat-number">{{ total_questions }}</span>
+                    <span class="text-muted">总题数</span>
+                </div>
+                <div class="quiz-stat-card card">
+                    <span class="quiz-stat-number correct">{{ correct_count }}</span>
+                    <span class="text-muted">答对</span>
+                </div>
+                <div class="quiz-stat-card card">
+                    <span class="quiz-stat-number wrong">{{ wrong_count }}</span>
+                    <span class="text-muted">答错</span>
+                </div>
+                <div class="quiz-stat-card card">
+                    <span class="quiz-stat-number accuracy">{{ accuracy|floatformat:1 }}%</span>
+                    <span class="text-muted">正确率</span>
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            
+
+            <!-- 答案解析 -->
+            {% if show_answer and answers %}
+            <div class="quiz-answer-review ">
+                <h5 class="mb-4">
+                    <i class="bi bi-file-text mr-2"></i>答案解析
+                </h5>
+
+                {% for answer in answers %}
+                <div class="quiz-review-item quiz-fade-in ">
+                    <!-- 题目头部 -->
+                    <div class="quiz-review-header">
+                        <div>
+                            <span class="quiz-question-number">第 {{ forloop.counter }} 题</span>
+                            {% if answer.question.question_type == 'single' %}
+                            <span class="quiz-question-type quiz-type-single ml-2">单选题</span>
+                            {% elif answer.question.question_type == 'multiple' %}
+                            <span class="quiz-question-type quiz-type-multiple ml-2">多选题</span>
+                            {% elif answer.question.question_type == 'judge' %}
+                            <span class="quiz-question-type quiz-type-judge ml-2">判断题</span>
+                            {% elif answer.question.question_type == 'fill_blank' %}
+                            <span class="quiz-question-type quiz-type-fill ml-2">填空题</span>
+                            {% elif answer.question.question_type == 'essay' %}
+                            <span class="quiz-question-type quiz-type-essay ml-2">简答题</span>
+                            {% endif %}
+                            <span class="quiz-question-score ml-2">
+                                <i class="bi bi-star"></i> 
+                                {% if answer.question.question_type in 'fill_blank,essay' and answer.manual_score is not None %}
+                                    {{ answer.manual_score }} / {{ answer.question.score }} 分
+                                {% else %}
+                                    {{ answer.question.score }} 分
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div>
+                            {% if answer.question.question_type in 'fill_blank,essay' %}
+                                {% if answer.manual_score is not None %}
+                                    {% if answer.manual_score >= answer.question.score %}
+                                    <span class="quiz-review-status correct">
+                                        <i class="bi bi-check-circle"></i> 满分
+                                    </span>
+                                    {% elif answer.manual_score > 0 %}
+                                    <span class="quiz-review-status partial">
+                                        <i class="bi bi-dash-circle"></i> 部分得分
+                                    </span>
+                                    {% else %}
+                                    <span class="quiz-review-status wrong">
+                                        <i class="bi bi-x-circle"></i> 未得分
+                                    </span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="badge badge-warning">
+                                    <i class="bi bi-hourglass-split"></i> 待批改
+                                </span>
+                                {% endif %}
+                            {% else %}
+                                {% if answer.is_correct %}
+                                <span class="quiz-review-status correct">
+                                    <i class="bi bi-check-circle"></i> 回答正确
+                                </span>
+                                {% else %}
+                                <span class="quiz-review-status wrong">
+                                    <i class="bi bi-x-circle"></i> 回答错误
+                                </span>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 题目内容 -->
+                    <div class="quiz-question-content">
+                        {{ answer.question.content|markdown|safe }}
+                    </div>
+
+                    <!-- 客观题选项 -->
+                    {% if answer.question.question_type in 'single,multiple,judge' %}
+                    <div class="quiz-options-container">
+                        {% for option in answer.question.options.all %}
+                        <div class="quiz-option 
+                            {% if option.is_correct %}correct-answer{% endif %}
+                            {% if option in answer.selected_options.all %}user-selected{% if not option.is_correct %} wrong-answer{% endif %}{% endif %}">
+                            
+                            <div class="quiz-option-label">
+                                <span class="quiz-option-order">{{ option.order }}</span>
+                                <span>{{ option.content }}</span>
+                                
+                                <!-- 标记 -->
+                                {% if option.is_correct %}
+                                <span class="badge badge-success ml-2">
+                                    <i class="bi bi-check"></i> 正确答案
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- 填空题/简答题答案 -->
+                    {% if answer.question.question_type in 'fill_blank,essay' %}
+                    <div class="mt-3">
+                        <!-- 学生答案 -->
+                        <div class="answer-box answer-box-user mb-3">
+                            <div class="answer-box-header">
+                                <i class="bi bi-pencil-square mr-1"></i>您的答案
+                            </div>
+                            <div class="answer-box-content text-muted">
+                                {{ answer.text_answer|default:"（未作答）" }}
+                            </div>
+                        </div>
+
+                        <!-- 标准答案 -->
+                        {% if answer.question.standard_answer %}
+                        <div class="answer-box answer-box-standard mb-3">
+                            <div class="answer-box-header">
+                                <i class="bi bi-check-circle mr-1"></i>标准答案
+                            </div>
+                            <div class="answer-box-content text-muted">
+                                {{ answer.question.standard_answer }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- 批改信息 -->
+                        {% if answer.manual_score is not None %}
+                        <div class="answer-box answer-box-review mb-3">
+                            <div class="answer-box-header-flex">
+                                <span><i class="bi bi-person-check mr-1"></i>批改信息</span>
+                                <span class="answer-box-badge">得分：{{ answer.manual_score }} / {{ answer.question.score }} 分</span>
+                            </div>
+                            {% if answer.review_comment %}
+                            <div class="answer-box-comment">
+                                <strong>评语：</strong>{{ answer.review_comment }}
+                            </div>
+                            {% endif %}
+                            <div class="answer-box-meta">
+                                <i class="bi bi-clock mr-1"></i>批改时间：{{ answer.reviewed_at|date:"Y-m-d H:i" }}
+                                {% if answer.reviewer %}
+                                | <i class="bi bi-person mr-1"></i>批改人：{{ answer.reviewer.username }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- 答案解析 -->
+                    {% if answer.question.explanation %}
+                    <div class="quiz-explanation">
+                        <div class="quiz-explanation-title">
+                            <i class="bi bi-lightbulb"></i> 答案解析
+                        </div>
+                        <div>{{ answer.question.explanation }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card border-0 rounded-6 mb-3">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-eye-slash f-48 text-muted mb-3 d-block"></i>
+                    <p class="text-muted mb-0">根据竞赛设置，答案解析不可查看</p>
+                </div>
+            </div>
+            {% endif %}
+
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'quiz/js/quiz.js' %}?v=20260125.01"></script>
+{% endblock %}
+

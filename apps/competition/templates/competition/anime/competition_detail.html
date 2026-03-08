@@ -1,0 +1,240 @@
+{% extends 'competition/anime/base.html' %}
+{% load static %}
+{% load humanize %}
+{% load blog_tags %}
+{% load comment_tags %}
+{% load com_tags %}
+
+{% block title %}{{ challenge.title }}_{{competition.title }}{% endblock %}
+
+
+{% block content %}
+        <div class="tech-content-grid">
+            <!-- 左侧主内容 -->
+            <div>
+                <!-- 导航栏 -->
+                <div class="ctf-nav-card">
+                    <a href="{% url 'competition:com_index' competition.slug %}" class="ctf-nav-back">
+                        <i class="fa fa-arrow-left"></i>
+                        <span>返回题目列表</span>
+                    </a>
+                    <div class="ctf-nav-title">
+                        <i class="fa fa-flag"></i>
+                        <span>{{ challenge.title }}</span>
+                    </div>
+                </div>
+
+                <div class="ctf-detail-card" {% if anime_challenge_start_bg %}style="--anime-bg-image: url('{{ anime_challenge_start_bg }}');"{% endif %}>
+                    <!-- 标题区 -->
+                    <div class="ctf-detail-header">
+                        <div class="ctf-title-line">
+                            <h1 class="ctf-challenge-name">{{ challenge.title }}</h1>
+                            <div class="ctf-points-badge">
+                                <i class="fa fa-bolt"></i>
+                                <span>{{ challenge.points }}</span>
+                            </div>
+                        </div>
+                        <div class="ctf-meta-line">
+                            <span class="ctf-meta-item ctf-meta-category">
+                                <i class="fa fa-tag"></i> {{ challenge.get_category_display }}
+                            </span>
+                            <span class="ctf-meta-divider"></span>
+                            <span class="ctf-meta-item ctf-meta-difficulty ctf-difficulty-{{ challenge.difficulty|lower }}">
+                                {% if challenge.difficulty == 'Easy' %}
+                                    <i class="fa fa-star"></i> 简单
+                                {% elif challenge.difficulty == 'Medium' %}
+                                    <i class="fa fa-star"></i><i class="fa fa-star"></i> 中等
+                                {% elif challenge.difficulty == 'Hard' %}
+                                    <i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i> 困难
+                                {% endif %}
+                            </span>
+                            <span class="ctf-meta-divider"></span>
+                            <span class="ctf-meta-item ctf-meta-solves">
+                                <i class="fa fa-check-circle"></i> {{ challenge.solves }} 解出
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 内容区 -->
+                    <div class="ctf-detail-body">
+                        <!-- 题目描述 -->
+                        <div class="ctf-section">
+                            <div class="ctf-section-title">
+                                <i class="fa fa-file-text-o"></i> 题目描述
+                            </div>
+                            <div class="ctf-description-content">
+                                {{ challenge.description }}
+                            </div>
+                        </div>
+
+                        <!-- 题目提示 -->
+                        {% if challenge.hint %}
+                        <div class="ctf-section ctf-hint-section">
+                            <div class="ctf-section-title">
+                                <i class="fa fa-lightbulb-o"></i> 提示
+                            </div>
+                            <div class="ctf-hint-content">
+                                {{ challenge.hint }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- 操作区 -->
+                        <div class="ctf-action-bar">
+                            {% if user.is_authenticated %}
+                                {% if challenge.docker_image or challenge.network_topology_config %}
+                                    <button type="button" id="createContainerBtn" class="ctf-action-btn ctf-btn-primary" style="display: none;" download data-no-loading
+                                            data-csrf="{{ csrf_token }}" 
+                                            data-challenge-uuid="{{ challenge.uuid }}"
+                                            data-competition-slug="{{ competition.slug }}"
+                                            data-ajax-url="{% url 'competition:create_web_container' competition.slug %}"
+                                            data-no-loading>
+                                        <i class="fa fa-rocket"></i> 启动靶机
+                                    </button>
+                                    <div id="containerLoadingPlaceholder" class="ctf-loading-placeholder"></div>
+                                {% endif %}
+                                
+                                <button type="button" id="destroyContainerBtn" class="ctf-action-btn ctf-btn-danger" data-no-loading
+                                        style="display: none;"
+                                        data-csrf="{{ csrf_token }}" 
+                                        data-challenge-uuid="{{ challenge.uuid }}"
+                                        data-ajax-url="{% url 'competition:destroy_web_container' %}">
+                                    <i class="fa fa-power-off"></i> 销毁环境
+                                </button>
+                                
+                                {% if challenge.static_files or challenge.static_file_url and file_url %}
+                                    <a href="{{ file_url }}" class="ctf-action-btn ctf-btn-secondary challenge-file-download no-loading" download data-no-loading>
+                                        <i class="fa fa-download"></i> 下载附件
+                                    </a>
+                                {% endif %}
+                            {% else %}
+                                <a href="{% url 'account_login' %}?next={{ request.path }}" class="ctf-action-btn ctf-btn-primary">
+                                    <i class="fa fa-sign-in"></i> 登录后操作
+                                </a>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 容器信息展示 -->
+                        <div id="results"></div>
+
+                        <!-- FLAG提交区 -->
+                        <div class="ctf-flag-section">
+                            <div class="ctf-flag-header">
+                                <i class="fa fa-flag"></i> 提交 FLAG
+                            </div>
+                            <div class="ctf-flag-form">
+                                <input type="text" id="flag-input" 
+                                       class="ctf-flag-input" 
+                                       placeholder="flag{...}" 
+                                       autocomplete="off"
+                                       spellcheck="false">
+                                {% if user.is_authenticated %}
+                                    <button type="button" class="ctf-submit-btn" data-no-loading
+                                        id="submit-flag" 
+                                        data-challenge-uuid="{{ challenge.uuid }}"
+                                        data-verify-url="{% url 'competition:verify_flag' competition.slug %}"
+                                        data-csrf="{{ csrf_token }}"
+                                        data-has-static-file="{% if file_url %}True{% else %}False{% endif %}">
+                                        <span class="button-text">
+                                            <i class="fa fa-paper-plane"></i> 提交
+                                        </span>
+                                        <span class="button-loading d-none">
+                                            <i class="fa fa-spinner fa-spin"></i> 提交中...
+                                        </span>
+                                    </button>
+                                {% else %}
+                                    <a href="{% url 'account_login' %}?next={{ request.path }}" class="ctf-submit-btn">
+                                        <i class="fa fa-sign-in"></i> 登录
+                                    </a>
+                                {% endif %}
+                            </div>
+                            <div id="result"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 血榜卡片 - 领奖台样式 -->
+                <div class="ctf-info-card">
+                    <div class="ctf-info-card-header">
+                        <i class="fa fa-trophy"></i> 荣誉榜
+                    </div>
+                    <div class="ctf-info-card-body">
+                        <div class="ctf-podium">
+                            <!-- 二血 - 左侧 -->
+                            <div class="ctf-podium-item ctf-podium-2">
+                                <div class="ctf-podium-trophy">
+                                    <i class="fa fa-trophy"></i>
+                                </div>
+                                <div class="ctf-podium-user">{% get_second_blood challenge competition %}</div>
+                                <div class="ctf-podium-stand">
+                                    <span class="ctf-podium-rank">2</span>
+                                    <span class="ctf-podium-label">二血</span>
+                                </div>
+                            </div>
+                            <!-- 一血 - 中间最高 -->
+                            <div class="ctf-podium-item ctf-podium-1">
+                                <div class="ctf-podium-trophy">
+                                    <i class="fa fa-trophy"></i>
+                                </div>
+                                <div class="ctf-podium-user">{% get_first_blood challenge competition %}</div>
+                                <div class="ctf-podium-stand">
+                                    <span class="ctf-podium-rank">1</span>
+                                    <span class="ctf-podium-label">一血</span>
+                                </div>
+                            </div>
+                            <!-- 三血 - 右侧 -->
+                            <div class="ctf-podium-item ctf-podium-3">
+                                <div class="ctf-podium-trophy">
+                                    <i class="fa fa-trophy"></i>
+                                </div>
+                                <div class="ctf-podium-user">{% get_third_blood challenge competition %}</div>
+                                <div class="ctf-podium-stand">
+                                    <span class="ctf-podium-rank">3</span>
+                                    <span class="ctf-podium-label">三血</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 解题动态卡片 -->
+                {% get_challenge_solve_records challenge competition=competition limit=10 as recent_solves %}
+                <div class="ctf-info-card">
+                    <div class="ctf-info-card-header">
+                        <i class="fa fa-history"></i> 解题动态
+                    </div>
+                    <div class="ctf-info-card-body">
+                        <div class="ctf-solves-list">
+                            {% for record in recent_solves %}
+                            <div class="ctf-solve-item">
+                                <span class="ctf-solve-user">{{ record.user.user }}</span>
+                                <span class="ctf-solve-time">{{ record.solved_at|compact_time }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="ctf-empty-solves">
+                                暂无解题记录，等你来挑战！
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧边栏 -->
+            <div>
+                {% include 'competition/anime/base_right.html' %}
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<!-- 异步容器创建JS -->
+<script src="{% static 'public/js/async_container_amine.js' %}?v=20260202.02"></script>
+
+<!-- FLAG提交JS -->
+<script src="{% static 'public/js/amine_challenge.js' %}?v=20260202.02"></script>
+
+{% endblock %}

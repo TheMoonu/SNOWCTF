@@ -1,0 +1,350 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block head_title %}知识竞赛{% endblock %}
+
+{% block metas %}
+<meta name="description" content="在线知识竞赛系统">
+<meta name="keywords" content="知识竞赛,在线考试,测试">
+{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'quiz/css/quiz.css' %}?v=20260123.01" rel="stylesheet">
+
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-9">
+
+            <!-- 筛选栏 -->
+            <div class="card border-0 rounded-6 mb-3 p-3 recruit-filter-card">
+                <form method="get" id="filterForm">
+                    <div class="form-row align-items-center">
+                        <!-- 状态 -->
+                        <div class="col-md-3 mb-2">
+                            <select class="form-control f-15" name="status">
+                                <option value="">全部状态</option>
+                                <option value="ongoing" {% if request.GET.status == 'ongoing' %}selected{% endif %}>进行中</option>
+                                <option value="upcoming" {% if request.GET.status == 'upcoming' %}selected{% endif %}>即将开始</option>
+                                <option value="ended" {% if request.GET.status == 'ended' %}selected{% endif %}>已结束</option>
+                            </select>
+                        </div>
+                        <!-- 关键词 -->
+                        <div class="col-md-6 mb-2 f-15">
+                            <input type="text" class="form-control" name="q" value="{{ request.GET.q|default:'' }}" placeholder="竞赛名称关键词">
+                        </div>
+                        <!-- 按钮 -->
+                        <div class="col-md-3 mb-2 f-15">
+                            <div class="d-flex">
+                                <button type="submit" class="btn btn-primary recruit-btn-primary flex-fill mr-2">
+                                    <i class="bi bi-search mr-1"></i>筛选
+                                </button>
+                                <a href="{% url 'quiz:quiz_list' %}" class="btn btn-outline-secondary recruit-btn-reset flex-fill" title="清除所有筛选条件">
+                                    <i class="bi bi-x-circle mr-1"></i>重置
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 竞赛列表 -->
+            <div class="position-relative mt-2" style="min-height: 200px;">
+                {% for quiz in quizzes %}
+                <div class="{% if not forloop.last %}mb-3{% endif %} quiz-fade-in">
+                        <div class="card border-0 rounded-6 quiz-list-card h-100">
+                            <a href="{% url 'quiz:quiz_detail' quiz.slug %}" 
+                                class="text-decoration-none">
+                                <div class="card-body p-0">
+                                    <div class="d-flex">
+                                        <!-- 左侧：封面图片 -->
+                                        <div class="quiz-cover-wrapper">
+                                            {% if quiz.cover_image %}
+                                            <img src="{{ quiz.cover_image.url }}" 
+                                                 alt="{{ quiz.title }}" 
+                                                 class="quiz-cover-img">
+                                            {% else %}
+                                            <div class="quiz-cover-placeholder">
+                                                <i class="bi bi-trophy"></i>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- 右侧：内容区域 -->
+                                        <div class="flex-grow-1 p-4 d-flex flex-column" style="min-width: 0;">
+                                            <!-- 标题和状态 -->
+                                            <div class="d-flex align-items-start justify-content-between mb-2" style="gap: 0.5rem;">
+                                                <h5 class="mb-0 flex-grow-1" style="
+                                                    overflow: hidden;
+                                                    text-overflow: ellipsis;
+                                                    display: -webkit-box;
+                                                    -webkit-line-clamp: 2;
+                                                    -webkit-box-orient: vertical;
+                                                    line-height: 1.4;
+                                                    min-width: 0;
+                                                ">{{ quiz.title }}</h5>
+                                                {% if quiz.display_status == 'upcoming' %}
+                                                <span class="state-label state-label-info" style="flex-shrink: 0;">
+                                                    <i class="bi bi-clock-history"></i> 即将开始
+                                                </span>
+                                                {% elif quiz.display_status == 'ongoing' %}
+                                                <span class="state-label state-label-success" style="flex-shrink: 0;">
+                                                     进行中
+                                                </span>
+                                                {% elif quiz.display_status == 'ended' %}
+                                                <span class="state-label state-label-secondary" style="flex-shrink: 0;">
+                                                    <i class="bi bi-check-circle"></i> 已结束
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- 描述 -->
+                                            {% if quiz.description %}
+                                            <p class="text-muted mb-3" style="
+                                                font-size: 14px; 
+                                                line-height: 1.6;
+                                                overflow: hidden;
+                                                text-overflow: ellipsis;
+                                                display: -webkit-box;
+                                                -webkit-line-clamp: 2;
+                                                -webkit-box-orient: vertical;
+                                                margin-bottom: 0.75rem !important;
+                                            ">{{ quiz.description }}</p>
+                                            {% endif %}
+
+                                            <!-- 竞赛信息 -->
+                                            <div class="mt-auto">
+                                                <div class="d-flex flex-wrap align-items-center" style="gap: 0.5rem 0;">
+                                                    <span class="quiz-info-item">
+                                                        <i class="bi bi-file-text"></i>{{ quiz.quiz_questions.count }} 题
+                                                    </span>
+                                                    <span class="quiz-info-item">
+                                                        <i class="bi bi-star"></i>{{ quiz.total_score }} 分
+                                                    </span>
+                                                    {% if quiz.enable_pass_score %}
+                                                    <span class="quiz-info-item">
+                                                        <i class="bi bi-check-circle"></i>及格 {{ quiz.pass_score }} 分
+                                                    </span>
+                                                    {% endif %}
+                                                    <span class="quiz-info-item">
+                                                        <i class="bi bi-clock"></i>{{ quiz.duration }} 分钟
+                                                    </span>
+                                                </div>
+                                                
+                                                <!-- 时间信息 -->
+                                                {% if quiz.start_time and quiz.end_time %}
+                                                <div class="mt-2 quiz-info-item" style="margin-right: 0;">
+                                                    <i class="bi bi-calendar-event"></i>
+                                                    {{ quiz.start_time|date:"Y-m-d H:i" }} - {{ quiz.end_time|date:"m-d H:i" }}
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                </div>
+                {% empty %}
+                <div class="card border-0 rounded-6">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-inbox f-48 text-muted mb-3 d-block"></i>
+                        <p class="text-muted mb-0">暂无可用的知识竞赛</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <!-- 分页 -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="竞赛分页" class="mt-3">
+                <ul class="pagination pagination-sm justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.previous_page_number }}">上一页</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">上一页</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if num == 1 or num == page_obj.paginator.num_pages or num == page_obj.number or num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.next_page_number }}">下一页</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">下一页</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+
+        <!-- 右侧边栏 -->
+        <div class="col-lg-3 d-none d-lg-block">
+            {% include 'quiz/tags/quiz_sidebar.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+    // 自定义下拉框初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化所有select为自定义下拉框
+    initCustomSelects();
+    
+    // 表单提交前移除空值参数
+    var form = document.getElementById('filterForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault(); // 阻止默认提交
+            
+            // 收集所有非空参数
+            var params = new URLSearchParams();
+            var inputs = this.querySelectorAll('input, select');
+            var hasValue = false;
+            
+            inputs.forEach(function(input) {
+                if (input.type !== 'hidden' && input.name && input.value && input.value.trim() !== '') {
+                    params.append(input.name, input.value.trim());
+                    hasValue = true;
+                }
+            });
+            
+            // 构建新URL
+            var baseUrl = window.location.pathname;
+            var newUrl = hasValue ? baseUrl + '?' + params.toString() : baseUrl;
+            
+            // 跳转到新URL
+            window.location.href = newUrl;
+        });
+    }
+});
+    function initCustomSelects() {
+    const selects = document.querySelectorAll('.recruit-filter-card select.form-control');
+    
+    selects.forEach(select => {
+        // 创建自定义下拉框包装器
+        const wrapper = document.createElement('div');
+        wrapper.className = 'recruit-select-wrapper';
+        
+        // 创建显示区域
+        const display = document.createElement('div');
+        display.className = 'recruit-select-display';
+        
+        // 创建显示文本
+        const displayText = document.createElement('span');
+        displayText.className = 'recruit-select-text';
+        const selectedOption = select.options[select.selectedIndex];
+        displayText.textContent = selectedOption.text;
+        display.appendChild(displayText);
+        
+        // 创建箭头
+        const arrow = document.createElement('span');
+        arrow.className = 'recruit-select-arrow';
+        display.appendChild(arrow);
+        
+        // 创建下拉列表
+        const dropdown = document.createElement('div');
+        dropdown.className = 'recruit-select-dropdown';
+        
+        // 添加选项
+        Array.from(select.options).forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'recruit-select-option';
+            if (option.selected) {
+                optionDiv.classList.add('selected');
+            }
+            optionDiv.textContent = option.text;
+            optionDiv.dataset.value = option.value;
+            optionDiv.dataset.index = index;
+            
+            // 点击选项
+            optionDiv.addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                // 更新原生select
+                select.selectedIndex = index;
+                select.value = option.value;
+                
+                // 触发change事件
+                select.dispatchEvent(new Event('change'));
+                
+                // 更新显示
+                displayText.textContent = option.text;
+                
+                // 更新选中状态
+                dropdown.querySelectorAll('.recruit-select-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                optionDiv.classList.add('selected');
+                
+                // 关闭下拉
+                dropdown.classList.remove('show');
+                display.classList.remove('active');
+            });
+            
+            dropdown.appendChild(optionDiv);
+        });
+        
+        // 插入到DOM
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(display);
+        wrapper.appendChild(dropdown);
+        
+        // 点击显示区域切换下拉
+        display.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            // 关闭其他下拉框
+            document.querySelectorAll('.recruit-select-dropdown.show').forEach(dd => {
+                if (dd !== dropdown) {
+                    dd.classList.remove('show');
+                    dd.previousElementSibling.classList.remove('active');
+                }
+            });
+            
+            // 切换当前下拉框
+            dropdown.classList.toggle('show');
+            display.classList.toggle('active');
+        });
+    });
+    
+    // 点击页面其他地方关闭所有下拉框
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.recruit-select-dropdown.show').forEach(dropdown => {
+            dropdown.classList.remove('show');
+            dropdown.previousElementSibling.classList.remove('active');
+        });
+    });
+}
+
+</script>
+<script src="{% static 'quiz/js/quiz.js' %}?v=20260125.01"></script>
+{% endblock %}
+

@@ -1,0 +1,308 @@
+{% extends 'public/base.html' %}
+{% block head_title %}竞赛报名 - {{ quiz.title }}{% endblock %}
+
+{% block top-file %}
+<style>
+    .reg-page {
+        background: #f5f7fa;
+        min-height: 100vh;
+        padding: 40px 0;
+    }
+
+    .reg-main {
+        max-width: 650px;
+        margin: 0 auto;
+    }
+
+    /* 自定义标签 */
+    .reg-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+    }
+
+    .reg-badge-info {
+        background: #e6f7ff;
+        color: #0050b3;
+        border-color: #91d5ff;
+    }
+
+    .reg-badge-warning {
+        background: #fff7e6;
+        color: #d48806;
+        border-color: #ffd591;
+    }
+
+    .reg-badge-success {
+        background: #f6ffed;
+        color: #389e0d;
+        border-color: #b7eb8f;
+    }
+
+    .info-card {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .info-value {
+        color: #212529;
+        font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+        .reg-page {
+            padding: 20px 15px;
+        }
+        
+        .info-row {
+            flex-direction: column;
+            gap: 5px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container quiz-register-page" style="min-height: 100vh; padding: 40px 0; background: #f5f7fa;">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-10 col-lg-8 col-xl-7">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <!-- 标题 -->
+                    <div class="text-center pb-3 mb-4 border-bottom">
+                        <h1 class="h3 font-weight-bold mb-3">{{ quiz.title }}-竞赛报名确认</h1>
+                
+                </div>
+
+                <!-- 用户信息 -->
+                <div class="info-card mb-4">
+                    <h5 class="font-weight-bold mb-3"><i class="fas fa-user text-primary mr-2"></i>报名信息</h5>
+                    <div class="info-row">
+                        <span class="info-label">用户名</span>
+                        <span class="info-value">{{ user.username }}</span>
+                    </div>
+                    {% if user.real_name %}
+                    <div class="info-row">
+                        <span class="info-label">真实姓名</span>
+                        <span class="info-value">{{ user.real_name_masked|default:user.real_name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if user.student_id %}
+                    <div class="info-row">
+                        <span class="info-label">学号/工号</span>
+                        <span class="info-value">{{ user.student_id_masked|default:user.student_id }}</span>
+                    </div>
+                    {% endif %}
+                    {% if user.department %}
+                    <div class="info-row">
+                        <span class="info-label">学院/部门</span>
+                        <span class="info-value">{{ user.department_masked|default:user.department }}</span>
+                    </div>
+                    {% endif %}
+                    {% if user.phones %}
+                    <div class="info-row">
+                        <span class="info-label">联系方式</span>
+                        <span class="info-value">{{ user.phones_masked|default:user.phones }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 报名须知 -->
+                <div class="alert {% if quiz.require_approval %}alert-warning border-warning{% else %}alert-success border-success{% endif %} mb-4">
+                    <h6 class="alert-heading font-weight-bold mb-3">
+                        <i class="fa fa-check-square mr-2"></i>报名须知
+                    </h6>
+                    <ul class="mb-0 pl-3 small">
+                        <li>请确认您的个人信息准确无误</li>
+                        {% if quiz.require_approval %}
+                        <li class="font-weight-bold text-warning">本次竞赛需要审核，提交后请等待管理员审核通过</li>
+                        {% else %}
+                        <li class="font-weight-bold text-success">报名提交后将自动通过，您可以立即参加竞赛</li>
+                        {% endif %}
+                        {% if quiz.max_attempts > 0 %}
+                        <li>每人最多可以答题 {{ quiz.max_attempts }} 次，请珍惜机会</li>
+                        {% endif %}
+                        <li>答题过程中请遵守诚信原则，系统将记录违规行为</li>
+                    </ul>
+                </div>
+
+                <!-- 表单 -->
+                <form method="post" id="regForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="captcha_key" id="captchaKey">
+                    <input type="hidden" name="captcha_value" id="captchaValue">
+                    
+                    <!-- 按钮 -->
+                    <div class="d-flex justify-content-between pt-3 mt-3 border-top">
+                        <a href="{% url 'quiz:quiz_detail' quiz.slug %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fa fa-arrow-left mr-1"></i>返回
+                        </a>
+                        <button type="button" class="btn btn-primary px-2 btn-sm" onclick="showConfirmModal()">
+                                确认报名
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- 确认报名模态框 -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title font-weight-bold">
+                    <i class="fa fa-exclamation-circle text-warning mr-2"></i>确认报名
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-3">请确认您要报名参加以下竞赛：</p>
+                <div class="bg-light border rounded p-3 mb-3">
+                    <div class="text-center">
+                        <h5 class="font-weight-bold text-primary mb-2">{{ quiz.title }}</h5>
+                        <p class="text-muted small mb-0">
+                            {% if quiz.require_approval %}
+                            报名后需等待审核通过
+                            {% else %}
+                            报名后立即生效
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="alert alert-warning border-warning mb-3 py-2 px-3">
+                    <small class="mb-0">
+                        <i class="fa fa-info-circle mr-1"></i>
+                        提交后将使用您的真实信息进行报名，请确保信息准确
+                    </small>
+                </div>
+                
+                <!-- 验证码 -->
+                <div class="form-group mb-0">
+                    <label class="font-weight-bold mb-2">
+                        <i class="fa fa-shield mr-1"></i>安全验证
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="captchaInput" placeholder="请输入验证码" maxlength="4" required>
+                        <div class="input-group-append">
+                            <img id="captchaImage" src="" alt="验证码" style="height: 38px; cursor: pointer; border: 1px solid #ced4da; border-left: 0; border-radius: 0 4px 4px 0;" onclick="refreshCaptcha()" title="点击刷新">
+                        </div>
+                    </div>
+                    <small class="form-text text-muted">
+                        <i class="fa fa-refresh mr-1"></i>看不清？点击验证码图片刷新
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary px-2 btn-sm" onclick="confirmSubmit()">
+                    <i class="fa fa-check mr-1"></i>确认提交
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentCaptchaKey = '';
+
+// 显示确认模态框并加载验证码
+function showConfirmModal() {
+    $('#confirmModal').modal('show');
+    refreshCaptcha();
+}
+
+// 刷新验证码
+function refreshCaptcha() {
+    // 显示加载状态
+    const captchaImg = document.getElementById('captchaImage');
+    const originalSrc = captchaImg.src;
+    captchaImg.style.opacity = '0.5';
+    
+    fetch("{% url 'quiz:get_register_captcha' quiz.slug %}")
+        .then(response => {
+            if (response.status === 429) {
+                // 速率限制
+                return response.json().then(data => {
+                    throw new Error(data.error || '请求过于频繁，请稍后再试');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            captchaImg.style.opacity = '1';
+            if (data.success) {
+                currentCaptchaKey = data.captcha_key;
+                captchaImg.src = data.captcha_image;
+                document.getElementById('captchaInput').value = '';
+            } else {
+                showWarningToast('获取验证码失败：' + (data.message || '未知错误'));
+                if (originalSrc) captchaImg.src = originalSrc;
+            }
+        })
+        .catch(error => {
+            captchaImg.style.opacity = '1';
+            showWarningToast(error.message || '获取验证码失败，请稍后重试');
+            if (originalSrc) captchaImg.src = originalSrc;
+        });
+}
+
+// 提交报名
+function confirmSubmit() {
+    const captchaValue = document.getElementById('captchaInput').value.trim();
+    
+    if (!captchaValue) {
+        showWarningToast('请输入验证码');
+        return;
+    }
+    
+    if (captchaValue.length !== 4) {
+        showWarningToast('验证码格式不正确，请输入4位字符');
+        return;
+    }
+    
+    // 设置验证码到隐藏字段
+    document.getElementById('captchaKey').value = currentCaptchaKey;
+    document.getElementById('captchaValue').value = captchaValue;
+    
+    $('#confirmModal').modal('hide');
+    
+    // 显示加载动画
+    const btn = document.querySelector('button[onclick="confirmSubmit()"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>提交中...';
+    }
+    
+    // 提交表单
+    document.getElementById('regForm').submit();
+}
+</script>
+{% endblock %}
+

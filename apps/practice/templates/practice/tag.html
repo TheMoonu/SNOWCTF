@@ -1,0 +1,210 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load blog_tags %}
+{% load pre_tags %}
+{% block head_title %}{{ search_instance.name }} - {{ search_tag }}{% endblock %}
+{% block metas %}
+    <meta name="description" content="{{ search_instance.description }}">
+    <meta name="keywords" content="{{ search_instance.name }}">
+{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'practice/css/practice.css' %}?v=20260126.01" rel="stylesheet">
+<link href="{% static 'public/css/ctf.css' %}" rel="stylesheet">
+<link href="{% static 'public/css/detail.css' %}?v=20260116.02" rel="stylesheet">
+<link href="{% static 'public/css/monokai-2.css' %}?v=20240206.02" rel="stylesheet">
+<style>
+    /* 分页跳转时的顶部偏移，避免内容被导航栏遮挡 */
+    #challenge-list {
+        scroll-margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-9">
+                <!-- 学习岛标题卡片 -->
+                <div class="card border-0 rounded-6 mb-3 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3" style="gap: 16px;">
+                            <h1 class="mb-0" style="font-size: 22px; font-weight: 600; color: #2c3e50; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <i class="fa fa-bookmark mr-2" style="color: #65b0fe;"></i>{{ search_instance.name }}
+                            </h1>
+                            <div class="d-flex align-items-center flex-shrink-0" style="gap: 8px;">
+                                
+                                {% if user.is_authenticated %}
+                                    {% if tag_progress == 100 %}
+                                    <span class="state-label state-label-success" style="font-size: 12px; padding: 4px 10px; white-space: nowrap;">
+                                        <i class="fa fa-trophy mr-1"></i>已全部攻克
+                                    </span>
+                                    {% elif tag_progress == 0 %}
+                                    <span class="state-label state-label-secondary" style="font-size: 12px; padding: 4px 10px; white-space: nowrap;">
+                                        <i class="fa fa-flag-o mr-1"></i>未开始
+                                    </span>
+                                    {% else %}
+                                    <span style="background: rgba(245, 158, 11, 0.12); color: #d97706; padding: 4px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap;">
+                                        <i class="fa fa-chart-line mr-1"></i>学习进度 {{ tag_progress }}%
+                                    </span>
+                                    {% endif %}
+                                {% endif %}
+                                <span class="state-label state-label-info" style="font-size: 12px; padding: 4px 10px; white-space: nowrap;">
+                                    <i class="fa fa-list-alt mr-1"></i>共 {{ tag_total }} 题
+                                </span>
+                                {% if user.is_authenticated %}
+                                <span class="state-label state-label-success" style="font-size: 12px; padding: 4px 10px; white-space: nowrap;">
+                                    <i class="fa fa-check-circle mr-1"></i>已解决 {{ tag_solved }} 题
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if search_instance.description %}
+                        <div class="tag-description markdown-content">
+                            {{ search_instance.description|markdown|safe }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 排序标签 -->
+                <div class="recruit-sort-tabs border-0 rounded-6">
+                    <a class="{% if not request.GET.sort %}active{% endif %}"
+                       href="{% url 'practice:tag' search_instance.slug %}">
+                        <i class="fa fa-signal mr-1"></i>难度排序
+                    </a>
+                    <a class="{% if request.GET.sort == 'time' %}active{% endif %}"
+                       href="{% url 'practice:tag' search_instance.slug %}?sort=time">
+                        <i class="fa fa-clock mr-1"></i>时间排序
+                    </a>
+                </div>
+                
+
+                <div class="position-relative mt-2" style="min-height: 200px;">
+                    
+    
+                    <div id="challenge-list">
+                        <div class="row mx-n2">
+                            {% for challenge in challenges %}
+    
+                            <div class="col-sm-6 col-md-4 col-lg-3 px-2 mb-3">
+                                <div class="card challenge-card border-0 rounded-6 h-100 position-relative d-flex flex-column">
+                                    {% if not challenge.is_active %}
+                                    <div class="position-absolute" style="top: 0; right: 0; width: 50px; height: 50px; background-color: #B0BEC5; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
+                                        <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">未公开</span>
+                                    </div>
+
+                                    {% elif challenge.is_solved %}
+                                    <div class="position-absolute" style="top: 0; right: 0; width: 50px; height: 50px; background-color: #4CAF50; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
+                                        <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">已完成</span>
+                                    </div>
+
+                                    {% elif challenge.is_member %}
+                                    <div class="position-absolute" style="top: 0; right: 0; width: 50px; height: 50px; background-color: #FF9800; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
+                                        <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">会员</span>
+                                    </div>
+                                    {% endif %}
+                                    <div class="d-flex flex-column p-3 flex-grow-1">
+                                        <a href="{% url 'practice:challenge_detail' challenge.uuid %}"
+                                            class="text-decoration-none d-flex flex-column flex-grow-1">
+                                            <!-- 题目标题 -->
+                                            <h6 class=" mb-2 f-16">{{ challenge.title }}</h6>
+                                            <!-- 题目描述 -->
+                                            <div class="flex-grow-1" >
+                                                <p class="text-muted f-12" style="height: 56px;">{{ challenge.description|my_slice:':43' }}</p>
+                                            </div>
+                                            <!-- 类型和难度 -->
+                                            <div class="d-flex justify-content-end align-items-center mb-2">
+                                                <p class="mb-0">
+                                                    <span class="state-label state-label-primary f-10 state-label-sm" title="题目类型" data-toggle="tooltip" data-placement="top">{{ challenge.category }}</span>
+
+                                                    <span class="topic-difficulty-stars topic-difficulty-{{ challenge.difficulty|lower }}" title="难度：{{ challenge.get_difficulty_display }}" data-toggle="tooltip" data-placement="top">
+                                                        {% if challenge.difficulty == 'Easy' %}
+                                                            <i class="fa fa-star"></i>
+                                                            <i class="fa fa-star-o"></i>
+                                                            <i class="fa fa-star-o"></i>
+                                                        {% elif challenge.difficulty == 'Medium' %}
+                                                            <i class="fa fa-star"></i>
+                                                            <i class="fa fa-star"></i>
+                                                            <i class="fa fa-star-o"></i>
+                                                        {% elif challenge.difficulty == 'Hard' %}
+                                                            <i class="fa fa-star"></i>
+                                                            <i class="fa fa-star"></i>
+                                                            <i class="fa fa-star"></i>
+                                                        {% endif %}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                            <!-- 解决和用户头像 -->
+                                            <div class="d-flex justify-content-between align-items-end mt-auto position-relative" style="bottom: 0; left: 0; max-width: 100%;">
+                                                <div class="d-flex align-items-center position-absolute" style="bottom: 0; left: 0;">
+                                                    {% if challenge.author and challenge.author.avatar %}
+                                                    <img src="{{ challenge.author.avatar.url }}" alt="{{ challenge.author.username }}" class="rounded-circle mr-1" style="width: 20px; height: 20px; object-fit: cover;">
+                                                    {% if challenge.author.uuid %}
+                                                    <a href="{% url 'public:profileViews' challenge.author.uuid %}" target="_blank" title="前往 {{ challenge.author.username }} 的个人主页" data-toggle="tooltip" data-placement="top" style="max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; font-size: 12px;">
+                                                        <span>{{ challenge.author.username }}</span>
+                                                    </a>
+                                                    {% else %}
+                                                    <span style="max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; font-size: 12px;">{{ challenge.author.username }}</span>
+                                                    {% endif %}
+                                                    {% endif %}
+                                                </div>
+                                                <div class="d-flex align-items-center">
+                                                    <small class="text-info"  title="解题次数{{ challenge.solves }}" data-toggle="tooltip" data-placement="bottom">
+                                                        <i class="fa fa-flag-checkered"></i> {{ challenge.solves|format_k }}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="col-12">
+                                <div class="card border-0 rounded-6">
+                                    <div class="card-body">
+                                        <p class="mb-0">没有找到符合条件的题目。</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                {% if is_paginated %}
+                    
+                    <div class="page-inner text-center">
+                        {% if page_obj.has_previous %}
+                            {% deal_with_full_path request.get_full_path 'page' page_obj.previous_page_number as new_pre_page_path %}
+                            <a href="{{ new_pre_page_path }}#challenge-list"><span class="n">上一页</span></a>
+                        {% endif %}
+                        {% for page in page_range %}
+                            {% if page_obj.number == page %}
+                                <span class="page-active">{{ page }}</span>
+                            {% elif page == "..." %}
+                                <span class="mx-0" style="background: none;width:1rem">{{ page }}</span>
+                            {% else %}
+                                {% deal_with_full_path request.get_full_path 'page' page as page_path %}
+                                <a href="{{ page_path }}#challenge-list"><span>{{ page }}</span></a>
+                            {% endif %}
+                        {% endfor %}
+                        {% if page_obj.has_next %}
+                            {% deal_with_full_path request.get_full_path 'page' page_obj.next_page_number as new_next_page_path %}
+                            <a href="{{ new_next_page_path }}#challenge-list"><span class="n">下一页</span></a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="col-lg-3 d-none d-lg-block" style="min-width: 0;">
+                {% include 'practice/tags/base_right.html' %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'public/js/markdown-code-copy.js' %}?v=20251231.01"></script>
+{% endblock %}

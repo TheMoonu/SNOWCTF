@@ -1,262 +1,316 @@
 {% extends "public/base.html" %}
 {% load static %}
-{% load blog_tags %}
 {% load humanize %}
-{% load ctf_tags %}
-{% block head_title %}漏洞靶场 - 小雪花安全实验室{% endblock %}
+{% load blog_tags %}
+{% load comment_tags %}
+{% load com_tags %}
+{% block head_title %}{{ challenge.title }}_{{competition.title }}{% endblock %}
 {% block metas %}
-<meta name="description" content="参与 CTF 挑战，提升您的网络安全技能。多种类型和难度的挑战等待您来挑战！">
-<meta name="keywords" content="CTF,Web安全,黑客挑战,网络安全,靶场">
+{% load humanize %}
+<meta name="description" content="{{ site_description }}">
+<meta name="keywords" content="{{ site_keywords }}">
+
 
 {% endblock %}
-
 {% block top-file %}
-<link href="{% static 'public/css/ctf.css' %}" rel="stylesheet">
+<link href="{% static 'public/css/ctf.css' %}?v=20260101.01" rel="stylesheet">
+<link href="{% static 'practice/css/practice.css' %}?v=20260101.01" rel="stylesheet">
+
+    {#    <script>var stop_headroom = true;</script>#}
+    {% if user.is_authenticated %}
+        <link href="{% static 'public/simplemde/1.11.2/simplemde.min.css' %}" rel="stylesheet">
+    {% endif %}
+    <link href="{% static 'public/css/detail.css' %}?v=20260116.01" rel="stylesheet">
+    <link href="{% static 'public/css/monokai-2.css' %}?v=20260106.02" rel="stylesheet">
+    <link href="{% static 'comment/css/base_comment.css' %}?v=20260101.01" rel="stylesheet">
+
+<style>
+/* 蓝色简约进度条 */
+.progress-card {
+    background: #fff;
+    border: 1px solid #e3f2fd;
+    border-radius: 8px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.08);
+}
+
+.progress-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    color: #495057;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* 更小更流畅的转圈圈 */
+.progress-header .spinner-border-sm {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+    color: #007bff !important;
+}
+
+.progress {
+    background: #f0f4f8;
+    border-radius: 10px;
+    overflow: hidden;
+    height: 8px !important;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, #0056b3 0%, #007bff 100%) !important;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    line-height: 8px;
+}
+</style>
 
 {% endblock %}
-
 {% block base_content %}
-<!-- <div id="page-loading-overlay" class="position-fixed w-100 h-100 bg-white" style="top: 0; left: 0; z-index: 9999;">
-    <div class="position-absolute" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
-        <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem;">
-            <span class="sr-only">加载中...</span>
-        </div>
-    </div>
-</div> -->
+
+
 <div class="container">
     <div class="row">
-        <div class="col-lg-8">
-
+        <div class="col-lg-9">
             <div>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
                         <li class="breadcrumb-item">
-                            <i class="fa fa-home mr-1"></i><a href="">首页</a>
+                            <i class="fa fa-home mr-1"></i><a href="{% url 'competition:competition_detail' competition.slug %}">{{competition.title}}</a>
                         </li>
-                        <li class="breadcrumb-item">
-                            <a href="">漏洞靶场</a>
-                        </li>
+
+                        <li class="breadcrumb-item active" aria-current="page">{{ challenge.title }}</li>
 
                     </ol>
                 </nav>
             </div>
 
-            <div>
-                <div class="border-0 rounded-6 px-3 mb-md-3 order-1 mb-2 mt-2 mt-md-3 mt-lg-3">
-                    <div class="row align-items-center justify-content-between">
-                        <div class="col-md-4">
-                            <strong><i class="bi bi-sliders2 mr-2 f-17"></i>题目矩阵</strong>
-                        </div>
-                        <div class="col-md-5 d-flex justify-content-end">
-                            <form class="w-100" method="get" action="" id="search-form" >
-                                
-                                <div class="form-group mb-0">
-                                    <input type="text" class="form-control rounded-6" id="searchInput" name="q" value="{{ search_query }}"
-                                        placeholder="Search" aria-label="搜索" autocomplete="off" required>
+            <div class="card border-0 rounded-6 px-3 mb-md-3 order-1 mb-2 mt-2 mt-md-3 mt-lg-3" >
+                <div class="card-header bg-none mb-2 ">
+                  
+                      
+                        <h5 class="mt-2 mb-0 text-center text-primary f-18">
+                            {{ challenge.title }}
+                        </h5>
+                        
+                
+                </div>
+                <div class="card-body p-0 mb-2">
+
+                    
+
+
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <div class="challenge-detail-tags">
+                                <div class="tag-cloud d-flex flex-wrap align-items-center">
+                                    <!-- 难度和分类标签 -->
+                                    <a class="tags f-16 challenge-category-badge mr-2 mb-2">
+                                        <i class="fa fa-folder-open mr-1"></i>{{ challenge.get_category_display }}
+                                    </a>
+                                    <a class="tags f-16 challenge-difficulty-badge mr-2 mb-2">
+                                        <i class="fa fa-signal mr-1"></i>{{ challenge.get_difficulty_display }}
+                                    </a>
+                                    
                                 </div>
-                            </form>
+                            </div>
+                        </div>
+                        
+
+                    </div>
+                    <div class="custom-info-card border-left-warning">
+                        <div class="custom-info-card-body">
+                            <h5 class="custom-info-card-title">题目描述：</h5>
+                            <p class="mb-4 custom-info-card-text challenge-description"> {{ challenge.description }}</p>
+                            <h5 class="custom-info-card-title mb-2">题目提示：</h5>
+                            <div class="mt-1 custom-info-card-text challenge-hint"> {{ challenge.hint|markdown|safe }}</div>
                         </div>
                     </div>
-                </div>
-
-            </div>
-            
-
-            <div class="card border-0 rounded-6 mb-md-3">
-                <div class="card-body p-3">
-                    <ul class="list-unstyled m-0">
-                        <li class="mb-3">
-                            <div class="d-flex align-items-center overflow-auto">
-                                <h6 class="mr-3 mb-0 font-weight-bold f-16"><i class="bi bi-stars mr-1"></i>类型</h6>
-                                <a href="#" data-filter="type" data-value=""
-                                    class="mr-4 flex-shrink-0 {% if not request.GET.type %}active-type {% endif %}" data-no-loading>
-                                    ALL
-                                </a>
-                                {% for type in challenge_types %}
-                                <a href="#" data-filter="type" data-value="{{ type }}"
-                                    class="mr-4 flex-shrink-0 {% if request.GET.type == type %}active-type {% endif %}" data-no-loading>
-                                    {{ type }}
-                                </a>
-                                {% endfor %}
-                            </div>
-                        </li>
-                        <li class="mb-0 {% if user.is_authenticated %}mb-3{% endif %}">
-                            <div class="d-flex align-items-center overflow-auto">
-                                <h6 class="mr-3 mb-0 font-weight-bold f-16"><i class="bi bi-stack mr-1"></i>难度</h6>
-                                <a href="#" data-filter="difficulty" data-value=""
-                                    class="mr-4 flex-shrink-0 {% if not request.GET.difficulty %}active-type {% endif %}" data-no-loading>
-                                    ALL
-                                </a>
-                                {% for difficulty in difficulties %}
-                                <a href="#" data-filter="difficulty" data-value="{{ difficulty }}"
-                                    class="mr-4 flex-shrink-0 {% if request.GET.difficulty == difficulty %} active-type {% endif %}" data-no-loading>
-                                    {{ difficulty }}
-                                </a>
-                                {% endfor %}
-                            </div>
-                        </li>
-                        {% if user.is_authenticated %}
-                      
-                        <li class="mb-3">
-                            <div class="d-flex align-items-center overflow-auto">
-                                <h6 class="mr-3 mb-0 font-weight-bold f-16"><i class="bi bi-person mr-1"></i>作者</h6>
-                                <a href="#" data-filter="author" data-value=""
-                                    class="mr-4 flex-shrink-0 {% if not request.GET.author %}active-type{% endif %}" data-no-loading>ALL</a>
-                                <a href="#" data-filter="author" data-value="me"
-                                    class="mr-4 flex-shrink-0 {% if request.GET.author == 'me' %}active-type{% endif %}" data-no-loading>我的题目</a>
+                    <div class="row text-center blog-info-list">
+                        <div class="col">
+                            <div>
+                                <p class="mt-1">剩余分数</p>
+                                <p class="mt-1 state-label state-label-success state-label-rounded">{{ challenge.points}}</p>
                                 
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div>
+                                <p class="mt-1">解题次数</p>
+                                <p class="mt-1 state-label state-label-success state-label-rounded">{{ challenge.solves }}</p>
                                
                             </div>
-                        </li>
-                        <li >
-                            <div class="d-flex align-items-center overflow-auto">
-                                <h6 class="mr-3 mb-0 font-weight-bold f-16"><i
-                                        class="bi bi-lightbulb-fill mr-1"></i>解决</h6>
-                                <a href="#" data-filter="status" data-value=""
-                                    class="mr-4 flex-shrink-0 {% if not request.GET.status %}active-type{% endif %}" data-no-loading>ALL</a>
-                                <a href="#" data-filter="status" data-value="solved"
-                                    class="mr-4 flex-shrink-0 {% if request.GET.status == 'solved' %}active-type{% endif %}" data-no-loading>已解决</a>
-                                <a href="#" data-filter="status" data-value="unsolved"
-                                    class="mr-4 flex-shrink-0 {% if request.GET.status == 'unsolved' %}active-type{% endif %}" data-no-loading>未解决</a>
+                        </div>
+                        <div class="col">
+                            <div>
+                              
+                                <p class="mt-1">一血</p>
+                                
+                               
+                                <p class="mt-1 state-label state-label-primary state-label-rounded">{% get_first_blood challenge competition %}</p>
+                                
                             </div>
-                        </li>
-                        {% endif %}
-
+                        </div>
+                        <div class="col">
+                            <div>
+                              
+                                <p class="mt-1">二血</p>
+                                
+                               
+                                <p class="mt-1 state-label state-label-primary state-label-rounded">{% get_second_blood challenge competition%}</p>
+                                
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div>
+                              
+                                <p class="mt-1">三血</p>
+                                
+                               
+                                <p class="mt-1 state-label state-label-primary state-label-rounded">{% get_third_blood challenge competition%}</p>
+                                
+                            </div>
+                        </div>
+                       
                         
-                    </ul>
-                </div>
-            </div>
-
-
-
-
-
-            <div class=" font-weight-bold py-0 f-15 choice">
-                <div class="d-flex align-items-center overflow-auto px-3 f-15">
-                    <a href="?sort_by=id{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
-                        class="pb-2 mr-4 flex-shrink-0 ctf-sort-option {% if request.GET.sort_by == 'id' or not request.GET.sort_by %}ctf-sort-selected{% endif %}">
-                        <i class="bi bi-list-ol mr-1"></i>默认排序
-                    </a>
-                    <a href="?sort_by=solve_count{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
-                        class="pb-2 mr-4 flex-shrink-0 ctf-sort-option {% if request.GET.sort_by == 'solve_count' %}ctf-sort-selected{% endif %}">
-                        <i class="bi bi-list-ol mr-1"></i>解题次数排序
-                    </a>
-                    <a href="?sort_by=points{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
-                        class="pb-2 mr-4 flex-shrink-0 ctf-sort-option {% if request.GET.sort_by == 'points' %}ctf-sort-selected{% endif %}">
-                        <i class="bi bi-list-ol mr-1"></i>分数排序
-                    </a>
-                   
-                </div>
-
-
-            </div>
-
-
-            <div class="position-relative mt-2" style="min-height: 200px;">
-                <!-- <div id="loading-spinner" class="position-absolute" style="top: 50%; left: 50%; transform: translate(-50%, -50%); display: none;">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="sr-only">加载中...</span>
+                        
                     </div>
-                </div> -->
+                    
+                    <div class="mt-4 text-center mt-5 mb-3">
+                        {% if user.is_authenticated %}
 
-                <div id="challenge-list">
-                    <div class="row mx-n2">
-                        {% for challenge in challenges %}
+                            {% if challenge.docker_image or challenge.network_topology_config %}
+                                <button type="button" id="createContainerBtn" class="btn btn-primary btn-sm " style="display: none;"
+                                        data-csrf="{{ csrf_token }}" data-challenge-uuid="{{ challenge.uuid }}"
+                                        data-competition-slug="{{ competition.slug }}"
+                                        data-ajax-url="{% url 'competition:create_web_container' competition.slug %}">
+                                        创建题目环境
+                                </button>
+                                <!-- 添加加载占位符，避免页面闪烁 -->
+                                <div id="containerLoadingPlaceholder" style="height: 31px;"></div>
+                            {% endif %}
+                            <button type="button" id="destroyContainerBtn" class="btn btn-danger btn-sm" style="display: none;"
+                                data-csrf="{{ csrf_token }}" data-challenge-uuid="{{ challenge.uuid }}"
+                                data-ajax-url="{% url 'competition:destroy_web_container' %}">
+                                摧毁题目环境
+                            </button>
+                            {% if challenge.static_files or challenge.static_file_url %}
+                                {% if file_url %}
 
-                        <div class="col-sm-6 col-md-4 col-lg-3 px-2 mb-3">
-                            <div class="card challenge-card border-0 rounded-6 h-100 position-relative d-flex flex-column">
-                                {% if challenge.is_solved %}
-                                <div class="position-absolute" style="top: 0; right: 0; width: 50px; height: 50px; background-color: #007bff; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
-                                    <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">已完成</span>
-                                </div>
-                                {% endif %}
-                                <div class="d-flex flex-column p-3 flex-grow-1">
-                                    <a href="{% url 'public:challenge_detail' challenge.uuid %}"
-                                        class="text-decoration-none d-flex flex-column flex-grow-1">
-                                        <!-- 题目标题 -->
-                                        <h6 class=" mb-2 f-16">{{ challenge.title }}</h6>
-                                        <!-- 题目描述 -->
-                                        <div class="flex-grow-1" >
-                                            <p class="text-muted f-12" style="height: 56px;">{{ challenge.description|my_slice:':43' }}</p>
-                                        </div>
-                                        <!-- 类型和难度 -->
-                                        <div class="d-flex justify-content-end align-items-center mb-2">
-                                            <p class="mb-0">
-                                                <small class="text-dark f-10">{{ challenge.category }}</small>
-                                                <span class="vertical-separator"></span>
-                                                <small class="text-dark f-10">{{ challenge.difficulty }}</small>
-                                            </p>
-                                        </div>
-                                        <!-- 解决和用户头像 -->
-                                        <div class="d-flex justify-content-between align-items-end mt-auto position-relative" style="bottom: 0; left: 0; max-width: 100%;">
-                                            <div class="d-flex align-items-center position-absolute" style="bottom: 0; left: 0;">
-                                                {% if challenge.author.avatar %}
-                                                <img src="{{ challenge.author.avatar.url }}" alt="{{ challenge.author.username }}" class="rounded-circle mr-1" style="width: 20px; height: 20px; object-fit: cover;">
-                                                <a href="" target="_blank" title="前往 {{ challenge.author.username }} 的个人主页" data-toggle="tooltip" data-placement="top" style="max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; font-size: 12px;">
-                                                    <span>{{ challenge.author.username }}</span>
-                                                </a>
-                                                {% endif %}
-                                            </div>
-                                            <div class="d-flex align-items-center">
-                                                <small class="text-info"  title="解题次数{{ challenge.solves }}" data-toggle="tooltip" data-placement="bottom">
-                                                    <i class="fa fa-flag-checkered"></i> {{ challenge.solves|format_k }}
-                                                </small>
-                                            </div>
-                                        </div>
+                                    
+                                        <!-- 如果没有 file_url，表示没有权限或者文件不存在 -->
+                                    <a href="{{ file_url }}" class="btn btn-primary btn-sm challenge-file-download" download data-no-loading>
+                                        <i class="fa fa-download mr-1"></i> 下载附件
                                     </a>
-                                </div>
-                            </div>
+                                {% else %}
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="showWarningToast('文件下载失败。')">
+                                        <i class="fa fa-info-circle mr-1"></i> 下载附件
+                                    </button>
+                                   
+
+                                {% endif %}
+                            {% endif %}
+                        {% else %}
+                            
+                            <a href="{% url 'account_login' %}?next={{ request.path }}" class="btn btn-primary btn-sm">
+                                去登录
+                            </a>
+                            
+                        {% endif %}
+                        
+                    </div>
+                    
+
+                    <div id="results" class="mt-3"></div>
+                    
+                </div>
+                <div class="mb-3">
+                    
+                    <div class="d-flex ">
+                        <div class="flex-grow-1 me-2 h-50">
+                            <input type="text" id="flag-input" class="form-control f-14" required placeholder="FLAG提交" autocomplete="off">
                         </div>
-                        {% empty %}
-                        <div class="col-12">
-                            <div class="card border-0 rounded-6">
-                                <div class="card-body">
-                                    <p class="mb-0">没有找到符合条件的题目。</p>
-                                </div>
-                            </div>
+                        <div>
+                            {% if user.is_authenticated %}
+                                
+                                <button type="button" class="btn btn-primary f-14"
+                                    id="submit-flag" 
+                                    data-challenge-uuid="{{ challenge.uuid }}"
+                                    data-verify-url="{% url 'competition:verify_flag' competition.slug %}"
+                                    data-csrf="{{ csrf_token }}"
+                                    data-has-static-file="{% if file_url %}True{% else %}False{% endif %}">
+                                    <span class="button-text">提交</span>
+                                    <span class="button-loading d-none">
+                                        <i class="fa fa-spinner fa-spin"></i> 提交中...
+                                    </span>
+                                </button>
+                        
+                            {% else %}
+                                <a href="{% url 'account_login' %}?next={{ request.path }}" >
+                                    <span class="btn btn-primary  f-14 ">提交</span>
+                                </a>
+                            {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
-            </div>
+                
+                <div class=" text-center f-14" id="result"></div>  
+                
 
+
+                <div class=" text-center f-14">
+                    {% show_motivational_quotes 10 %}
+                </div>
+                
+
+                <!-- 保留一些空间 -->
+                <div class="" style="height: 50px;"></div>
+
+
+                
+
+               
+
+
+
+            </div>
             
-            {% if is_paginated %}
-            <div class="page-inner text-center">
-                {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
-                        <span class="n">上一页</span>
-                    </a>
-                {% endif %}
-                
-                {% for page in paginator.page_range %}
-                    {% if page_obj.number == page %}
-                        <span class="page-active">{{ page }}</span>
-                    {% elif page == "..." %}
-                        <span class="mx-0" style="background: none;width:1rem">{{ page }}</span>
-                    {% else %}
-                        <a href="?page={{ page }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
-                            <span>{{ page }}</span>
-                        </a>
-                    {% endif %}
-                {% endfor %}
-                
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
-                        <span class="n">下一页</span>
-                    </a>
-                {% endif %}
-            </div>
-            {% endif %}
         </div>
-
-        <div class="col-lg-4 d-none d-lg-block">
-            {% include 'public/tags/base_right.html' %}
+        <div class="col-lg-3 d-none d-lg-block">
+            {% include 'competition/tags/base_right.html' %}
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block end_file %}
-<script src="{% static 'public/js/ctf.js'%}"></script>
+<script>
+    // 控制加载框的显示和隐藏
+    document.addEventListener('DOMContentLoaded', function () {
+        
+
+        const encouragementCarousel = document.getElementById('encouragementQuotes');
+        if (encouragementCarousel) {
+            $(encouragementCarousel).on('slide.bs.carousel', function () {
+                $(this).find('.carousel-item.active .ctf-quote-item').addClass('ctf-fade-out');
+            });
+            
+            $(encouragementCarousel).on('slid.bs.carousel', function () {
+                $(this).find('.carousel-item.active .ctf-quote-item').removeClass('ctf-fade-out').addClass('ctf-fade-in');
+                setTimeout(() => {
+                    $(this).find('.carousel-item.active .ctf-quote-item').removeClass('ctf-fade-in');
+                }, 1000);
+            });
+        }
+    });
+</script>
+
+    <script src="{% static 'public/js/async_container.js' %}?v=20260126.04"></script>
+    
+    <script src="{% static 'public/js/flag.js' %}?v=20260126.04"></script>
+        
 {% endblock %}

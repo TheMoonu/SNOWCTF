@@ -4,11 +4,7 @@
 <div class="card-body p-2 p-md-3 f-17" id="comment-list">
     <ul class="list-unstyled">
         <div class="mb-3">
-            {% if competition %}
-                <strong>{% get_challenge_comment_user_count challenge competition %}&nbsp;人参与&nbsp;|&nbsp;{% get_challenge_comment_count challenge competition %}&nbsp;条评论</strong>
-            {% else %}
-                <strong>{% get_challenge_comment_user_count challenge %}&nbsp;人参与&nbsp;|&nbsp;{% get_challenge_comment_count challenge %}&nbsp;条评论</strong>
-            {% endif %}
+            <strong>{% get_challenge_comment_user_count challenge %}&nbsp;人参与&nbsp;|&nbsp;{% get_challenge_comment_count challenge %}&nbsp;条评论</strong>
         </div>
         {% for comment in comment_list %}
         <div class="comment-parent pt-2" id="com-{{ comment.id }}">
@@ -21,8 +17,10 @@
                         {% get_user_link comment.author as user_link_info %}
                         {% if comment.author.uuid %}
                         <strong >
-                            {{ comment.author }}
-                            
+                            <a href="{% url 'public:profileViews' comment.author.uuid %}"
+                               title="前往 {{ comment.author }} 的个人主页"
+                               target="_blank">{{ comment.author }}
+                            </a>
                         </strong>
                         {% else %}
                         <strong title="管理员">{{ comment.author }}</strong>
@@ -42,7 +40,7 @@
                         <small class="text-info">[作者]</small>
                         {% endif %}
                     </p>
-                    <p class="small text-muted">{{ forloop.revcounter }}&nbsp;楼&nbsp;-&nbsp;{{ comment.create_date|naturaltime }}</p>
+                    <p class="small text-muted">{{ forloop.revcounter }}&nbsp;楼&nbsp;-&nbsp;{{ comment.create_date|naturaltime }}&nbsp;&nbsp;&nbsp;IP：{{comment.ip_address}}</p>
                 </div>
             </li>
             <div class="comment-body">{{ comment.content_to_markdown|safe }}</div>
@@ -61,7 +59,10 @@
                             {% get_user_link each.author as each_user_link_info %}
                             
                             <strong >
-                                {{ each.author }}
+                                <a href="{% url 'public:profileViews' each.author.uuid %}"
+                                   title="前往 {{ each.author }} 的个人主页"
+                                   target="_blank">{{ each.author }}
+                                </a>
                             </strong>
 
                             {% if each_user_link_info.is_verified %}
@@ -77,10 +78,12 @@
                             <small class="text-danger">[管理员]</small>
                             {% endif %}
                             <i class="fa fa-share"></i>
-                            @{{ each.rep_to.author }}
-                            
+                            @<a href="{% url 'public:profileViews' each.rep_to.author.uuid %}"
+                               title="前往 {{ each.rep_to.author }} 的个人主页"
+                               target="_blank">{{ each.rep_to.author }}
+                            </a>
                         </p>
-                        <p class="small text-muted">{{ each.create_date|naturaltime }}</p>
+                        <p class="small text-muted">{{ each.create_date|naturaltime }}&nbsp;&nbsp;&nbsp;IP：{{each.ip_address}}</p>
                     </div>
                 </li>
                 <div class="comment-body">{{ each.content_to_markdown|safe }}</div>

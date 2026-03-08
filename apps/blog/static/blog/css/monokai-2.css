@@ -1,0 +1,280 @@
+/* 代码高亮 - 浅色优雅主题 */
+.codehilite pre {
+    font-size: 85%;
+    padding: 2rem .75rem .75rem .75rem;
+    color: #2c3e50;
+}
+
+.codehilite {
+    background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f5 100%);
+    color: #2c3e50;
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+/* 高亮行 */
+.codehilite .hll {
+    background-color: #fff8dc;
+}
+
+/* 注释 */
+.codehilite .c {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* 错误 */
+.codehilite .err {
+    color: #dc3545;
+    background-color: transparent;
+}
+
+/* 关键字 */
+.codehilite .k {
+    color: #9b59b6;
+    font-weight: 600;
+}
+
+/* 字面量 */
+.codehilite .l {
+    color: #0984e3;
+}
+
+/* 名称 */
+.codehilite .n {
+    color: #2c3e50;
+}
+
+/* 操作符 */
+.codehilite .o {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+/* 标点 */
+.codehilite .p {
+    color: #34495e;
+}
+
+/* 注释 - 各种类型 */
+.codehilite .ch,
+.codehilite .cm,
+.codehilite .cp,
+.codehilite .cpf,
+.codehilite .c1,
+.codehilite .cs {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Git差异删除 */
+.codehilite .gd {
+    color: #dc3545;
+    background-color: #fee;
+}
+
+/* 斜体 */
+.codehilite .ge {
+    font-style: italic;
+}
+
+/* Git差异插入 */
+.codehilite .gi {
+    color: #28a745;
+    background-color: #efe;
+}
+
+/* 粗体 */
+.codehilite .gs {
+    font-weight: bold;
+}
+
+/* Git差异统一 */
+.codehilite .gu {
+    color: #6c757d;
+}
+
+/* 关键字 - 各种类型 */
+.codehilite .kc,
+.codehilite .kd,
+.codehilite .kn,
+.codehilite .kp,
+.codehilite .kr {
+    color: #9b59b6;
+    font-weight: 600;
+}
+
+/* 关键字类型 */
+.codehilite .kt {
+    color: #8e44ad;
+    font-weight: 600;
+}
+
+/* 字面量日期 */
+.codehilite .ld {
+    color: #27ae60;
+}
+
+/* 数字 */
+.codehilite .m {
+    color: #0984e3;
+}
+
+/* 字符串 */
+.codehilite .s {
+    color: #27ae60;
+}
+
+/* 名称属性 */
+.codehilite .na {
+    color: #e67e22;
+}
+
+/* 名称内置 */
+.codehilite .nb {
+    color: #3498db;
+    font-weight: 500;
+}
+
+/* 名称类 */
+.codehilite .nc {
+    color: #e67e22;
+    font-weight: 700;
+}
+
+/* 名称常量 */
+.codehilite .no {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+/* 名称装饰器 */
+.codehilite .nd {
+    color: #3498db;
+    font-weight: 600;
+}
+
+/* 名称实体 */
+.codehilite .ni {
+    color: #34495e;
+}
+
+/* 名称异常 */
+.codehilite .ne {
+    color: #e74c3c;
+    font-weight: 700;
+}
+
+/* 名称函数 */
+.codehilite .nf {
+    color: #3498db;
+    font-weight: 600;
+}
+
+/* 名称标签 */
+.codehilite .nl {
+    color: #34495e;
+}
+
+/* 名称命名空间 */
+.codehilite .nn {
+    color: #34495e;
+    font-weight: 600;
+}
+
+/* 名称其他 */
+.codehilite .nx {
+    color: #3498db;
+}
+
+/* 名称属性 */
+.codehilite .py {
+    color: #34495e;
+}
+
+/* 名称标签 */
+.codehilite .nt {
+    color: #c7254e;
+    font-weight: 600;
+}
+
+/* 名称变量 */
+.codehilite .nv {
+    color: #e67e22;
+}
+
+/* 操作符单词 */
+.codehilite .ow {
+    color: #9b59b6;
+    font-weight: 600;
+}
+
+/* 空白 */
+.codehilite .w {
+    color: #2c3e50;
+}
+
+/* 数字 - 各种类型 */
+.codehilite .mb,
+.codehilite .mf,
+.codehilite .mh,
+.codehilite .mi,
+.codehilite .mo {
+    color: #0984e3;
+}
+
+/* 字符串 - 各种类型 */
+.codehilite .sa {
+    color: #9b59b6;
+}
+
+.codehilite .sb,
+.codehilite .sc,
+.codehilite .dl,
+.codehilite .s2,
+.codehilite .sh,
+.codehilite .si,
+.codehilite .sx,
+.codehilite .sr,
+.codehilite .s1,
+.codehilite .ss {
+    color: #27ae60;
+}
+
+/* 字符串文档 */
+.codehilite .sd {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* 字符串转义 */
+.codehilite .se {
+    color: #e67e22;
+    font-weight: 600;
+}
+
+/* 内置 */
+.codehilite .bp {
+    color: #3498db;
+    font-weight: 600;
+}
+
+/* 函数魔法 */
+.codehilite .fm {
+    color: #3498db;
+    font-weight: 600;
+}
+
+/* 变量 - 各种类型 */
+.codehilite .vc,
+.codehilite .vg,
+.codehilite .vi,
+.codehilite .vm {
+    color: #e67e22;
+}
+
+/* 数字字面量 */
+.codehilite .il {
+    color: #0984e3;
+}

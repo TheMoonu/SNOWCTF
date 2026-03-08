@@ -20,13 +20,13 @@
 
 <div class="container">
     <div class="row">
-        <div class="col-lg-8">
+        <div class="col-lg-9">
 
             <div>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
                         <li class="breadcrumb-item">
-                            <i class="fa fa-home mr-1"></i><a href="{% url 'public:CompetitionView' %}">首页</a>
+                            <i class="fa fa-home mr-1"></i><a href="{% url 'public:CompetitionView' %}">竞赛列表</a>
                         </li>
                         <li class="breadcrumb-item">
                             <a href="{% url 'public:competition_detail' competition_slug %}">{{competition_title}}</a>
@@ -144,7 +144,6 @@
 
 
             <div class="position-relative mt-2" style="min-height: 200px;">
-                
 
                 <div id="challenge-list">
                     <div class="row mx-n2">
@@ -177,7 +176,7 @@
                                         <!-- 解决和用户头像 -->
                                         <div class="d-flex justify-content-between align-items-center mt-auto">
                                             <div class="d-flex align-items-center">
-                                                <span class="point-display" title="剩余分数" data-toggle="tooltip" data-placement="top">
+                                                <span class="badge badge-primary" title="题目分数" data-toggle="tooltip" data-placement="top">
                                                     <i class="fa fa-star"></i> {{ challenge.points }} pts
                                                 </span>
                                             </div>
@@ -234,7 +233,7 @@
             {% endif %}
         </div>
 
-        <div class="col-lg-4 d-none d-lg-block">
+        <div class="col-lg-3 d-none d-lg-block">
             {% include 'public/tags/base_right.html' %}
         </div>
     </div>

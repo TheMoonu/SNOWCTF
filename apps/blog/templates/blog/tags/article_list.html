@@ -1,0 +1,41 @@
+{% load blog_tags oauth_tags comment_tags static %}
+
+<!-- 瀑布流容器 -->
+{# 只输出裸卡片，任何外层 row 都不要 #}
+{% for article in articles %}
+<div class="col-sm-6 col-md-4 p-1 grid-item mb-2" >
+  <div class="snow-card f-14  card border-0 rounded-6" data-id="{{ article.id }}" data-h="{{ article.img_height|default:'240' }}">
+    <a href="{{ article.get_absolute_url }}" class="snow-card-image">
+      {% if article.img_link %}
+        <img src="{{ article.img_link.url }}" alt="{{ article.title }}" loading="lazy" onerror="this.src='{% static 'public/img/svg/illustrations/illustration-3.svg' %}'">
+      {% else %}
+        <img src="{% static 'public/img/svg/illustrations/illustration-1.svg' %}" alt="{{ article.title }}" loading="lazy">
+      {% endif %}
+    </a>
+
+    <div class="snow-card-content">
+      <h5 class="mt-0 font-weight-bold text-info f-17"><a href="{{ article.get_absolute_url }}">{{ article.title|my_slice:':40' }}</a></h5>
+      <div class="d-none d-sm-block f-12">{{ article.summary|my_slice:':60' }}</div>
+
+      <div class="snow-card-meta">
+        <a href="{% url 'blog:category' article.category.slug %}" class="snow-category" title="{{ article.category.name }}" data-toggle="tooltip" data-placement="top">
+          <i class="fa fa-book mr-1"></i> {{ article.category.name|my_slice:':5' }}
+        </a>
+        {% if article.tags.all %}
+        <div class="snow-tags">
+          {% for tag in article.tags.all %}
+          <a href="{% url 'blog:tag' tag.slug %}" class="snow-tag" title="{{ tag.name }}" data-toggle="tooltip" data-placement="bottom"><i class="fa fa-tag" ></i> {{ tag.name|my_slice:':5' }}</a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="snow-author ">
+        {% get_user_avatar_tag article.author %}
+        <a href="{% url 'public:profileViews' article.author.uuid %}" data-toggle="tooltip" data-placement="top" title="前往个人主页" class="f-13">{{ article.author }}</a>
+        <span class="snow-stats"><i class="fa fa-eye"></i> {{ article.views }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}

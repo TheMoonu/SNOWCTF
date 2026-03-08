@@ -1,0 +1,19 @@
+{% load humanize static %}
+<div class="border-0 rounded-6 mb-2 ">
+    <!-- <form class="nav-item navbar-form py-md-2 mr-2" role="search" method="get" id="searchform"
+  action="{% url 'blog:searchwiki_view' %}">
+<div class="input-group col-12" >
+    <input type="search" name="q" class="form-control " placeholder="全量漏洞搜索" autocomplete="off"
+           required>
+    <div class="input-group-btn">
+        <button class="btn btn-primary" type="submit" aria-label="漏洞搜索">
+            <i class="fa fa-search"></i>
+        </button>
+    </div>
+</div>
+</form> -->
+<form class="d-flex nav-item navbar-form py-md-2" id="searchform" role="search" action="{% url 'blog:searchwiki_view' %}">
+    <input class="form-control me-2 " name="q" type="search" placeholder="全量漏洞搜索" aria-label="Search" required autocomplete="off" >
+    <button class="btn btn-primary" type="submit" aria-label="漏洞搜索"><i class="fa fa-search"></i></button>
+  </form>
+</div>

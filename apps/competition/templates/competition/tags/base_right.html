@@ -1,143 +1,642 @@
 {% load blog_tags static %}
 
-{% load ctf_tags %}
+{% load com_tags %}
 {% load humanize %}
-<!--个人空间-->
-<div class="card border-0 rounded-6 px-3 mb-2 mb-md-3 d-none d-lg-block" id="home-card">
-    <div class="card-header bg-none px-0">
-        <strong><i class="fa fa-flag mr-2 f-17"></i>竞赛空间</strong>
-    </div>
-    <div class="card-body px-0 pt-3 pb-1">
-        <div class="row text-center">
-            <div class="col">
 
-               
-                <a href="" title="网站源码">
-                    <img style="max-width:40px" alt="网站源码" src="{% static 'public/img/github.png' %}">
-                    <p class="mt-2">网站源码</p>
-                </a>
 
-              
-            </div>
-            <div class="col">
-                <a href="" target="_blank" title="查看解题记录">
-                    <img style="max-width:40px" alt="解题记录" src="{% static 'public/img/blog.png' %}">
-                    <p class="mt-2">解题记录</p>
-                </a>
-            </div>
-            <div class="col">
-                <a href="" target="_blank" title="我的题目">
-                    <img style="max-width:40px" alt="我的题目" src="{% static 'public/img/wpzx.png' %}">
-                    <p class="mt-2">大屏展示</p>
-                </a>
-            </div>
+
+<!--竞赛空间-->
+<div class="card border-0 shadow-lighter mb-3 rounded-6 d-none d-lg-block">
+    <div class="card-header pr-card-header f-15">
+        <div class="d-flex justify-content-between align-items-center w-100">
+            <h6 class="pr-card-title mb-0">
+                <i class="bi bi-flag-fill"></i>
+                竞赛空间
+            </h6>
+            {% if competition.author == request.user or request.user.is_staff %}
+            <a href="{% url 'competition:competition_manage' competition.slug %}" 
+               class="f-13" 
+               style="color: #65b0fe; text-decoration: none;" 
+               title="点击进入管理面板">
+                管理面板<i class="fa fa-angle-right ml-1"></i>
+            </a>
+            {% endif %}
         </div>
-        {% get_user_ctf_stats user as stats %}
-        <div class="row text-center blog-info-list">
-            <div class="col">
-                <div>
-                    <p class="mt-1 badge">6</p>
-                    <p class="mt-1">题目</p>
-                </div>
+    </div>
+    <div class="card-body">
+        <!-- 快捷操作网格 -->
+        <div class="pr-action-grid">
+            <a href="{% url 'competition:submission_dynamic' competition.slug %}" class="pr-action-item" title="解题动态">
+                <i class="fa fa-bolt fa-2x mb-2" style="color: #ffc107;"></i>
+                <p>解题动态</p>
+            </a>
+            <a href="{% url 'competition:rankings' competition.slug 'individual' %}" class="pr-action-item" title="排行榜">
+                <i class="fa fa-trophy fa-2x mb-2" style="color: #28a745;"></i>
+                <p>排行榜</p>
+            </a>
+            {% if competition.competition_type == 'team' %}
+            <a href="{% url 'competition:competition_dashboard' competition.slug %}" class="pr-action-item" title="实时数据">
+                <i class="fa fa-tachometer fa-2x mb-2" style="color: #007bff;"></i>
+                <p>实时数据</p>
+            </a>
+            {% else %}
+            <a href="{% url 'competition:individual_dashboard' competition.slug %}" class="pr-action-item" title="实时数据">
+                <i class="fa fa-tachometer fa-2x mb-2" style="color: #007bff;"></i>
+                <p>实时数据</p>
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- 统计数据 -->
+        {% get_user_ctf_stats user competition as stats %}
+        <div class="pr-stats-grid" style="grid-template-columns: repeat({% if stats.is_team_competition %}4{% else %}3{% endif %}, 1fr);">
+            <div class="pr-stat-item">
+                <div class="pr-stat-value">{{ stats.solved_count }}</div>
+                <p class="pr-stat-label">解题</p>
             </div>
-            <div class="col">
-                <div>
-                    <p class="mt-1 badge">7</p>
-                    <p class="mt-1">解题</p>
-                </div>
+            <div class="pr-stat-item">
+                <div class="pr-stat-value">{{ stats.user_points }}</div>
+                <p class="pr-stat-label">分数</p>
             </div>
-            <div class="col">
-                <div>
-                    <p class="mt-1 badge">0</p>
-                    <p class="mt-1">分数</p>
-                </div>
+            {% if stats.is_team_competition %}
+            <div class="pr-stat-item">
+                <div class="pr-stat-value">{{ stats.team_score }}</div>
+                <p class="pr-stat-label">团分</p>
             </div>
-            <div class="col">
-                <div>
-                    <p class="mt-1 badge">9</p>
-                    <p class="mt-1">排名</p>
-                </div>
+            <div class="pr-stat-item">
+                <div class="pr-stat-value">{{ stats.team_rank }}</div>
+                <p class="pr-stat-label">团排</p>
             </div>
+            {% else %}
+            <div class="pr-stat-item">
+                <div class="pr-stat-value">{{ stats.user_rank }}</div>
+                <p class="pr-stat-label">排名</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
-{%  if challenge.uuid %}
-{% get_challenge_solve_records challenge limit=5 as recent_solves %}
-<div class="card border-0 rounded-6 px-3 mb-2 mb-md-3" id="article-view-card">
-    
-    <div id="solveRecordsCarousel" class="carousel slide" data-ride="carousel">
-        <div class="carousel-inner">
-            {% for record in recent_solves %}
-                <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                    <div class="py-2">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            
-                            <span class="text-primary">{{ record.user.user }}&nbsp&nbsp{{ record.solved_at|naturaltime }}解出了该题目</span>
+
+
+{% if challenge.uuid %}
+{% get_challenge_solve_records challenge competition=competition limit=10 as recent_solves %}
+<div class="card border-0 shadow-lighter mb-3 rounded-6">
+    <div class="card-header pr-card-header f-15">
+        <h6 class="pr-card-title">
+            <i class="bi bi-trophy"></i>
+            最近解题
+        </h6>
+    </div>
+    <div class="pr-card-body pr-solve-carousel">
+        <div id="solveRecordsCarousel" class="carousel slide w-100" data-ride="carousel">
+            <div class="carousel-inner">
+                {% for record in recent_solves %}
+                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                        <div class="pr-solve-record">
+                            <span class="pr-solve-user" title="{{ record.user.user }}">
+                                {{ record.user.user }}
+                            </span>
+                            <span class="pr-solve-text">在</span>
+                            <span class="pr-solve-time">{{ record.solved_at|compact_time }}</span>
+                            <span class="pr-solve-text">解出了该题</span>
                         </div>
                     </div>
+                {% empty %}
+                    <div class="text-center">
+                        <p class="pr-empty-text">暂无解题记录</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% show_competition_countdown competition %}
+
+
+{% if competition.competition_type == 'individual' %}
+{# 个人排行 #}
+{% get_users_ranked_by_solves competition=competition as top_users %}
+<div class="card border-0 shadow-lighter mb-3 rounded-6">
+    <div class="card-header pr-card-header f-15">
+        <div class="d-flex justify-content-between align-items-center w-100">
+            <h6 class="pr-card-title mb-0">
+                <i class="bi bi-person-lines-fill"></i>
+                个人排行
+            </h6>
+            <a href="{% url 'competition:rankings' competition.slug 'individual' %}" 
+               class="f-13" 
+               style="color: #65b0fe; text-decoration: none;">
+                更多<i class="fa fa-angle-right ml-1"></i>
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <ul class="pr-rank-list">
+            {% for user in top_users %}
+            <li class="pr-rank-item">
+                <span class="pr-rank-number">{{ forloop.counter }}</span>
+                <div class="pr-rank-user">
+                    {% if user.avatar %}
+                        <img src="{{ user.avatar }}" alt="{{ user.user }}" class="pr-rank-avatar">
+                    {% endif %}
+                    {% if user.uuid %}
+                        <a href="{% url 'public:profileViews' user.uuid %}" class="pr-rank-name" title="{{ user.user }}{% if user.team %} - {{ user.team }}{% endif %}">
+                            {{ user.user }}
+                        </a>
+                    {% else %}
+                        <span class="pr-rank-name" title="{{ user.user }}{% if user.team %} - {{ user.team }}{% endif %}">
+                            {{ user.user }}
+                        </span>
+                    {% endif %}
                 </div>
+                <span class="pr-rank-score">{{ user.score }}</span>
+            </li>
             {% empty %}
-                <div class="carousel-item active">
-                    <div class="py-2">
-                        <div style="text-align: center;">暂无解题记录</div>
+            <div class="pr-empty-state">
+                <div class="pr-empty-icon">
+                    <i class="bi bi-inbox"></i>
+                </div>
+                <p class="pr-empty-text">暂无排名数据</p>
+            </div>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{# 队伍排行 #}
+{% if competition.competition_type == 'team' %}
+{% get_teams_ranked_by_solves competition=competition as top_teams %}
+<div class="card border-0 shadow-lighter mb-3 rounded-6">
+    <div class="card-header pr-card-header f-15">
+        <div class="d-flex justify-content-between align-items-center w-100">
+            <h6 class="pr-card-title mb-0">
+                <i class="bi bi-people-fill"></i>
+                队伍排行
+            </h6>
+            <a href="{% url 'competition:rankings' competition.slug 'team' %}" 
+               class="f-13" 
+               style="color: #65b0fe; text-decoration: none;">
+                更多<i class="fa fa-angle-right ml-1"></i>
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <ul class="pr-rank-list">
+            {% for team in top_teams %}
+            <li class="pr-rank-item">
+                <span class="pr-rank-number">{{ forloop.counter }}</span>
+                <div class="pr-rank-user">
+                    <span class="pr-rank-name" title="{{ team.team_name }}">
+                        {{ team.team_name }}
+                    </span>
+                </div>
+                <span class="pr-rank-score">{{ team.score }}</span>
+            </li>
+            {% empty %}
+            <div class="pr-empty-state">
+                <div class="pr-empty-icon">
+                    <i class="bi bi-inbox"></i>
+                </div>
+                <p class="pr-empty-text">暂无排名数据</p>
+            </div>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+<!-- 综合排行榜卡片 -->
+
+
+<!-- Writeup 上传入口 -->
+{% if request.user.is_authenticated %}
+{% if competition.is_ended %}
+{% check_user_writeup_exists competition as user_writeup_exists %}
+<div class="card border-0 shadow-lighter mb-3 rounded-6">
+    <div class="card-header pr-card-header f-15">
+        <h6 class="pr-card-title">
+            <i class="fa fa-file-pdf-o" style="color: #dc3545;"></i>
+            Writeup 提交
+        </h6>
+    </div>
+    <div class="card-body">
+        {% if user_writeup_exists %}
+        <div class="text-center py-3">
+            <div class="pr-empty-icon mb-2" style="color: #28a745;">
+                <i class="fa fa-check-circle"></i>
+            </div>
+            <p class="pr-empty-text mb-1" style="color: #28a745;">已提交 Writeup</p>
+            <small class="text-muted">您已成功提交 Writeup</small>
+        </div>
+        {% else %}
+        <div class="text-center mb-3">
+            <small class="text-muted d-block mb-2">
+                比赛已结束，快来分享你的解题思路吧！
+            </small>
+        </div>
+        <button type="button" 
+                class="btn btn-primary btn-block" 
+                data-toggle="modal" 
+                data-target="#writeupModal"
+                onclick="initWriteupModal()">
+            <i class="fa fa-upload mr-2"></i>上传 Writeup
+        </button>
+        <small class="text-muted d-block text-center mt-2">
+            <i class="fa fa-info-circle mr-1"></i>支持 PDF 格式，最大 20MB
+        </small>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Writeup 上传模态框 -->
+<div class="modal fade" id="writeupModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title font-weight-bold">
+                    <i class="fa fa-upload text-primary mr-2"></i>提交 Writeup
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="writeupForm" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <!-- 比赛信息提示 -->
+                    <div class="bg-light border rounded p-3 mb-3">
+                        <div class="text-center">
+                            <h6 class="font-weight-bold text-primary mb-1">{{ competition.title }}</h6>
+                            <p class="text-muted small mb-0">
+                                提交者：<span class="text-dark font-weight-bold">{{ user.username }}</span>
+                                {% if competition.competition_type == 'team' and user_team %}
+                                    <span class="ml-2">队伍：<span class="text-dark font-weight-bold">{{ user_team.name }}</span></span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Writeup 模板下载 -->
+                    {% if competition.writeup_templates.all %}
+                    <div class="alert alert-info py-2 px-3 mb-3">
+                        <small>
+                            <i class="fa fa-download mr-1"></i>
+                            <strong>下载模板：</strong>
+                            {% for template in competition.writeup_templates.all %}
+                                {% if template.is_active %}
+                                    <a href="/ctf/api/v1/writeup/template/{{ template.uuid }}/download/" class="text-primary" download>
+                                        <i class="fa fa-file-word-o"></i> {{ template.title }}
+                                    </a>
+                                    {% if not forloop.last %} | {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </small>
+                    </div>
+                    {% endif %}
+
+                    <!-- Writeup 标题 -->
+                    <div class="form-group">
+                        <label class="font-weight-bold mb-2">
+                            <i class="fa fa-tag mr-1"></i>Writeup 标题 <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               name="title" 
+                               id="writeupTitle" 
+                               placeholder="例如：2024 某某比赛 Writeup" 
+                               maxlength="255" 
+                               required>
+                        <small class="form-text text-muted">
+                            <i class="fa fa-info-circle mr-1"></i>简要描述 Writeup 内容
+                        </small>
+                    </div>
+
+                    <!-- Writeup 简介 -->
+                    <div class="form-group">
+                        <label class="font-weight-bold mb-2">
+                            <i class="fa fa-align-left mr-1"></i>Writeup 简介
+                        </label>
+                        <textarea class="form-control" 
+                                  name="description" 
+                                  id="writeupDescription" 
+                                  rows="3" 
+                                  placeholder="简要介绍解题思路或亮点（可选）"
+                                  maxlength="500"></textarea>
+                        <small class="form-text text-muted">
+                            <i class="fa fa-info-circle mr-1"></i>可选，最多 500 字
+                        </small>
+                    </div>
+
+                    <!-- PDF 文件上传 -->
+                    <div class="form-group">
+                        <label class="font-weight-bold mb-2">
+                            <i class="fa fa-file-pdf-o mr-1"></i>PDF 文件 <span class="text-danger">*</span>
+                        </label>
+                        <div id="dropZone" class="border rounded p-4 text-center" style="border: 2px dashed #cbd5e0 !important; background-color: #f7fafc; cursor: pointer; transition: all 0.3s ease;">
+                            <input type="file" 
+                                   name="pdf_file" 
+                                   id="writeupFile" 
+                                   accept=".pdf"
+                                   required
+                                   style="display: none;">
+                            <div id="dropZoneContent">
+                                <i class="fa fa-cloud-upload" style="font-size: 48px; color: #a0aec0; margin-bottom: 10px;"></i>
+                                <p class="mb-1" style="color: #4a5568; font-weight: 500;">
+                                    点击选择文件或拖拽到此处
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fa fa-info-circle mr-1"></i>仅支持 PDF 格式，最大 20MB
+                                </small>
+                            </div>
+                        </div>
+                        <div id="fileInfo" class="mt-2" style="display: none;">
+                            <div class="alert alert-success py-2 px-3 mb-0">
+                                <div class="d-flex align-items-center">
+                                    <i class="fa fa-file-pdf-o mr-2" style="font-size: 20px;"></i>
+                                    <div class="flex-grow-1">
+                                        <small class="font-weight-bold d-block" id="fileName"></small>
+                                        <small id="fileSize" class="text-muted"></small>
+                                    </div>
+                                    <i class="fa fa-check-circle" style="font-size: 20px;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 提示信息 -->
+                    <div class="alert alert-warning border-warning mb-3 py-2 px-3">
+                        <small class="mb-0">
+                            <i class="fa fa-exclamation-triangle mr-1"></i>
+                            <strong>温馨提示：</strong>
+                            {% if competition.competition_type == 'team' %}
+                            每个队伍只能提交一次 Writeup，
+                            {% else %}
+                            每人只能提交一次 Writeup，
+                            {% endif %}
+                            请确保内容准确无误后再提交
+                        </small>
+                    </div>
+
+                    <!-- 验证码 -->
+                    <div class="form-group mb-0">
+                        <label class="font-weight-bold mb-2">
+                            <i class="fa fa-shield mr-1"></i>安全验证 <span class="text-danger">*</span>
+                        </label>
+                        <input type="hidden" name="captcha_key" id="writeupCaptchaKey">
+                        <div class="input-group">
+                            <input type="text" 
+                                   class="form-control" 
+                                   name="captcha" 
+                                   id="writeupCaptcha" 
+                                   placeholder="请输入验证码" 
+                                   maxlength="6" 
+                                   required
+                                   style="height: 38px;">
+                            <div class="input-group-append">
+                                <img id="writeupCaptchaImage" 
+                                     src="" 
+                                     alt="验证码" 
+                                     style="height: 38px; width: auto; cursor: pointer; border: 1px solid #ced4da; border-left: 0; border-radius: 0 4px 4px 0; display: block;" 
+                                     onclick="refreshWriteupCaptcha()" 
+                                     title="点击刷新">
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">
+                            <i class="fa fa-refresh mr-1"></i>看不清？点击验证码图片刷新
+                        </small>
                     </div>
                 </div>
-            {% endfor %}
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">
+                        <i class="fa fa-times mr-1"></i>取消
+                    </button>
+                    <button type="submit" class="btn btn-primary px-3 btn-sm" id="writeupSubmitBtn">
+                        <i class="fa fa-check mr-1"></i>提交 Writeup
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-{% endif %}
+<script>
+// 拖拽区域元素
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('writeupFile');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const dropZoneContent = document.getElementById('dropZoneContent');
 
+// 点击拖拽区域触发文件选择
+dropZone.addEventListener('click', function() {
+    fileInput.click();
+});
 
-{% get_users_ranked_by_solves limit=10 as top_solvers %}
+// 阻止默认拖拽行为
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
+});
 
-    <div class="card border-0 rounded-6 px-3 mb-2 mb-md-3" id="article-view-card">
-        <div class="card-header bg-none px-0">
-            <strong><i class="fa fa-fire mr-2 f-17"></i>团队排行</strong>
-        </div>
-        <ul class="article-view-list list-group list-group-flush f-14">
-            {% for user in top_solvers %}
-            <li class="py-2">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center;">
-                        {% if user.avatar %}
-                            <img src="{{ user.avatar }}" alt="{{ user.user }}" class="rounded-circle mr-2" style="width: 20px; height: 20px; object-fit: cover;">
-                        {% endif %}
-                        <a href="" target="_blank" title="前往 {{ user.user }} 的个人主页" data-toggle="tooltip" data-placement="top">
-                            <span>{{ user.user }}</span>
-                        </a>
-                    </div>
-                    <span>{{ user.score }}</span>
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
 
-{% get_users_ranked_by_solves limit=10 as top_solvers %}
+// 拖拽进入和离开时的视觉反馈
+['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, function() {
+        dropZone.style.borderColor = '#4299e1';
+        dropZone.style.backgroundColor = '#ebf8ff';
+    }, false);
+});
 
-    <div class="card border-0 rounded-6 px-3 mb-2 mb-md-3" id="article-view-card">
-        <div class="card-header bg-none px-0">
-            <strong><i class="fa fa-fire mr-2 f-17"></i>个人排行</strong>
-        </div>
-        <ul class="article-view-list list-group list-group-flush f-14">
-            {% for user in top_solvers %}
-            <li class="py-2">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center;">
-                        {% if user.avatar %}
-                            <img src="{{ user.avatar }}" alt="{{ user.user }}" class="rounded-circle mr-2" style="width: 20px; height: 20px; object-fit: cover;">
-                        {% endif %}
-                        <a href="" target="_blank" title="前往 {{ user.user }} 的个人主页" data-toggle="tooltip" data-placement="top">
-                            <span>{{ user.user }}</span>
-                        </a>
-                    </div>
-                    <span>{{ user.score }}</span>
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
+['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, function() {
+        dropZone.style.borderColor = '#cbd5e0';
+        dropZone.style.backgroundColor = '#f7fafc';
+    }, false);
+});
 
+// 处理文件放置
+dropZone.addEventListener('drop', function(e) {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        handleFileSelect(files[0]);
+    }
+}, false);
+
+// 文件选择处理
+fileInput.addEventListener('change', function(e) {
+    if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+    }
+});
+
+// 统一的文件处理函数
+function handleFileSelect(file) {
+    if (!file) {
+        return;
+    }
+    
+    // 检查文件类型
+    if (file.type !== 'application/pdf') {
+        showWarningToast('请选择 PDF 格式的文件！');
+        fileInput.value = '';
+        resetDropZone();
+        return;
+    }
+    
+    // 检查文件大小（20MB）
+    const maxSize = 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showWarningToast('文件大小不能超过 20MB！');
+        fileInput.value = '';
+        resetDropZone();
+        return;
+    }
+    
+    // 显示文件信息
+    fileName.textContent = file.name;
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    fileSize.textContent = sizeMB + ' MB';
+    fileInfo.style.display = 'block';
+    
+    // 更新拖拽区域显示
+    dropZoneContent.innerHTML = `
+        <i class="fa fa-file-pdf-o" style="font-size: 48px; color: #e53e3e; margin-bottom: 10px;"></i>
+        <p class="mb-1" style="color: #2d3748; font-weight: 500;">
+            ${file.name}
+        </p>
+        <small class="text-muted">
+            ${sizeMB} MB - 点击可重新选择
+        </small>
+    `;
+}
+
+// 重置拖拽区域
+function resetDropZone() {
+    dropZoneContent.innerHTML = `
+        <i class="fa fa-cloud-upload" style="font-size: 48px; color: #a0aec0; margin-bottom: 10px;"></i>
+        <p class="mb-1" style="color: #4a5568; font-weight: 500;">
+            点击选择文件或拖拽到此处
+        </p>
+        <small class="text-muted">
+            <i class="fa fa-info-circle mr-1"></i>仅支持 PDF 格式，最大 20MB
+        </small>
+    `;
+    fileInfo.style.display = 'none';
+}
+
+// 刷新验证码
+function refreshWriteupCaptcha() {
+    const img = document.getElementById('writeupCaptchaImage');
+    // 显示加载状态
+    img.style.opacity = '0.5';
+    
+    fetch("/ctf/api/v1/writeup/captcha/")
+        .then(response => response.json())
+        .then(data => {
+            img.src = data.captcha_image;
+            img.style.opacity = '1';
+            document.getElementById('writeupCaptchaKey').value = data.captcha_key;
+        })
+        .catch(error => {
+            console.error('验证码加载失败:', error);
+            img.style.opacity = '1';
+            showWarningToast('验证码加载失败，请重试');
+        });
+}
+
+// 初始化模态框（点击按钮时调用）
+function initWriteupModal() {
+    // 立即加载验证码
+    setTimeout(refreshWriteupCaptcha, 100);
+}
+
+// 表单提交处理
+document.getElementById('writeupForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('writeupSubmitBtn');
+    const formData = new FormData(this);
+    
+    // 验证必填项
+    const title = document.getElementById('writeupTitle').value.trim();
+    const file = document.getElementById('writeupFile').files[0];
+    const captcha = document.getElementById('writeupCaptcha').value.trim();
+    
+    if (!title) {
+        showWarningToast('请输入 Writeup 标题！');
+        return;
+    }
+    
+    if (!file) {
+        showWarningToast('请选择 PDF 文件！');
+        return;
+    }
+    
+    if (!captcha) {
+        showWarningToast('请输入验证码！');
+        return;
+    }
+    
+    // 禁用提交按钮
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>提交中...';
+    
+    // 发送请求
+    fetch("/ctf/api/v1/writeup/submit/{{ competition.slug }}/", {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessToast('✅ ' + data.message);
+            $('#writeupModal').modal('hide');
+            // 刷新页面以显示已提交状态
+            location.reload();
+        } else {
+            showWarningToast('❌ ' + data.message);
+            // 刷新验证码
+            refreshWriteupCaptcha();
+            document.getElementById('writeupCaptcha').value = '';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showWarningToast('❌ 提交失败，请稍后重试！');
+        // 刷新验证码
+        refreshWriteupCaptcha();
+    })
+    .finally(() => {
+        // 恢复提交按钮
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa fa-check mr-1"></i>提交 Writeup';
+    });
+});
+
+// 模态框关闭时重置表单
+$('#writeupModal').on('hidden.bs.modal', function () {
+    document.getElementById('writeupForm').reset();
+    resetDropZone();
+    document.getElementById('writeupCaptcha').value = '';
+    document.getElementById('writeupCaptchaKey').value = '';
+    document.getElementById('writeupCaptchaImage').src = '';
+    
+    // 恢复提交按钮状态
+    const submitBtn = document.getElementById('writeupSubmitBtn');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="fa fa-check mr-1"></i>提交 Writeup';
+});
+</script>

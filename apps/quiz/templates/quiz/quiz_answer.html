@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% load static %}
+    {% load quiz_tags %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ record.quiz.title }}">
+
+    {% if site_favicon %}
+    <link rel="shortcut icon" href="{{ site_favicon }}" type="image/x-icon"/>
+    {% else %}
+    <link rel="shortcut icon" href="{% static 'public/img/favicon.ico' %}" type="image/x-icon"/>
+    {% endif %}
+    <title>{{ record.quiz.title }} - 答题中</title>
+    
+    
+    <link href="{% static 'blog/bootstrap/4.3.1/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'blog/font-awesome/4.7.0/css/font-awesome.min.css' %}" rel="stylesheet">
+    <link href="{% static 'public/css/bootstrap-icons.min.css' %}" rel="stylesheet">
+    <link href="{% static 'quiz/css/quiz.css' %}?v=20260123.01" rel="stylesheet">
+    <link href="{% static 'public/css/monokai-2.css' %}?v=20251228.01" rel="stylesheet">
+    <link href="{% static 'public/css/public.css' %}?v=20260124.02" rel="stylesheet">
+
+    <link href="{% static 'public/css/detail.css' %}?v=20260124.02" rel="stylesheet">
+    <link href="{% static 'public/css/toast.css' %}?v=20260124.02" rel="stylesheet">
+    
+    <style>
+        /* 全屏答题专用样式 - 简约风格 */
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f5f7fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .fullscreen-quiz-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+        
+        .quiz-header-bar {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .quiz-title-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .quiz-title-badge h5 {
+            margin: 0;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .quiz-timer-display {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .timer-box {
+            background: #007bff;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .quiz-main-content {
+            flex: 1;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        
+        .quiz-question-area {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .quiz-sidebar {
+            width: 320px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            position: sticky;
+            top: 90px;
+            height: fit-content;
+            max-height: calc(100vh - 110px);
+            overflow-y: auto;
+        }
+        
+        .progress-info {
+            background: #f8f9fa;
+            padding: 10px 16px;
+            border-radius: 4px;
+            margin: 0;
+            text-align: center;
+        }
+        
+        .f-14 { font-size: 14px; }
+        .f-15 { font-size: 15px; }
+        .rounded-6 { border-radius: 6px; }
+        
+        /* 确保答题卡样式正确 */
+        .quiz-nav-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .quiz-nav-item {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #dee2e6 !important;
+            background: white !important;
+            background-color: white !important;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .quiz-nav-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .quiz-nav-item:focus {
+            outline: none;
+            box-shadow: none;
+        }
+        
+        .quiz-nav-item.answered {
+            background: #28a745 !important;
+            background-color: #28a745 !important;
+            border-color: #28a745 !important;
+            color: white !important;
+        }
+        
+        .quiz-nav-item.current {
+            background: #007bff !important;
+            background-color: #007bff !important;
+            border-color: #007bff !important;
+            color: white !important;
+        }
+        
+        .quiz-nav-item.unanswered {
+            background: white !important;
+            background-color: white !important;
+            border-color: #dee2e6 !important;
+            color: #495057 !important;
+        }
+        
+        /* 移除button默认样式 */
+        .quiz-nav-item:active,
+        .quiz-nav-item:focus:active {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        
+        .quiz-nav-item.answered:hover,
+        .quiz-nav-item.answered:focus,
+        .quiz-nav-item.answered:active {
+            background: #28a745 !important;
+            background-color: #28a745 !important;
+            border-color: #28a745 !important;
+        }
+        
+        .quiz-nav-item.current:hover,
+        .quiz-nav-item.current:focus,
+        .quiz-nav-item.current:active {
+            background: #007bff !important;
+            background-color: #007bff !important;
+            border-color: #007bff !important;
+        }
+        
+        .quiz-nav-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .quiz-legend {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .quiz-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+        
+        .quiz-legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .quiz-legend-box.answered {
+            background: #28a745;
+            border-color: #28a745;
+        }
+        
+        .quiz-legend-box.current {
+            background: #007bff;
+            border-color: #007bff;
+        }
+        
+        .quiz-legend-box.unanswered {
+            background: white;
+            border-color: #dee2e6;
+        }
+        
+        /* 填空题和简答题样式 */
+        .quiz-text-answer-container {
+            margin-top: 20px;
+        }
+        
+        .quiz-text-input {
+            font-size: 16px;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .quiz-text-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+            outline: none;
+        }
+        
+        .quiz-textarea-input {
+            font-size: 16px;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            transition: all 0.3s;
+            resize: vertical;
+            min-height: 150px;
+            line-height: 1.6;
+        }
+        
+        .quiz-textarea-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+            outline: none;
+        }
+        
+        /* 题目类型标签样式 */
+        .quiz-type-fill {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .quiz-type-essay {
+            background: linear-gradient(135deg, #007bff 0%, #007bff 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="fullscreen-quiz-container" id="quiz-answer-page" 
+    data-record-id="{{ record.uuid }}" data-duration="{{ remaining_time }}">
+    
+    <!-- 顶部信息栏 -->
+    <div class="quiz-header-bar">
+        <div class="quiz-title-badge">
+            <i class="bi bi-pencil-square" style="font-size: 24px; color: #007bff;"></i>
+            <h5>{{ record.quiz.title }}</h5>
+        </div>
+        <div class="quiz-timer-display">
+            <div class="progress-info" style="margin: 0; background: #f0f0f0;">
+                <span id="quiz-progress-text" class="text-muted f-14">已答 0 / {{ questions_data|length }} 题</span>
+            </div>
+            <div id="violation-badge" class="progress-info" style="margin: 0; background: {% if record.violation_count >= 4 %}#f8d7da{% elif record.violation_count >= 2 %}#fff3cd{% else %}#d4edda{% endif %}; color: {% if record.violation_count >= 4 %}#721c24{% elif record.violation_count >= 2 %}#856404{% else %}#155724{% endif %}; {% if record.violation_count > 0 %}display: block;{% else %}display: none;{% endif %}">
+                <i class="bi bi-shield-check"></i>
+                <span id="violation-count-text">违规: {{ record.violation_count|default:0 }}/{{ record.quiz.max_violations|default:5 }}</span>
+            </div>
+            <div class="timer-box">
+                <i class="bi bi-clock-fill"></i>
+                <span id="quiz-timer" class="quiz-timer">加载中...</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主体内容区 -->
+    <div class="quiz-main-content">
+        <!-- 题目区域 -->
+        <div class="quiz-question-area">
+            <!-- 进度条 -->
+            <div class="quiz-progress-wrapper mb-4">
+                <div class="quiz-progress-bar">
+                    <div id="quiz-progress-bar" class="quiz-progress-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+            
+            {% csrf_token %}
+            
+            {% for item in questions_data %}
+            <div class="quiz-question-card" data-question-id="{{ item.question.id }}" 
+                style="{% if not forloop.first %}display:none;{% endif %}">
+                
+                <!-- 题目头部 -->
+                <div class="quiz-question-header">
+                    <div>
+                        <span class="quiz-question-number">第 {{ forloop.counter }} 题</span>
+                        <span class="quiz-question-score ml-2">
+                            <i class="bi bi-star"></i> {{ item.question.score }} 分
+                        </span>
+                    </div>
+                    <div>
+                        {% if item.question.question_type == 'single' %}
+                        <span class="quiz-question-type quiz-type-multiple">单选题</span>
+                        {% elif item.question.question_type == 'multiple' %}
+                        <span class="quiz-question-type quiz-type-multiple">多选题</span>
+                        {% elif item.question.question_type == 'judge' %}
+                        <span class="quiz-question-type quiz-type-multiple">判断题</span>
+                        {% elif item.question.question_type == 'fill_blank' %}
+                        <span class="quiz-question-type quiz-type-multiple">填空题</span>
+                        {% elif item.question.question_type == 'essay' %}
+                        <span class="quiz-question-type quiz-type-multiple">简答题</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 题目内容 -->
+                <div class="quiz-question-content markdown-content">
+                    {{ item.question.content|markdown|safe }}
+                </div>
+
+                <!-- 题目提示 -->
+                {% if item.question.question_type == 'multiple' %}
+                <div class="quiz-hint">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>提示：</strong>本题为多选题，请选择所有正确答案
+                </div>
+                {% elif item.question.question_type == 'fill_blank' %}
+                <div class="quiz-hint">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>提示：</strong>请在下方输入框中填写答案，字数不超过500字
+                </div>
+                {% elif item.question.question_type == 'essay' %}
+                <div class="quiz-hint">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>提示：</strong>请详细回答问题，字数不超过5000字
+                </div>
+                {% endif %}
+
+                <!-- 选项列表（选择题/判断题） -->
+                {% if item.question.question_type in 'single,multiple,judge' %}
+                <div class="quiz-options-container">
+                    {% for option in item.options %}
+                    <div class="quiz-option {% if item.answer and option in item.answer.selected_options.all %}selected{% endif %}">
+                        {% if item.question.question_type == 'multiple' %}
+                        <input type="checkbox" 
+                            name="question_{{ item.question.id }}" 
+                            value="{{ option.id }}"
+                            {% if item.answer and option in item.answer.selected_options.all %}checked{% endif %}>
+                        {% else %}
+                        <input type="radio" 
+                            name="question_{{ item.question.id }}" 
+                            value="{{ option.id }}"
+                            {% if item.answer and option in item.answer.selected_options.all %}checked{% endif %}>
+                        {% endif %}
+                        
+                        <div class="quiz-option-label">
+                            <span class="quiz-option-order">{{ option.order }}</span>
+                            <span>{{ option.content }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- 填空题输入框 -->
+                {% elif item.question.question_type == 'fill_blank' %}
+                <div class="quiz-text-answer-container">
+                    <input type="text" 
+                        class="form-control quiz-text-input" 
+                        name="question_{{ item.question.id }}_text" 
+                        placeholder="请输入答案"
+                        value="{% if item.answer %}{{ item.answer.text_answer|default:'' }}{% endif %}"
+                        maxlength="500">
+
+                </div>
+                
+                <!-- 简答题输入框 -->
+                {% elif item.question.question_type == 'essay' %}
+                <div class="quiz-text-answer-container">
+                    <textarea 
+                        class="form-control quiz-textarea-input" 
+                        name="question_{{ item.question.id }}_text" 
+                        rows="8" 
+                        placeholder="请输入您的答案..."
+                        maxlength="5000">{% if item.answer %}{{ item.answer.text_answer|default:'' }}{% endif %}</textarea>
+                </div>
+                {% endif %}
+
+                <!-- 题目导航按钮 -->
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="quiz-prev-btn btn btn-outline-secondary">
+                        <i class="bi bi-chevron-left"></i> 上一题
+                    </button>
+                    <button type="button" class="quiz-next-btn btn btn-outline-primary">
+                        下一题 <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 右侧答题卡 -->
+        <div class="quiz-sidebar">
+            <div class="quiz-nav-panel" style="box-shadow: none; border: none;">
+                <div class="quiz-nav-title">
+                    <i class="bi bi-list-check"></i> 答题卡
+                </div>
+                
+                <!-- 题目网格 -->
+                <div class="quiz-nav-grid">
+                    {% for item in questions_data %}
+                    <button type="button" class="quiz-nav-item {% if forloop.first %}current{% else %}unanswered{% endif %}" 
+                        data-index="{{ forloop.counter0 }}">
+                        {{ forloop.counter }}
+                    </button>
+                    {% endfor %}
+                </div>
+
+                <!-- 状态图例 -->
+                <div class="quiz-legend">
+                    <div class="quiz-legend-item">
+                        <div class="quiz-legend-box answered"></div>
+                        <span>已答</span>
+                    </div>
+                    <div class="quiz-legend-item">
+                        <div class="quiz-legend-box current"></div>
+                        <span>当前</span>
+                    </div>
+                    <div class="quiz-legend-item">
+                        <div class="quiz-legend-box unanswered"></div>
+                        <span>未答</span>
+                    </div>
+                </div>
+
+                <!-- 快速提交 -->
+                <div class="mt-3">
+                    <button type="button" id="quiz-submit-btn" class="btn quiz-btn-submit btn-block">
+                        <i class="bi bi-check-circle"></i> 提交试卷
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- jQuery 和 Bootstrap JS -->
+<script src="{% static 'public/js/jq/3.7.1/jquery.min.js' %}"></script>
+<!--js cookie 插件-->
+<script src="{% static 'public/js/js.cookie.min.js' %}?v=20191123.12"></script>
+<script src="{% static 'public/js/popper.min.js' %}"></script>
+<script src="{% static 'public/bootstrap/4.3.1/js/bootstrap.min.js' %}"></script>
+<script src="{% static 'public/js/toast.js' %}"></script>
+
+<!-- 提交确认模态框 -->
+<div class="modal fade" id="confirmSubmitModal" tabindex="-1" role="dialog" aria-labelledby="confirmSubmitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content border-0 rounded-6">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="confirmSubmitModalLabel">
+                    <i class="bi bi-question-circle text-warning mr-2"></i>确认提交
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="mb-2">您确定要提交试卷吗？</p>
+                <p class="text-muted f-14 mb-0">
+                    <i class="bi bi-info-circle mr-1"></i>提交后将无法修改答案
+                </p>
+                <div id="unanswered-warning" class="alert alert-warning mt-3 mb-0" style="display:none;">
+                    <i class="bi bi-exclamation-triangle mr-1"></i>
+                    <span id="unanswered-count"></span>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">
+                    <i class="bi bi-x-circle mr-1"></i>取消
+                </button>
+                <button type="button" id="confirm-submit-btn" class="btn btn-success btn-sm">
+                    <i class="bi bi-check-circle mr-1"></i>确认提交
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 退出全屏确认模态框 - 不可关闭 -->
+<div class="modal fade" id="exitFullscreenModal" tabindex="-1" role="dialog" aria-labelledby="exitFullscreenModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exitFullscreenModalLabel">
+                    <i class="bi bi-exclamation-triangle text-warning mr-2"></i>退出全屏警告
+                </h5>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">检测到您退出了全屏模式！</p>
+                <p class="text-danger mb-3"><strong>这将被记录为违规行为</strong></p>
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle mr-2"></i>
+                    必须重新进入全屏模式才能继续答题
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="reenterFullscreen">
+                    <i class="bi bi-fullscreen mr-1"></i>重新进入全屏
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 强制提交模态框 -->
+<div class="modal fade" id="forceSubmitModal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-x-circle-fill text-danger mr-2"></i>违规次数达到上限
+                </h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-shield-x text-danger" style="font-size: 64px;"></i>
+                <h5 class="mt-3 mb-3">违规次数已达到<span id="max-violations-display">{{ record.quiz.max_violations|default:5 }}</span>次！</h5>
+                <p class="text-muted mb-0">试卷已被系统强制提交</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="goToResult">
+                    <i class="bi bi-file-text mr-1"></i>查看成绩
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 违规通知提示（页面内通知） -->
+<div class="alert alert-danger border-0 shadow-sm" style="position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px; display: none;" id="violation-alert">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-exclamation-triangle-fill mr-2" style="font-size: 24px;"></i>
+        <div>
+            <strong>防作弊警告</strong>
+            <p class="mb-0 f-14" id="violation-message"></p>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'public/js/toast.js' %}"></script>
+<script src="{% static 'quiz/js/quiz.js' %}?v=20260125.01"></script>
+<script src="{% static 'public/js/markdown-code-copy.js' %}?v=20260124.01"></script>
+
+<script>
+    // ===== 知识竞赛系统初始化 =====
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化整个竞赛系统（防作弊 + 答案缓存 + 倒计时）
+        window.initQuizSystem({
+            recordUuid: '{{ record.uuid }}',
+            violationCount: {{ record.violation_count|default:0 }},
+            maxViolations: {{ record.quiz.max_violations|default:5 }},
+            remainingSeconds: {{ remaining_time|default:0 }},
+            enableAntiCheat: {{ enable_anti_cheat|lower }}
+        });
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,27 @@
+{% extends "account/base.html" %}
+
+{% load i18n %}
+{% load account socialaccount %}
+
+{% block head_title %}{% trans "登录 " %}{% endblock %}
+{% block user_title %}{% trans "使用" %}{{ provider.name }}登录{% endblock %}
+
+{% block content %}
+
+
+{% if process == "connect" %}
+<h3 class="text-center">{% blocktrans with provider.name as provider %}将 {{ provider }} 账号连接到您的账户{% endblocktrans %}</h3>
+
+<p class="text-center">{% blocktrans with provider.name as provider %}您即将将您的账户与 {{ provider }} 账号关联。{% endblocktrans %}</p>
+{% else %}
+
+
+<p class="text-center">{% blocktrans with provider.name as provider %}您即将使用来自 {{ provider }} 的第三方账号登录。我们将会获取获取您的用户名和邮箱地址，是否同意？{% endblocktrans %}</p>
+{% endif %}
+
+<form method="post" class="text-center">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-primary  btn-sm">{% trans "同意并继续" %}</button>
+  <a href="{% url 'account_login' %}" class="btn btn-secondary btn-sm ml-2">{% trans "取消" %}</a>
+</form>
+{% endblock %}

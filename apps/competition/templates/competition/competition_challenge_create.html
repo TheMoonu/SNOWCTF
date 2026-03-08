@@ -1,0 +1,504 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}创建题目_{{competition.title}}{% endblock %}
+
+{% block top-file %}
+<style>
+   
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-12 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'competition:CompetitionView' %}">竞赛列表</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'competition:competition_detail' competition.slug %}">{{ competition.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'competition:competition_manage' competition.slug %}">管理面板</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'competition:competition_add_challenges' competition.slug %}">添加题目</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">创建题目</li>
+                </ol>
+            </nav>
+
+            <!-- 比赛信息提示 -->
+            <div class="comp-alert comp-alert-info">
+                <div>您正在为比赛 <strong>{{ competition.title }}</strong> 创建题目。创建成功后，题目将自动添加到该比赛中。</div>
+            </div>
+
+            <!-- 表单卡片 -->
+            <div class="comp-card">
+                <h2 class="comp-title">创建比赛题目</h2>
+                
+                <form id="challengeForm" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    {{ form.captcha_key }}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 基本信息部分 -->
+                    <div class="comp-form-section">
+                        <h3 class="comp-form-section-title">基本信息</h3>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="id_title">标题<span class="comp-required">*</span></label>
+                            {{ form.title }}
+                            <div class="comp-help-text">最多20个字符，支持中英文、数字和基本标点</div>
+                            <div class="comp-invalid-feedback">请输入标题</div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="id_description">题目描述<span class="comp-required">*</span></label>
+                            {{ form.description }}
+                            <div class="comp-help-text">详细描述题目的背景、目标和提示等信息</div>
+                            <div class="comp-invalid-feedback">请输入题目描述</div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_category">题目类型<span class="comp-required">*</span></label>
+                                    {{ form.category }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_difficulty">难度等级<span class="comp-required">*</span></label>
+                                    {{ form.difficulty }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 部署配置部分 -->
+                    <div class="comp-form-section">
+                        <h3 class="comp-form-section-title">部署配置</h3>
+                        
+                       
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group" id="docker_image_group">
+                                    <label class="comp-label" for="id_docker_image">单镜像配置</label>
+                                    {{ form.docker_image }}
+                                    <div class="comp-help-text">选择单个镜像（与多场景题目互斥）</div>
+                                    <div class="comp-invalid-feedback">请选择镜像配置</div>
+                                    <div class="text-right mt-2">
+                                        <a href="{% url 'container:docker_image_create' %}" class="comp-btn comp-btn-light" target="_blank">
+                                            创建新镜像
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="comp-form-group" id="network_topology_config_group">
+                                    <label class="comp-label" for="id_network_topology_config">多场景题目</label>
+                                    {{ form.network_topology_config }}
+                                    <div class="comp-help-text">选择多场景题目</div>
+                                    <div class="comp-invalid-feedback">请选择多场景题目</div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_static_files">题目附件</label>
+                                    {{ form.static_files }}
+                                    <div class="comp-help-text">选择要使用的静态文件（仅用于静态文件部署）</div>
+                                    <div class="comp-invalid-feedback">请选择静态文件</div>
+                                    <div class="text-right mt-2">
+                                        <a href="{% url 'container:static_file_create' %}" class="comp-btn comp-btn-light" target="_blank">
+                                            上传静态文件
+                                        </a>
+                                        <span class="comp-help-text d-block mt-1">上传后请刷新页面以查看新上传的文件</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_static_file_url">静态文件URL</label>
+                                    {{ form.static_file_url }}
+                                    <div class="comp-help-text">填写静态文件的URL地址，支持的压缩包格式：zip, rar, 7z, tar, gz</div>
+                                    <span class="comp-help-text d-block mt-1">PS：优先使用静态文件URL，如果填写了URL地址，则优先使用URL地址，否则使用题目附件</span>
+                                    <div id="static_file_url_error" class="text-danger f-13 mt-1" style="display: none;"></div>
+                                    {% if form.static_file_url.errors %}
+                                        <div class="text-danger f-13">
+                                            {% for error in form.static_file_url.errors %}
+                                                <p>{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- 题目详情部分 -->
+                    <div class="comp-form-section">
+                        <h3 class="comp-form-section-title">题目详情</h3>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_initial_points">初始分数<span class="comp-required">*</span></label>
+                                    {{ form.initial_points }}
+                                    <div class="comp-help-text">题目的初始分数，随着解题人数增加会动态降低，分数在200-1000之间。PS：设置成功后不能在修改</div>
+                                    {% if form.initial_points.errors %}
+                                        <div class="text-danger f-13">
+                                            {% for error in form.initial_points.errors %}
+                                                <p>{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_minimum_points">最低分数<span class="comp-required">*</span></label>
+                                    {{ form.minimum_points }}
+                                    <div class="comp-help-text">基础分数最低分数，PS：设置成功后不能在修改</div>
+                                    {% if form.minimum_points.errors %}
+                                        <div class="text-danger f-13">
+                                            {% for error in form.minimum_points.errors %}
+                                                <p>{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_flag_type">Flag类型<span class="comp-required">*</span></label>
+                                    {{ form.flag_type }}
+                                </div>
+                                
+                                <div class="comp-form-group" id="flag_template_group" style="display: none;">
+                                    <label class="comp-label" >Flag值（静态）<span class="comp-required">*</span></label>
+                                    {{ form.flag_template }}
+                                    <div class="comp-help-text">静态Flag的值，例如：flag{this_is_a_static_flag}</div>
+                                    <div class="comp-invalid-feedback">请输入Flag值</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="comp-form-group">
+                                    <label class="comp-label" for="id_tags">标签</label>
+                                    {{ form.tags }}
+                                    <div class="comp-help-text">Ctrl+点击添加多个标签</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="id_hint">提示信息</label>
+                            {{ form.hint }}
+                            <div class="comp-help-text">可选，帮助解题的提示信息，支持Markdown格式</div>
+                        </div>
+                        
+                        
+                        
+                        <div class="comp-form-group">
+                            <div class="custom-control custom-checkbox" style="position: relative; z-index: 10;">
+                                {{ form.is_active }}
+                                <label class="custom-control-label" for="id_is_active" style="position: relative; z-index: 11; padding-left: 5px;">
+                                    激活题目
+                                </label>
+                            </div>
+                            <div class="comp-help-text">激活后题目将对参赛者可见</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 验证码部分 -->
+                    <div class="comp-form-section">
+                        <h3 class="comp-form-section-title">安全验证</h3>
+                        
+                        <div class="comp-form-group">
+                            <label class="comp-label" for="id_captcha">验证码<span class="comp-required">*</span></label>
+                            <div class="captcha-container">
+                                <div class="captcha-input">
+                                    {{ form.captcha }}
+                                </div>
+                                <img src="{{ captcha_image }}" alt="验证码" class="captcha-image" id="captchaImage">
+                                <i class="fas fa-sync captcha-refresh" id="refreshCaptcha" title="刷新验证码"></i>
+                            </div>
+                            <div class="comp-help-text">请输入图片中显示的验证码</div>
+                            <div class="comp-invalid-feedback" id="captchaError">验证码错误或已过期</div>
+                            {% if form.captcha.errors %}
+                                <div class="text-danger mt-1">{{ form.captcha.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                
+                    
+                    <div class="text-right mt-4">
+                        <a href="{% url 'competition:competition_add_challenges' competition.slug %}" class="comp-btn comp-btn-light mr-2">
+                            取消
+                        </a>
+                        <button type="submit" class="comp-btn comp-btn-primary">创建题目</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 美化表单元素
+    document.querySelectorAll('input, select, textarea').forEach(input => {
+        if (input.type !== 'radio' && input.type !== 'checkbox' && input.type !== 'hidden') {
+            input.classList.add('comp-input');
+        }
+        
+        if (input.tagName === 'SELECT') {
+            input.classList.add('comp-select');
+        }
+        if (input.tagName === 'TEXTAREA') {
+            input.classList.add('comp-textarea');
+        }
+    });
+    
+
+    const createComposeBtn = document.getElementById('create_compose_btn');
+    const createStaticBtn = document.getElementById('create_static_btn');
+    
+    // 单镜像和多场景题目互斥选择
+    const dockerImageSelect = document.getElementById('id_docker_image');
+    const topologyConfigSelect = document.getElementById('id_network_topology_config');
+    
+    if (dockerImageSelect && topologyConfigSelect) {
+        // 监听单镜像选择变化
+        dockerImageSelect.addEventListener('change', function() {
+            if (this.value) {
+                // 如果选择了单镜像，清空多场景选择并禁用
+                topologyConfigSelect.value = '';
+                topologyConfigSelect.disabled = true;
+                topologyConfigSelect.style.opacity = '0.5';
+                document.getElementById('network_topology_config_group').style.opacity = '0.5';
+            } else {
+                // 如果清空了单镜像，启用多场景选择
+                topologyConfigSelect.disabled = false;
+                topologyConfigSelect.style.opacity = '1';
+                document.getElementById('network_topology_config_group').style.opacity = '1';
+            }
+        });
+        
+        // 监听多场景选择变化
+        topologyConfigSelect.addEventListener('change', function() {
+            if (this.value) {
+                // 如果选择了多场景，清空单镜像选择并禁用
+                dockerImageSelect.value = '';
+                dockerImageSelect.disabled = true;
+                dockerImageSelect.style.opacity = '0.5';
+                document.getElementById('docker_image_group').style.opacity = '0.5';
+            } else {
+                // 如果清空了多场景，启用单镜像选择
+                dockerImageSelect.disabled = false;
+                dockerImageSelect.style.opacity = '1';
+                document.getElementById('docker_image_group').style.opacity = '1';
+            }
+        });
+        
+        // 初始化：根据当前值设置禁用状态
+        if (dockerImageSelect.value) {
+            topologyConfigSelect.disabled = true;
+            topologyConfigSelect.style.opacity = '0.5';
+            document.getElementById('network_topology_config_group').style.opacity = '0.5';
+        } else if (topologyConfigSelect.value) {
+            dockerImageSelect.disabled = true;
+            dockerImageSelect.style.opacity = '0.5';
+            document.getElementById('docker_image_group').style.opacity = '0.5';
+        }
+    }
+    
+    // Flag类型切换
+    const flagType = document.getElementById('id_flag_type');
+    
+
+    // 刷新验证码
+    const refreshCaptchaBtn = document.getElementById('refreshCaptcha');
+    const captchaImage = document.getElementById('captchaImage');
+    
+    function refreshCaptcha() {
+        fetch("{% url 'competition:refresh_captcha' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                captchaImage.src = data.captcha_image;
+                document.getElementById('id_captcha_key').value = data.captcha_key;
+                document.getElementById('id_captcha').value = '';
+            }
+        })
+        .catch(error => console.error('Error refreshing captcha:', error));
+    }
+    
+    if (refreshCaptchaBtn) {
+        refreshCaptchaBtn.addEventListener('click', refreshCaptcha);
+    }
+    
+    if (captchaImage) {
+        captchaImage.addEventListener('click', refreshCaptcha);
+    }
+    
+    // 表单验证
+    document.getElementById('challengeForm').addEventListener('submit', function(event) {
+        let isValid = true;
+        
+        // 验证标题
+        const title = document.getElementById('id_title');
+        if (!title.value.trim()) {
+            title.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            title.classList.remove('is-invalid');
+        }
+        
+        // 验证描述
+        const description = document.getElementById('id_description');
+        if (!description.value.trim()) {
+            description.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            description.classList.remove('is-invalid');
+        }
+        
+        // 验证部署配置
+        if (deploymentStatic.checked) {
+            const staticFiles = document.getElementById('id_static_files');
+            if (!staticFiles.value) {
+                staticFiles.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                staticFiles.classList.remove('is-invalid');
+            }
+        } else {
+            const dockerCompose = document.getElementById('id_docker_compose');
+            if (!dockerCompose.value) {
+                dockerCompose.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                dockerCompose.classList.remove('is-invalid');
+            }
+        }
+        
+        // 只验证静态Flag的值
+        if (flagType.value === 'STATIC') {
+            if (!flagTemplateInput.value.trim()) {
+                flagTemplateInput.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                flagTemplateInput.classList.remove('is-invalid');
+            }
+        }
+        
+        // 验证静态文件URL
+        const staticFileUrl = document.getElementById('id_static_file_url');
+        const staticFileUrlError = document.getElementById('static_file_url_error');
+        if (staticFileUrl && staticFileUrl.value.trim()) {
+            const url = staticFileUrl.value.trim();
+            
+            // 验证URL格式（必须以http://或https://开头）
+            if (!url.match(/^https?:\/\//)) {
+                staticFileUrl.classList.add('is-invalid');
+                staticFileUrlError.textContent = '静态文件URL必须以http://或https://开头';
+                staticFileUrlError.style.display = 'block';
+                isValid = false;
+            }
+            // 验证文件扩展名（必须是支持的压缩包格式）
+            else if (!url.match(/\.(zip|rar|7z|tar|gz)$/i)) {
+                staticFileUrl.classList.add('is-invalid');
+                staticFileUrlError.textContent = '静态文件URL必须以.zip、.rar、.7z、.tar或.gz结尾';
+                staticFileUrlError.style.display = 'block';
+                isValid = false;
+            }
+            else {
+                staticFileUrl.classList.remove('is-invalid');
+                staticFileUrlError.style.display = 'none';
+            }
+        } else {
+            staticFileUrl.classList.remove('is-invalid');
+            staticFileUrlError.style.display = 'none';
+        }
+        
+        // 验证验证码
+        const captcha = document.getElementById('id_captcha');
+        if (!captcha.value.trim()) {
+            captcha.classList.add('is-invalid');
+            document.getElementById('captchaError').style.display = 'block';
+            document.getElementById('captchaError').textContent = '请输入验证码';
+            isValid = false;
+        } else {
+            captcha.classList.remove('is-invalid');
+            document.getElementById('captchaError').style.display = 'none';
+        }
+        
+        if (!isValid) {
+            event.preventDefault();
+            showErrorToast('请检查表单中的错误');
+            
+            // 滚动到第一个错误字段
+            const firstError = document.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    });
+    
+    // 显示错误提示
+});
+</script>
+
+<script>
+    // 获取Flag类型选择框和Flag值输入框容器
+    const flagTypeSelect = document.querySelector('select[name="flag_type"]');
+    const flagTemplateGroup = document.getElementById('flag_template_group');
+    
+    // 监听Flag类型变化
+    flagTypeSelect.addEventListener('change', function () {
+        // 如果Flag类型选择的是静态，显示Flag值输入框
+        if (flagTypeSelect.value === 'STATIC') {
+            flagTemplateGroup.style.display = 'block';
+        } else {
+            flagTemplateGroup.style.display = 'none';
+        }
+    });
+    
+    // 初始化状态：页面加载时检查Flag类型
+    if (flagTypeSelect.value === 'STATIC') {
+        flagTemplateGroup.style.display = 'block';
+    } else {
+        flagTemplateGroup.style.display = 'none';
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,371 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% block head_title %}{{ jobdetail.title }}_安全岗位{% endblock %}
+
+{% block top-file %}
+{#<script>var stop_headroom = true;</script>#}
+{% if user.is_authenticated %}
+<link href="{% static 'blog/simplemde/1.11.2/simplemde.min.css' %}" rel="stylesheet">
+{% endif %}
+<link href="{% static 'public/css/detail.css' %}?v=20260116.02" rel="stylesheet">
+<link href="{% static 'public/css/monokai-2.css' %}?v=20260116.02" rel="stylesheet">
+<link href="{% static 'comment/css/base_comment.css' %}?v=20190114.554" rel="stylesheet">
+
+
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+
+    <!-- 筛选栏 -->
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="card border-0 rounded-6 mb-3 p-3">
+                <div class="card-body px-2 px-md-3 pb-0">
+                    <!-- 标题和操作按钮 -->
+                    <div class="position-relative mb-2" style="min-height: 3rem;">
+                        <div class="text-center">
+                            <h1 class="card-title font-weight-bold text-primary mb-0" style="padding: 0 120px;">{{ jobdetail.title }}</h1>
+                        </div>
+                        
+                        <!-- 右侧操作按钮组 -->
+                        <div class="job-action-buttons">
+                            <!-- 分享按钮 -->
+                            <div class="job-share-btn-wrapper">
+                                <button class="btn btn-sm btn-outline-primary job-share-btn" onclick="toggleJobShareMenu(event)">
+                                    <i class="fa fa-share-alt"></i>
+                                    <span class="d-none d-md-inline ml-1">分享</span>
+                                </button>
+                                
+                                <!-- 分享菜单 -->
+                                <div class="job-share-menu" id="jobShareMenu" style="display: none;">
+                                    <div class="share-menu-item" onclick="copyJobLink()">
+                                        <i class="fa fa-link"></i>
+                                        <span>复制链接</span>
+                                    </div>
+                                    <div class="share-menu-item" onclick="shareJobToWechat()">
+                                        <i class="fa fa-weixin"></i>
+                                        <span>分享到微信</span>
+                                    </div>
+                                    <div class="share-menu-item" onclick="shareJobToWeibo()">
+                                        <i class="fa fa-weibo"></i>
+                                        <span>分享到微博</span>
+                                    </div>
+                                    <div class="share-menu-item" onclick="shareJobToQQ()">
+                                        <i class="fa fa-qq"></i>
+                                        <span>分享到QQ</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 收藏按钮 -->
+                            {% if user.is_authenticated %}
+                            <button id="collectBtn" class="btn btn-sm {% if is_collected %}btn-warning{% else %}btn-outline-warning{% endif %}" 
+                                    onclick="toggleCollect('{{ jobdetail.slug }}')">
+                                <i class="fa {% if is_collected %}fa-star{% else %}fa-star-o{% endif %}" id="collectIcon"></i>
+                                <span id="collectText">{% if is_collected %}已收藏{% else %}收藏{% endif %}</span>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <hr>
+                    <!-- 职位元信息 -->
+                    <div class="d-flex flex-wrap justify-content-center align-items-center f-14 text-muted mb-3" style="gap: 0.5rem;">
+                        <span class="mx-1" data-toggle="tooltip" data-placement="bottom"
+                            title="最后编辑于{{ jobdetail.updated_at|date:'Y年m月d日' }}">
+                            <i class="fa fa-clock mr-1"></i>发布于 {{jobdetail.created_at|date:'Y年m月d日' }}
+                        </span>
+                        <span class="mx-1">
+                            <i class="fa fa-eye mr-1"></i>浏览 {{ jobdetail.views }}
+                        </span>
+                        
+                        {% if jobdetail.salary_desc %}
+                        <span class="mx-1 text-danger font-weight-bold">
+                            <i class="fa fa-money-bill-wave mr-1"></i>{{ jobdetail.salary_desc }}
+                        </span>
+                        {% endif %}
+
+                        {% if jobdetail.get_RecruitmentType_display %}
+                        <span class="mx-1">
+                            <i class="fa fa-user-tie mr-1"></i>{{ jobdetail.get_RecruitmentType_display }}
+                        </span>
+                        {% endif %}
+                        
+                        {% for company in jobdetail.companyname.all %}
+                        <span class="mx-1">
+                            <i class="fa fa-building mr-1"></i>
+                            <a href="{{ company.get_absolute_url }}" class="text-muted" style="text-decoration: none; border-bottom: 1px dashed #8c8c8c;">
+                                {{ company.company_name }}
+                            </a>
+                        </span>
+                        {% endfor %}
+                        
+                        {% for city in jobdetail.cityname.all %}
+                        <span class="mx-1">
+                            <i class="fa fa-map-marker-alt mr-1"></i>
+                            <a href="{{ city.get_absolute_url }}" class="text-muted" style="text-decoration: none; border-bottom: 1px dashed #8c8c8c;">
+                                {{ city.name }}
+                            </a>
+                        </span>
+                        {% endfor %}
+                        
+                        {% if jobdetail.address %}
+                        <span class="mx-1">
+                            <i class="fa fa-link mr-1"></i>来源: {{ jobdetail.address }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    
+             
+
+                    
+                    <!-- 职位描述 -->
+                    <div class="job-content-section mt-4">
+                        <h4 class="text-primary mb-3 font-weight-bold">
+                            <i class="fa fa-file-alt mr-2"></i>职位描述
+                        </h4>
+                        <div class="markdown-content">
+                            {{jobdetail.description|safe}}
+                        </div>
+                    </div>
+
+                    <!-- 任职要求 -->
+                    <div class="job-content-section mt-4">
+                        <h4 class="text-primary mb-3 font-weight-bold">
+                            <i class="fa fa-clipboard-check mr-2"></i>任职要求
+                        </h4>
+                        <div class="markdown-content">
+                            {{jobdetail.requirements|safe}}
+                        </div>
+                    </div>
+
+                    {% if jobdetail.Internal_push %}
+                    <div class="alert alert-info mt-4">
+                        <i class="fa fa-gift mr-2"></i><strong>内推码：</strong>{{ jobdetail.Internal_push }}
+                    </div>
+                    {% endif %}
+
+                    <div class="text-center mt-4 my-2">
+                        {% if jobdetail.apply_link %}
+                            {% if user.is_authenticated %}
+                                <a href="{{jobdetail.apply_link}}" target="_blank"
+                                    class="btn btn-primary rounded-pill px-4 py-2">
+                                    <i class="fa fa-paper-plane mr-2"></i>在线投递
+                                </a>
+                            {% else %}
+                                <a href="{% url 'account_login' %}?next={{ request.path }}"
+                                    class="btn btn-primary rounded-pill px-4 py-2">
+                                    <i class="fa fa-paper-plane mr-2"></i>登录后投递
+                                </a>
+                            {% endif %}
+                        {% else %}
+                            <p class="text-muted">请通过其他渠道投递简历</p>
+                        {% endif %}
+                    </div>
+
+
+                </div>
+
+            </div>
+            
+ 
+        </div>
+    </div>
+
+    <!-- 微信二维码弹窗 -->
+    <div class="wechat-qr-modal" id="wechatQrModal" style="display: none;">
+        <div class="wechat-qr-overlay" onclick="closeWechatQrModal()"></div>
+        <div class="wechat-qr-content">
+            <div class="wechat-qr-header">
+                <h5><i class="fa fa-weixin mr-2"></i>微信扫码分享</h5>
+                <button class="wechat-qr-close" onclick="closeWechatQrModal()">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="wechat-qr-body">
+                <div id="wechatQrCode" class="wechat-qr-code"></div>
+                <p class="wechat-qr-tip">使用微信扫一扫分享给好友</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // 收藏功能
+    function toggleCollect(slug) {
+        const btn = document.getElementById('collectBtn');
+        const icon = document.getElementById('collectIcon');
+        const text = document.getElementById('collectText');
+        
+        fetch(`/recruit/collect/${slug}/`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.collected) {
+                // 已收藏状态
+                btn.className = 'btn btn-sm btn-warning';
+                icon.className = 'fa fa-star';
+                text.textContent = '已收藏';
+            } else {
+                // 未收藏状态
+                btn.className = 'btn btn-sm btn-outline-warning';
+                icon.className = 'fa fa-star-o';
+                text.textContent = '收藏';
+            }
+            
+            // 使用 Toast 提示
+            if (typeof showSuccessToast === 'function') {
+                showSuccessToast(data.message, '成功');
+            } else if (typeof showMessage === 'function') {
+                showMessage(data.message, 'success');
+            } else {
+                showWarningToast(data.message);
+            }
+        })
+        .catch(error => {
+            // 使用 Toast 错误提示
+            if (typeof showErrorToast === 'function') {
+                showErrorToast('操作失败，请稍后重试', '错误');
+            } else {
+                showWarningToast('操作失败，请稍后重试');
+            }
+        });
+    }
+
+    // 分享功能
+    // 切换分享菜单
+    function toggleJobShareMenu(event) {
+        event.stopPropagation();
+        const menu = document.getElementById('jobShareMenu');
+        if (menu.style.display === 'none') {
+            menu.style.display = 'block';
+        } else {
+            menu.style.display = 'none';
+        }
+    }
+
+    // 点击页面其他地方关闭菜单
+    document.addEventListener('click', function(event) {
+        const menu = document.getElementById('jobShareMenu');
+        const btn = event.target.closest('.job-share-btn');
+        if (!btn && menu) {
+            menu.style.display = 'none';
+        }
+    });
+
+    // 复制职位链接
+    function copyJobLink() {
+        const url = window.location.href;
+        
+        // 使用现代 Clipboard API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(function() {
+                showJobToast('链接已复制到剪贴板！', 'success');
+            }).catch(function(err) {
+                console.error('复制失败:', err);
+                fallbackCopyJobText(url);
+            });
+        } else {
+            // 兼容旧浏览器
+            fallbackCopyJobText(url);
+        }
+        
+        // 关闭菜单
+        document.getElementById('jobShareMenu').style.display = 'none';
+    }
+
+    // 兼容方法：使用 textarea 复制
+    function fallbackCopyJobText(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        try {
+            document.execCommand('copy');
+            showJobToast('链接已复制到剪贴板！', 'success');
+        } catch (err) {
+            showJobToast('复制失败，请手动复制', 'error');
+        }
+        
+        document.body.removeChild(textarea);
+    }
+
+    // 分享到微博
+    function shareJobToWeibo() {
+        const url = encodeURIComponent(window.location.href);
+        const title = encodeURIComponent(document.title);
+        const shareUrl = `https://service.weibo.com/share/share.php?url=${url}&title=${title}`;
+        window.open(shareUrl, '_blank', 'width=600,height=400');
+        document.getElementById('jobShareMenu').style.display = 'none';
+    }
+
+    // 分享到QQ
+    function shareJobToQQ() {
+        const url = encodeURIComponent(window.location.href);
+        const title = encodeURIComponent(document.title);
+        const shareUrl = `https://connect.qq.com/widget/shareqq/index.html?url=${url}&title=${title}`;
+        window.open(shareUrl, '_blank', 'width=600,height=400');
+        document.getElementById('jobShareMenu').style.display = 'none';
+    }
+
+    // 分享到微信（生成二维码）
+    function shareJobToWechat() {
+        const url = window.location.href;
+        const qrCodeContainer = document.getElementById('wechatQrCode');
+        
+        // 清空之前的二维码
+        qrCodeContainer.innerHTML = '';
+        
+        // 使用在线API生成二维码
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+        
+        // 创建二维码图片
+        const img = document.createElement('img');
+        img.src = qrCodeUrl;
+        img.alt = '微信扫码分享';
+        img.style.display = 'block';
+        
+        qrCodeContainer.appendChild(img);
+        
+        // 显示弹窗
+        document.getElementById('wechatQrModal').style.display = 'flex';
+        
+        // 关闭分享菜单
+        document.getElementById('jobShareMenu').style.display = 'none';
+    }
+
+    // 关闭微信二维码弹窗
+    function closeWechatQrModal() {
+        document.getElementById('wechatQrModal').style.display = 'none';
+    }
+
+    // 按ESC键关闭弹窗
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeWechatQrModal();
+        }
+    });
+
+    // 显示提示消息
+    function showJobToast(message, type) {
+        // 检查是否有全局的 Toast 函数
+        if (typeof showSuccessToast === 'function' && type === 'success') {
+            showSuccessToast(message, '成功');
+        } else if (typeof showErrorToast === 'function' && type === 'error') {
+            showErrorToast(message, '错误');
+        } else if (typeof showMessage === 'function') {
+            showMessage(message, type);
+        } else {
+            // 简单的提示
+            showWarningToast(message);
+        }
+    }
+    </script>
+    {% endblock %}

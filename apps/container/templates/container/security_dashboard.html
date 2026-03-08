@@ -1,0 +1,2212 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}K8s 安全监控{% endblock %}
+
+{% block top-file %}
+<script src="{% static 'public/css/monokai-2.css' %}?v=20251231.01"></script>
+<!-- 这是新的样式部分，包含 sec- 前缀和暗黑模式适配 -->
+<style>
+    * {
+        box-sizing: border-box;
+    }
+    
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .sec-dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    /* Header */
+    .sec-dashboard-header {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+        animation: slideDown 0.5s ease;
+    }
+    
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .sec-header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .sec-header-title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .sec-header-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #0184ff, #0166cc);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 28px;
+        box-shadow: 0 4px 15px rgba(1, 132, 255, 0.3);
+    }
+    
+    .sec-title-text h1 {
+        font-size: 1.875rem;
+        font-weight: 700;
+        margin: 0 0 0.25rem 0;
+        background: linear-gradient(135deg, #0184ff, #0166cc);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .sec-title-text p {
+        margin: 0;
+        color: #6b7280;
+        font-size: 0.95rem;
+    }
+    
+    .sec-header-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    
+    .sec-btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.95rem;
+    }
+    
+    .sec-btn-primary {
+        background: linear-gradient(135deg, #0184ff, #0166cc);
+        color: white;
+        box-shadow: 0 4px 15px rgba(1, 132, 255, 0.4);
+    }
+    
+    .sec-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(1, 132, 255, 0.5);
+    }
+    
+    .sec-btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .sec-btn-secondary {
+        background: white;
+        color: #111827;
+        border: 1px solid rgba(1, 132, 255, 0.15);
+    }
+    
+    .sec-btn-secondary:hover {
+        background: rgba(1, 132, 255, 0.05);
+        transform: translateY(-2px);
+    }
+    
+    body.night-mode .sec-btn-secondary:hover {
+        background: rgba(1, 132, 255, 0.15);
+    }
+    
+    /* Stats Cards */
+    .sec-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .sec-stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        animation: fadeInUp 0.5s ease;
+        animation-fill-mode: both;
+    }
+    
+    .sec-stat-card:nth-child(1) { animation-delay: 0.1s; }
+    .sec-stat-card:nth-child(2) { animation-delay: 0.2s; }
+    .sec-stat-card:nth-child(3) { animation-delay: 0.3s; }
+    .sec-stat-card:nth-child(4) { animation-delay: 0.4s; }
+    
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .sec-stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    }
+    
+    .sec-stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .sec-stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+    }
+    
+    .sec-stat-icon.success { background: linear-gradient(135deg, #10b981, #059669); }
+    .sec-stat-icon.warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .sec-stat-icon.danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .sec-stat-icon.info { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+    
+    .sec-stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1;
+    }
+    
+    .sec-stat-label {
+        color: #6b7280;
+        font-size: 0.95rem;
+        margin-top: 0.5rem;
+    }
+    
+    .sec-stat-change {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-top: 0.75rem;
+    }
+    
+    .sec-stat-change.up {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .sec-stat-change.down {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    /* Main Content Grid */
+    .sec-content-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    @media (max-width: 1200px) {
+        .sec-content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Card */
+    .sec-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        animation: fadeInUp 0.5s ease;
+        border: none;
+    }
+    
+    .sec-card-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid rgba(1, 132, 255, 0.15);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .sec-card-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #111827;
+        margin: 0;
+    }
+    
+    .sec-card-title i {
+        color: #0184ff;
+    }
+    
+    .sec-card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Pod List */
+    .sec-pod-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .sec-pod-item {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(1, 132, 255, 0.15);
+    }
+    
+    .sec-pod-item:hover {
+        box-shadow: 0 4px 20px rgba(1, 132, 255, 0.15);
+        transform: translateX(4px);
+    }
+    
+    .sec-pod-item.suspicious {
+        background: #fef2f2;
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+    
+    body.night-mode .sec-pod-item.suspicious {
+        background: rgba(239, 68, 68, 0.1);
+    }
+    
+    .sec-pod-item.suspicious:hover {
+        box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);
+    }
+    
+    .sec-pod-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+    
+    .sec-pod-name {
+        font-weight: 600;
+        font-size: 1.05rem;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        overflow: hidden;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .sec-pod-name i {
+        flex-shrink: 0;
+    }
+    
+    .sec-pod-name-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .sec-pod-badges {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .sec-badge {
+        padding: 0.375rem 0.875rem;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+    
+    .sec-badge-safe {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .sec-badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .sec-badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    .sec-badge-info {
+        background: #0184ff;
+        color: white;
+    }
+    
+    .sec-badge-info:hover {
+        background: #0166cc;
+        transform: scale(1.05);
+    }
+    
+    .sec-badge-info:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .sec-badge-secondary {
+        background: #e5e7eb;
+        color: #374151;
+    }
+    
+    body.night-mode .sec-badge-secondary {
+        background: #374151;
+        color: #9ca3af;
+    }
+    
+    .sec-pod-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-top: 0.75rem;
+    }
+    
+    .sec-pod-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: #6b7280;
+    }
+    
+    .sec-pod-stat i {
+        color: #0184ff;
+    }
+    
+    .sec-pod-stat strong {
+        color: #111827;
+        font-weight: 600;
+    }
+    
+    /* Event Item */
+    .sec-event-item {
+        padding: 0.875rem 1rem;
+        border-bottom: 1px solid rgba(1, 132, 255, 0.08);
+        transition: background 0.2s ease;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    
+    .sec-event-item:hover {
+        background: rgba(1, 132, 255, 0.05);
+    }
+    
+    .sec-event-item:last-child {
+        border-bottom: none;
+    }
+    
+    .sec-event-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .sec-event-icon-wrapper {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .sec-event-icon-wrapper.warning {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+    
+    .sec-event-icon-wrapper.error {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+    
+    .sec-event-icon-wrapper.normal {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+    }
+    
+    .sec-event-content {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+    
+    .sec-event-title {
+        font-weight: 600;
+        color: #111827;
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .sec-event-object-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex-shrink: 1;
+    }
+    
+    .sec-event-subtitle {
+        color: #6b7280;
+        font-size: 0.85rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .sec-event-right {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+    
+    .sec-event-time {
+        font-size: 0.8rem;
+        color: #6b7280;
+        text-align: right;
+    }
+    
+    .sec-event-arrow {
+        color: #9ca3af;
+        font-size: 1rem;
+    }
+    
+    /* Alert Box */
+    .sec-alert {
+        padding: 1rem 1.25rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: start;
+        gap: 0.75rem;
+        animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    .sec-alert-danger {
+        background: #fef2f2;
+        border-left: 4px solid #ef4444;
+        color: #991b1b;
+    }
+    
+    body.night-mode .sec-alert-danger {
+        background: rgba(239, 68, 68, 0.15);
+        color: #fca5a5;
+    }
+    
+    .sec-alert-warning {
+        background: #fffbeb;
+        border-left: 4px solid #f59e0b;
+        color: #92400e;
+    }
+    
+    body.night-mode .sec-alert-warning {
+        background: rgba(245, 158, 11, 0.15);
+        color: #fcd34d;
+    }
+    
+    .sec-alert-info {
+        background: #eff6ff;
+        border-left: 4px solid #3b82f6;
+        color: #1e40af;
+    }
+    
+    body.night-mode .sec-alert-info {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+    }
+    
+    .sec-alert-success {
+        background: #f0fdf4;
+        border-left: 4px solid #10b981;
+        color: #065f46;
+    }
+    
+    body.night-mode .sec-alert-success {
+        background: rgba(16, 185, 129, 0.15);
+        color: #6ee7b7;
+    }
+    
+    .sec-alert i {
+        font-size: 1.25rem;
+        margin-top: 0.125rem;
+    }
+    
+    /* Loading */
+    .sec-loading {
+        text-align: center;
+        padding: 2rem;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+    
+    .sec-loading p {
+        color: #0184ff;
+        font-weight: 500;
+    }
+    
+    .sec-spinner {
+        width: 36px;
+        height: 36px;
+        border: 3px solid #e5f2ff;
+        border-top-color: #0184ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 0.5rem;
+    }
+    
+    body.night-mode .sec-spinner {
+        border-color: rgba(1, 132, 255, 0.2);
+        border-top-color: #0184ff;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Empty State */
+    .sec-empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6b7280;
+    }
+    
+    .sec-empty-state i {
+        font-size: 4rem;
+        color: #f3f4f6;
+        margin-bottom: 1rem;
+    }
+    
+    .sec-empty-state h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+        color: #111827;
+    }
+    
+    /* Status Indicator */
+    .sec-status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .sec-status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        animation: pulse-dot 2s infinite;
+    }
+    
+    @keyframes pulse-dot {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .sec-status-dot.online { background: #10b981; }
+    .sec-status-dot.offline { background: #ef4444; }
+    .sec-status-dot.warning { background: #f59e0b; }
+    
+    /* Engine Selector */
+    .sec-engine-selector {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+    }
+    
+    .sec-engine-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(1, 132, 255, 0.15);
+        background: white;
+        color: #111827;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .sec-engine-btn:hover {
+        border-color: #0184ff;
+        background: #f0f8ff;
+    }
+    
+    body.night-mode .sec-engine-btn:hover {
+        background: rgba(1, 132, 255, 0.15);
+    }
+    
+    .sec-engine-btn.active {
+        background: linear-gradient(135deg, #0184ff, #0166cc);
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 2px 10px rgba(1, 132, 255, 0.3);
+    }
+    
+    /* Tooltip */
+    .sec-tooltip {
+        position: relative;
+        cursor: help;
+    }
+    
+    .sec-tooltip:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 0.5rem 0.75rem;
+        background: #111827;
+        color: white;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        z-index: 1000;
+        margin-bottom: 0.5rem;
+    }
+    
+    body.night-mode .sec-tooltip:hover::after {
+        background: #374151;
+        color: #f3f4f6;
+    }
+    
+    /* Node Status */
+    .sec-node-status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .sec-node-status-item {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid rgba(1, 132, 255, 0.15);
+        transition: all 0.3s ease;
+    }
+    
+    .sec-node-status-item:hover {
+        box-shadow: 0 2px 8px rgba(1, 132, 255, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .sec-node-status-item.ready {
+        border-left: 3px solid #10b981;
+    }
+    
+    .sec-node-status-item.not-ready {
+        border-left: 3px solid #ef4444;
+    }
+    
+    .sec-node-name {
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .sec-node-info {
+        font-size: 0.875rem;
+        color: #6b7280;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    /* Mini Stat Cards */
+    .sec-stat-mini-card {
+        text-align: center;
+        padding: 0.75rem;
+        background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+    
+    .sec-stat-mini-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .sec-stat-mini-label {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    
+    /* Node Section - 简洁版本 */
+    .sec-node-section {
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid #f3f4f6;
+    }
+    
+    .sec-node-section-title {
+        font-size: 0.95rem;
+        color: #0184ff;
+        margin-bottom: 1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        letter-spacing: 0.02em;
+    }
+    
+    .sec-node-section-title i {
+        font-size: 1.1rem;
+    }
+    
+    .sec-node-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1rem;
+    }
+    
+    .sec-node-item {
+        position: relative;
+        padding: 1rem;
+        border-radius: 12px;
+        text-align: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+    
+    .sec-node-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        transition: all 0.3s ease;
+    }
+    
+    .sec-node-item.ready {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    
+    .sec-node-item.ready::before {
+        background: linear-gradient(90deg, #10b981, #34d399);
+    }
+    
+    .sec-node-item.not-ready {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    
+    .sec-node-item.not-ready::before {
+        background: linear-gradient(90deg, #ef4444, #f87171);
+    }
+    
+    .sec-node-item:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .sec-node-item.ready:hover {
+        border-color: rgba(16, 185, 129, 0.4);
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.2);
+    }
+    
+    .sec-node-item.not-ready:hover {
+        border-color: rgba(239, 68, 68, 0.4);
+        box-shadow: 0 8px 24px rgba(239, 68, 68, 0.2);
+    }
+    
+    .sec-node-status {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .sec-node-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        position: relative;
+        animation: pulse-glow 2s infinite;
+    }
+    
+    @keyframes pulse-glow {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.7;
+            transform: scale(1.1);
+        }
+    }
+    
+    .sec-node-dot.ready {
+        background: #10b981;
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+    }
+    
+    .sec-node-dot.not-ready {
+        background: #ef4444;
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    }
+    
+    .sec-node-status-text {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    
+    .sec-node-status-text.ready {
+        color: #059669;
+        text-shadow: 0 1px 2px rgba(5, 150, 105, 0.1);
+    }
+    
+    .sec-node-status-text.not-ready {
+        color: #dc2626;
+        text-shadow: 0 1px 2px rgba(220, 38, 38, 0.1);
+    }
+    
+    .sec-node-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #111827;
+        margin-top: 0.5rem;
+        word-break: break-word;
+        line-height: 1.4;
+    }
+    
+    /* Status Text */
+    .sec-status-text {
+        font-size: 0.875rem;
+        color: #10b981;
+        font-weight: 600;
+    }
+    
+    /* Alert Section */
+    .sec-alert-section {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(1, 132, 255, 0.08);
+    }
+    
+    .sec-alert-message {
+        font-size: 0.875rem;
+        color: #ef4444;
+        margin: 0.25rem 0;
+    }
+    
+    /* Modal Elements */
+    .sec-modal-close {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        cursor: pointer;
+        color: #6b7280;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s;
+    }
+    
+    .sec-modal-close:hover {
+        background: #f3f4f6;
+        color: #111827;
+    }
+    
+    .sec-modal-section {
+        margin-bottom: 1.5rem;
+    }
+    
+    .sec-modal-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .sec-modal-pre {
+        background: #1f2937;
+        color: #f3f4f6;
+        padding: 1.25rem;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        overflow-x: auto;
+        max-height: 200px;
+        margin: 0;
+        font-family: 'Monaco', 'Consolas', monospace;
+    }
+    
+    /* Modal Overlay and Container */
+    .sec-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    .sec-modal-container {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem;
+        max-width: 1200px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .sec-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(1, 132, 255, 0.08);
+    }
+    
+    .sec-modal-title {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #111827;
+    }
+    
+    .sec-modal-tip-list {
+        margin: 0.5rem 0 0 0;
+        padding-left: 1.25rem;
+        font-size: 0.9rem;
+    }
+    
+    .sec-modal-footer {
+        text-align: right;
+        margin-top: 1.5rem;
+    }
+    
+    .sec-modal-btn {
+        background: #0184ff;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .sec-modal-btn:hover {
+        background: #0166cc;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(1, 132, 255, 0.3);
+    }
+    
+    /* Night Mode - Node Section */
+    body.night-mode .sec-node-section {
+        border-top-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    body.night-mode .sec-node-section-title {
+        color: #60a5fa;
+    }
+    
+    body.night-mode .sec-node-item.ready {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.08) 100%);
+        border-color: rgba(16, 185, 129, 0.3);
+    }
+    
+    body.night-mode .sec-node-item.not-ready {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%);
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+    
+    body.night-mode .sec-node-name {
+        color: #f3f4f6;
+    }
+    
+    body.night-mode .sec-node-status-text.ready {
+        color: #6ee7b7;
+    }
+    
+    body.night-mode .sec-node-status-text.not-ready {
+        color: #fca5a5;
+    }
+    
+    /* Night Mode - Event Items */
+    body.night-mode .sec-event-item {
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    body.night-mode .sec-event-item:hover {
+        background: rgba(1, 132, 255, 0.1);
+    }
+    
+    body.night-mode .sec-event-icon-wrapper.warning {
+        background: rgba(245, 158, 11, 0.2);
+    }
+    
+    body.night-mode .sec-event-icon-wrapper.error {
+        background: rgba(239, 68, 68, 0.2);
+    }
+    
+    body.night-mode .sec-event-icon-wrapper.normal {
+        background: rgba(156, 163, 175, 0.2);
+    }
+    
+    body.night-mode .sec-event-title,
+    body.night-mode .sec-event-object-name {
+        color: #f3f4f6;
+    }
+    
+    body.night-mode .sec-event-subtitle {
+        color: #9ca3af;
+    }
+    
+    body.night-mode .sec-event-time {
+        color: #9ca3af;
+    }
+    
+    body.night-mode .sec-event-time > div:first-child {
+        color: #e5e7eb !important;
+    }
+    
+    body.night-mode .sec-event-arrow {
+        color: #6b7280;
+    }
+    
+    body.night-mode .sec-modal-container {
+        background: #1f2937;
+        color: #f3f4f6;
+    }
+    
+    body.night-mode .sec-modal-title {
+        color: #f3f4f6;
+    }
+    
+    body.night-mode .sec-modal-close {
+        color: #9ca3af;
+    }
+    
+    body.night-mode .sec-modal-close:hover {
+        background: #374151;
+        color: #f3f4f6;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .sec-stats-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .sec-pod-stats {
+            grid-template-columns: 1fr;
+        }
+        
+        .sec-header-top {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .sec-header-actions {
+            justify-content: center;
+        }
+        
+        .sec-node-status-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .sec-node-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.75rem;
+        }
+        
+        .sec-node-item {
+            padding: 0.875rem;
+        }
+        
+        .sec-event-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .sec-event-right {
+            width: 100%;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <!-- Header -->
+    <div class="sec-dashboard-header">
+        <div class="sec-header-top">
+            <div class="sec-header-title">
+                <div class="sec-header-icon">
+                    <i class="fa fa-shield"></i>
+                </div>
+                <div class="sec-title-text">
+                    <h1>K8s 安全监控中心</h1>
+                    <p>实时监控容器网络活动 · 防止恶意攻击 · 保护系统安全</p>
+                </div>
+            </div>
+            <div class="sec-header-actions">
+                <button class="sec-btn sec-btn-primary" onclick="refreshAll(event)">
+                    <i class="fa fa-refresh"></i> 刷新全部
+                </button>
+            </div>
+        </div>
+        
+        <!-- Cache Status -->
+        <div style="margin-top: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+            <span id="cacheStatus" style="font-size: 0.875rem; color: #6b7280; display: none;">
+                <i class="fa fa-database"></i>
+                <span>使用缓存数据</span>
+            </span>
+            <span style="font-size: 0.875rem; color: #6b7280;" id="lastUpdateTime">
+                最后更新: --:--:--
+            </span>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="sec-stats-grid" id="statsGrid">
+        <div class="sec-stat-card">
+            <div class="sec-stat-header">
+                <div class="sec-stat-icon success">
+                    <i class="fa fa-cubes"></i>
+                </div>
+            </div>
+            <div class="sec-stat-value" id="totalPodsCount">--</div>
+            <div class="sec-stat-label">运行中的 Pod</div>
+            <span class="sec-stat-change up" id="podsTrend" style="display: none;">
+                <i class="fa fa-arrow-up"></i> +0
+            </span>
+        </div>
+        
+        <div class="sec-stat-card">
+            <div class="sec-stat-header">
+                <div class="sec-stat-icon warning">
+                    <i class="fa fa-exclamation-triangle"></i>
+                </div>
+            </div>
+            <div class="sec-stat-value" id="suspiciousCount">--</div>
+            <div class="sec-stat-label">可疑活动</div>
+            <span class="sec-stat-change down" id="suspiciousTrend" style="display: none;">
+                <i class="fa fa-arrow-down"></i> -0
+            </span>
+        </div>
+        
+        <div class="sec-stat-card">
+            <div class="sec-stat-header">
+                <div class="sec-stat-icon info">
+                    <i class="fa fa-plug"></i>
+                </div>
+            </div>
+            <div class="sec-stat-value" id="totalConnections">--</div>
+            <div class="sec-stat-label">网络连接数</div>
+        </div>
+        
+        <div class="sec-stat-card">
+            <div class="sec-stat-header">
+                <div class="sec-stat-icon danger">
+                    <i class="fa fa-ban"></i>
+                </div>
+            </div>
+            <div class="sec-stat-value" id="blockedAttacks">--</div>
+            <div class="sec-stat-label">今日拦截攻击</div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="sec-content-grid">
+        <!-- Left: Pod Monitor -->
+        <div class="sec-card">
+            <div class="sec-card-header">
+                <h3 class="sec-card-title">
+                    <i class="fa fa-server"></i> Pod 实时监控
+                </h3>
+                <div class="sec-status-indicator">
+                    <span class="sec-status-dot online"></span>
+                    <span class="sec-status-text">在线</span>
+                </div>
+            </div>
+            <div class="sec-card-body">
+                <!-- Engine Selector -->
+                <div class="sec-engine-selector" id="engineSelector"></div>
+                
+                <!-- Alert Info -->
+                <div class="sec-alert sec-alert-info">
+                    <i class="fa fa-info-circle"></i>
+                    <div>
+                        <strong>监控说明：</strong>
+                        <ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem; font-size: 0.9rem;">
+                            <li>实时监控所有 Pod 的网络连接和资源使用</li>
+                            <li>正常连接：0-5 个（取决于访问量）</li>
+                            <li>可疑行为：>10 个连接或访问高危端口</li>
+                            <li>网络策略自动拦截所有未授权的出站流量</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Pod List -->
+                <div id="podMonitorContainer">
+                    <div class="sec-loading">
+                        <div class="sec-spinner"></div>
+                        <p>加载 Pod 监控数据...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right: Security Events -->
+        <div>
+            <!-- Security Status -->
+            <div class="sec-card" style="margin-bottom: 2rem;">
+                <div class="sec-card-header">
+                    <h3 class="sec-card-title">
+                        <i class="fa fa-shield"></i> 安全状态
+                    </h3>
+                </div>
+                <div class="sec-card-body" id="securityStatusContainer">
+                    <div class="sec-loading">
+                        <div class="sec-spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Events -->
+            <div class="sec-card">
+                <div class="sec-card-header">
+                    <h3 class="sec-card-title">
+                        <i class="fa fa-history"></i> 最近事件
+                    </h3>
+                    <select id="eventHoursSelect" onchange="loadSecurityEvents()" class="sec-engine-btn">
+                        <option value="1">1小时</option>
+                        <option value="6">6小时</option>
+                        <option value="24" selected>24小时</option>
+                        <option value="168">7天</option>
+                    </select>
+                </div>
+                <div class="sec-card-body" style="padding: 0; max-height: 500px; overflow-y: auto;" id="eventsContainer">
+                    <div class="sec-loading">
+                        <div class="sec-spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Connection Modal -->
+<div id="connectionModal" style="display: none;"></div>
+{% endblock %}
+
+{% block end_file %}
+<script>
+// Global State
+let currentEngineId = null;
+let autoRefreshInterval = null;
+let previousStats = {
+    totalPods: 0,
+    suspicious: 0
+};
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDashboard();
+});
+
+function initializeDashboard() {
+    loadSecurityStatus();
+    updateLastUpdateTime();
+}
+
+// 自动刷新已移除，改为手动刷新模式
+
+function updateLastUpdateTime() {
+    const now = new Date();
+    document.getElementById('lastUpdateTime').textContent = 
+        '最后更新: ' + now.toLocaleTimeString('zh-CN');
+}
+
+// Load Security Status
+function loadSecurityStatus() {
+    fetch('/container/api/v1/security/status/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.engines && data.engines.length > 0) {
+                renderEngineSelector(data.engines);
+                renderSecurityStatus(data.engines);
+                
+                // 更新缓存状态
+                updateCacheStatus(data.cached === true);
+                
+                // 选择第一个引擎
+                if (data.engines[0].engine_id) {
+                    currentEngineId = data.engines[0].engine_id;
+                    loadPodMonitor(currentEngineId);
+                    loadSecurityEvents();
+                }
+            } else {
+                showEmptyState('securityStatusContainer', '没有配置 K8s 引擎');
+                showEmptyState('podMonitorContainer', '没有配置 K8s 引擎');
+            }
+        })
+        .catch(error => {
+            showErrorToast('加载失败: ' + error.message);
+        });
+}
+
+// Render Engine Selector
+function renderEngineSelector(engines) {
+    const container = document.getElementById('engineSelector');
+    if (engines.length <= 1) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    let html = '';
+    for (const engine of engines) {
+        html += `
+            <button class="sec-engine-btn ${engine.engine_id === currentEngineId ? 'active' : ''}" 
+                    onclick="switchEngine(${engine.engine_id})">
+                <i class="fa fa-server"></i> ${engine.engine_name}
+            </button>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function switchEngine(engineId) {
+    currentEngineId = engineId;
+    loadPodMonitor(engineId);
+    loadSecurityEvents();
+    
+    // 更新按钮状态
+    document.querySelectorAll('.sec-engine-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.closest('.sec-engine-btn').classList.add('active');
+}
+
+// Render Security Status
+function renderSecurityStatus(engines) {
+    const container = document.getElementById('securityStatusContainer');
+    let html = '';
+    
+    for (const engine of engines) {
+        if (engine.error) {
+            html += `<div class="sec-alert sec-alert-danger">
+                <i class="fa fa-exclamation-circle"></i>
+                <div><strong>${engine.engine_name}:</strong> ${engine.error}</div>
+            </div>`;
+            continue;
+        }
+        
+        const status = engine.status;
+        const levelColors = {
+            'HIGH': 'success',
+            'MEDIUM': 'warning',
+            'LOW': 'danger',
+            'DISABLED': 'secondary'
+        };
+        const levelColor = levelColors[status.security_level] || 'info';
+        
+        // 如果是禁用状态，显示特殊提示
+        const levelDisplayText = status.security_level === 'DISABLED' ? '未启用' : status.security_level;
+        
+        html += `
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h4 style="margin: 0; font-size: 1.1rem; font-weight: 600;">${engine.engine_name}</h4>
+                    <span class="sec-badge sec-badge-${levelColor}">
+                        <i class="fa fa-${status.security_level === 'DISABLED' ? 'ban' : 'shield'}"></i> ${levelDisplayText}
+                    </span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <div class="sec-stat-mini-card">
+                        <div class="sec-stat-mini-value" style="color: #0184ff;">${status.network_policies_count || 0}</div>
+                        <div class="sec-stat-mini-label">网络策略总数</div>
+                    </div>
+                    <div class="sec-stat-mini-card">
+                        <div class="sec-stat-mini-value" style="color: #28a745;">${status.policies_with_rules_count || 0}</div>
+                        <div class="sec-stat-mini-label">有效规则</div>
+                    </div>
+                    <div class="sec-stat-mini-card">
+                        <div class="sec-stat-mini-value">${status.has_egress_deny ? '✅' : '❌'}</div>
+                        <div class="sec-stat-mini-label">出站拒绝</div>
+                    </div>
+                    <div class="sec-stat-mini-card">
+                        <div class="sec-stat-mini-value">${status.has_ingress_deny ? '✅' : '❌'}</div>
+                        <div class="sec-stat-mini-label">入站拒绝</div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <div class="sec-stat-mini-card">
+                        <div class="sec-stat-mini-value">${status.has_dns_allow ? '✅' : '❌'}</div>
+                        <div class="sec-stat-mini-label">DNS 允许（53端口）</div>
+                    </div>
+                    <div class="sec-stat-mini-card">
+                        <div class="sec-stat-mini-value" style="color: ${status.warnings.length > 0 ? '#dc3545' : '#28a745'};">
+                            ${status.warnings.length}
+                        </div>
+                        <div class="sec-stat-mini-label">安全警告</div>
+                    </div>
+                </div>
+                
+                ${engine.k8s_info && engine.k8s_info.nodes_total > 0 ? `
+                    <div class="sec-node-section">
+                        <div class="sec-node-section-title">
+                            <i class="fa fa-server"></i> K8s 节点状态 (${engine.k8s_info.nodes_ready}/${engine.k8s_info.nodes_total})
+                        </div>
+                        <div class="sec-node-grid">
+                            ${engine.k8s_info.nodes.map(node => `
+                                <div class="sec-node-item ${node.ready ? 'ready' : 'not-ready'}">
+                                    <div class="sec-node-status">
+                                        <span class="sec-node-dot ${node.ready ? 'ready' : 'not-ready'}"></span>
+                                        <span class="sec-node-status-text ${node.ready ? 'ready' : 'not-ready'}">
+                                            ${node.ready ? 'Ready' : 'NotReady'}
+                                        </span>
+                                    </div>
+                                    <div class="sec-node-name">
+                                        ${node.name}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${status.warnings.length > 0 ? `
+                    <div style="margin-top: 1rem;">
+                        ${status.warnings.map(w => `
+                            <div class="sec-alert sec-alert-${status.config_disabled ? 'info' : 'warning'}" style="margin-bottom: 0.5rem;">
+                                <i class="fa fa-${status.config_disabled ? 'info-circle' : 'exclamation-triangle'}"></i>
+                                <div>${w}</div>
+                            </div>
+                        `).join('')}
+                        ${status.config_disabled ? `
+                            <div class="sec-alert sec-alert-info" style="margin-top: 0.5rem;">
+                                <i class="fa fa-lightbulb-o"></i>
+                                <div>
+                                    <strong>如何启用？</strong>
+                                    前往 <a href="/adminx/container/dockerengine/${engine.engine_id}/change/" target="_blank">容器引擎配置</a>，
+                                    勾选"启用网络策略"并保存。
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+// Load Pod Monitor
+function loadPodMonitor(engineId) {
+    fetch(`/container/api/v1/security/engine/${engineId}/pods/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderPodMonitor(data.data);
+                updateStats(data.data);
+                
+                // 更新缓存状态
+                updateCacheStatus(data.cached === true);
+            } else {
+                showErrorToast(data.error);
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误: ' + error.message);
+        });
+}
+
+// Update Stats
+function updateStats(data) {
+    // Update stats with animation
+    animateValue('totalPodsCount', previousStats.totalPods, data.total_pods, 500);
+    animateValue('suspiciousCount', previousStats.suspicious, data.suspicious_count, 500);
+    animateValue('totalConnections', 0, data.pods.reduce((sum, p) => sum + p.connections_count, 0), 500);
+    animateValue('blockedAttacks', 0, data.alerts.filter(a => a.level === 'CRITICAL').length, 500);
+    
+    // Update trends
+    if (data.total_pods !== previousStats.totalPods) {
+        updateTrend('podsTrend', data.total_pods - previousStats.totalPods);
+    }
+    if (data.suspicious_count !== previousStats.suspicious) {
+        updateTrend('suspiciousTrend', data.suspicious_count - previousStats.suspicious);
+    }
+    
+    previousStats = {
+        totalPods: data.total_pods,
+        suspicious: data.suspicious_count
+    };
+}
+
+function animateValue(id, start, end, duration) {
+    const element = document.getElementById(id);
+    const range = end - start;
+    const increment = range / (duration / 16);
+    let current = start;
+    
+    const timer = setInterval(() => {
+        current += increment;
+        if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+            element.textContent = end;
+            clearInterval(timer);
+        } else {
+            element.textContent = Math.floor(current);
+        }
+    }, 16);
+}
+
+function updateTrend(id, change) {
+    const element = document.getElementById(id);
+    if (change === 0) {
+        element.style.display = 'none';
+        return;
+    }
+    
+    element.style.display = 'inline-flex';
+    element.className = 'sec-stat-change ' + (change > 0 ? 'up' : 'down');
+    element.innerHTML = `
+        <i class="fa fa-arrow-${change > 0 ? 'up' : 'down'}"></i> 
+        ${change > 0 ? '+' : ''}${change}
+    `;
+}
+
+// Render Pod Monitor
+function renderPodMonitor(data) {
+    const container = document.getElementById('podMonitorContainer');
+    
+    if (data.total_pods === 0) {
+        showEmptyState(container, '没有运行的 Pod', '当前没有活动的容器实例');
+        return;
+    }
+    
+    let html = '';
+    
+    // Critical Alerts
+    if (data.alerts.length > 0) {
+        const criticalAlerts = data.alerts.filter(a => a.level === 'CRITICAL');
+        if (criticalAlerts.length > 0) {
+            html += `<div class="sec-alert sec-alert-danger">
+                <i class="fa fa-exclamation-circle"></i>
+                <div>
+                    <strong>检测到 ${criticalAlerts.length} 个严重威胁！</strong>
+                    <div style="font-size: 0.9rem; margin-top: 0.5rem;">
+                        ${criticalAlerts.slice(0, 2).map(a => `• ${a.message}`).join('<br>')}
+                    </div>
+                </div>
+            </div>`;
+        }
+    }
+    
+    // Pod List
+    html += '<div class="sec-pod-list">';
+    for (const pod of data.pods) {
+        const statusClass = pod.suspicious ? 'suspicious' : '';
+        const badgeClass = pod.suspicious ? 'sec-badge-danger' : 'sec-badge-safe';
+        const badgeIcon = pod.suspicious ? '⚠️' : '✅';
+        const badgeText = pod.suspicious ? '可疑' : '正常';
+        
+        html += `
+            <div class="sec-pod-item ${statusClass}">
+                <div class="sec-pod-header">
+                    <div class="sec-pod-name">
+                        <i class="fa fa-cube"></i>
+                        ${pod.name}
+                    </div>
+                    <div class="sec-pod-badges">
+                        <button class="sec-badge sec-badge-info" id="btn-${pod.name}" onclick="showPodConnections('${pod.name}', this)" style="cursor: pointer; border: none; transition: all 0.3s ease;">
+                            <i class="fa fa-search"></i> 查看连接
+                        </button>
+                        <span class="sec-badge ${badgeClass}">
+                            ${badgeIcon} ${badgeText}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="sec-pod-stats">
+                    <div class="sec-pod-stat">
+                        <i class="fa fa-plug"></i>
+                        <span>连接: <strong>${pod.connections_count}</strong></span>
+                    </div>
+                    <div class="sec-pod-stat">
+                        <i class="fa fa-clock-o"></i>
+                        <span>运行: <strong>${calculateUptime(pod.created_at)}</strong></span>
+                    </div>
+                </div>
+                
+                ${pod.alerts.length > 0 ? `
+                    <div class="sec-alert-section">
+                        ${pod.alerts.map(a => `
+                            <div class="sec-alert-message">
+                                <i class="fa fa-warning"></i> ${a.message}
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function calculateUptime(createdAt) {
+    if (!createdAt) return '未知';
+    
+    try {
+        const created = new Date(createdAt);
+        const now = new Date();
+        const diffMs = now - created;
+        
+        if (diffMs < 0) return '刚刚';
+        
+        const seconds = Math.floor(diffMs / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        
+        if (days > 0) {
+            return `${days}天${hours % 24}小时`;
+        } else if (hours > 0) {
+            return `${hours}小时${minutes % 60}分`;
+        } else if (minutes > 0) {
+            return `${minutes}分${seconds % 60}秒`;
+        } else {
+            return `${seconds}秒`;
+        }
+    } catch (e) {
+        console.error('计算运行时间失败:', e);
+        return '未知';
+    }
+}
+
+// Load Security Events
+function loadSecurityEvents() {
+    if (!currentEngineId) return;
+    
+    const hours = document.getElementById('eventHoursSelect').value;
+    const container = document.getElementById('eventsContainer');
+    
+    fetch(`/container/api/v1/security/engine/${currentEngineId}/events/?hours=${hours}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderSecurityEvents(data.events);
+                
+                // 更新缓存状态
+                updateCacheStatus(data.cached === true);
+            } else {
+                showErrorToast(data.error);
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误: ' + error.message);
+        });
+}
+
+// Render Security Events
+function renderSecurityEvents(events) {
+    const container = document.getElementById('eventsContainer');
+    
+    if (events.length === 0) {
+        container.innerHTML = `
+            <div class="sec-empty-state">
+                <i class="fa fa-check-circle"></i>
+                <h3>没有安全事件</h3>
+                <p style="font-size: 0.9rem; margin: 0;">系统运行正常</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    for (let i = 0; i < events.length; i++) {
+        const event = events[i];
+        const lastTime = event.timestamp || '未知时间';
+        const firstTime = event.first_timestamp;
+        const eventCount = event.count || 1;
+        
+        // 确定事件类型
+        let eventType = 'normal';
+        let iconClass = 'fa-info-circle';
+        if (event.type === 'Warning') {
+            eventType = 'warning';
+            iconClass = 'fa-exclamation-triangle';
+        } else if (event.reason && (event.reason.includes('Failed') || event.reason.includes('Error'))) {
+            eventType = 'error';
+            iconClass = 'fa-times-circle';
+        }
+        
+        // 构建次数徽章
+        let countBadge = '';
+        if (eventCount > 1) {
+            let badgeColor = '#6b7280';
+            if (eventCount >= 100) badgeColor = '#ef4444';
+            else if (eventCount >= 10) badgeColor = '#f59e0b';
+            
+            countBadge = `<span class="sec-badge" style="background: ${badgeColor}20; color: ${badgeColor}; border: 1px solid ${badgeColor}40; font-size: 0.7rem; padding: 0.2rem 0.4rem;">×${eventCount}</span>`;
+        }
+        
+        // 时间显示
+        const timeText = eventCount > 1 ? lastTime.split(' ')[1] : lastTime.split(' ')[1];
+        const dateText = lastTime.split(' ')[0];
+        
+        html += `
+            <div class="sec-event-item" onclick="showEventDetail(${i})">
+                <div class="sec-event-left">
+                    <div class="sec-event-icon-wrapper ${eventType}">
+                        <i class="fa ${iconClass}"></i>
+                    </div>
+                    <div class="sec-event-content">
+                        <div class="sec-event-title">
+                            <span class="sec-event-object-name">${event.object}</span>
+                            ${countBadge}
+                        </div>
+                        <div class="sec-event-subtitle">
+                            ${event.reason || '未知原因'}
+                        </div>
+                    </div>
+                </div>
+                <div class="sec-event-right">
+                    <div class="sec-event-time">
+                        <div style="font-weight: 600; color: #111827;">${timeText}</div>
+                        <div style="font-size: 0.75rem;">${dateText}</div>
+                    </div>
+                    <i class="fa fa-chevron-right sec-event-arrow"></i>
+                </div>
+            </div>
+        `;
+    }
+    
+    // 存储事件数据供模态框使用
+    window.currentEvents = events;
+    
+    container.innerHTML = html;
+}
+
+// Show Pod Connections
+function showPodConnections(podName, btnElement) {
+    if (!currentEngineId) return;
+    
+    // 防止重复点击
+    if (btnElement.disabled) return;
+    
+    // 禁用按钮并显示加载状态
+    btnElement.disabled = true;
+    const originalHTML = btnElement.innerHTML;
+    btnElement.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 加载中...';
+    btnElement.style.opacity = '0.7';
+    
+    // 强制刷新连接数据（用户主动查看，需要实时数据）
+    fetch(`/container/api/v1/security/engine/${currentEngineId}/pod/${podName}/connections/?force=true`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showConnectionModal(podName, data.connections);
+            } else {
+                showErrorToast('获取连接失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误: ' + error.message);
+        })
+        .finally(() => {
+            // 恢复按钮状态
+            btnElement.disabled = false;
+            btnElement.innerHTML = originalHTML;
+            btnElement.style.opacity = '1';
+        });
+}
+
+// Show Connection Modal
+function showConnectionModal(podName, connections) {
+    const modal = document.getElementById('connectionModal');
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="sec-modal-overlay markdown-content" onclick="closeModal()">
+            <div class="sec-modal-container" onclick="event.stopPropagation()">
+                <div class="sec-modal-header">
+                    <h3 class="sec-modal-title">
+                        <i class="fa fa-plug"></i> 网络连接详情
+                    </h3>
+                    <button onclick="closeModal()" class="sec-modal-close">×</button>
+                </div>
+                
+                <div class="sec-alert sec-alert-info" style="margin-bottom: 1.5rem;">
+                    <i class="fa fa-cube"></i>
+                    <div><strong>Pod:</strong> ${podName}</div>
+                </div>
+                
+                <div class="sec-modal-section">
+                    <h4 class="sec-modal-section-title">
+                        <i class="fa fa-check-circle" style="color: #10b981;"></i> 
+                        已建立的连接 (ESTABLISHED)
+                    </h4>
+                    <pre class="sec-modal-pre">${connections.established || '无连接'}</pre>
+                </div>
+                
+                <div class="sec-modal-section">
+                    <h4 class="sec-modal-section-title">
+                        <i class="fa fa-server" style="color: #3b82f6;"></i> 
+                        监听端口 (LISTEN)
+                    </h4>
+                    <pre class="sec-modal-pre">${connections.listen || '无监听端口'}</pre>
+                </div>
+                
+                <div class="sec-alert sec-alert-info">
+                    <i class="fa fa-lightbulb-o"></i>
+                    <div>
+                        <strong>提示：</strong>
+                        <ul class="sec-modal-tip-list">
+                            <li>ESTABLISHED 显示当前活动连接</li>
+                            <li>LISTEN 显示服务监听的端口</li>
+                            <li>短连接（如 HTTP）会很快消失</li>
+                            <li>如果显示 "no-ss" 说明容器没有安装监控工具</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="sec-modal-footer">
+                    <button onclick="closeModal()" class="sec-modal-btn">
+                        <i class="fa fa-check"></i> 关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function closeModal() {
+    document.getElementById('connectionModal').style.display = 'none';
+    document.getElementById('connectionModal').innerHTML = '';
+}
+
+// Show Event Detail Modal
+function showEventDetail(index) {
+    const event = window.currentEvents[index];
+    if (!event) return;
+    
+    const modal = document.getElementById('connectionModal');
+    
+    // 确定事件类型样式
+    let alertType = 'info';
+    let iconClass = 'fa-info-circle';
+    let iconColor = '#3b82f6';
+    
+    if (event.type === 'Warning') {
+        alertType = 'warning';
+        iconClass = 'fa-exclamation-triangle';
+        iconColor = '#f59e0b';
+    } else if (event.reason && (event.reason.includes('Failed') || event.reason.includes('Error'))) {
+        alertType = 'danger';
+        iconClass = 'fa-times-circle';
+        iconColor = '#ef4444';
+    }
+    
+    const eventCount = event.count || 1;
+    const lastTime = event.timestamp || '未知时间';
+    const firstTime = event.first_timestamp;
+    
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="sec-modal-overlay" onclick="closeModal()">
+            <div class="sec-modal-container" onclick="event.stopPropagation()" style="max-width: 800px;">
+                <div class="sec-modal-header">
+                    <h3 class="sec-modal-title">
+                        <i class="fa ${iconClass}" style="color: ${iconColor};"></i> 事件详情
+                    </h3>
+                    <button onclick="closeModal()" class="sec-modal-close">×</button>
+                </div>
+                
+                <div class="sec-alert sec-alert-${alertType}" style="margin-bottom: 1.5rem;">
+                    <i class="fa ${iconClass}"></i>
+                    <div>
+                        <strong>对象:</strong> ${event.object}<br>
+                        <strong>类型:</strong> ${event.type || 'Normal'}<br>
+                        <strong>原因:</strong> ${event.reason || '未知'}
+                    </div>
+                </div>
+                
+                <div class="sec-modal-section">
+                    <h4 class="sec-modal-section-title">
+                        <i class="fa fa-clock-o"></i> 时间信息
+                    </h4>
+                    <div style="background: #f9fafb; padding: 1rem; border-radius: 8px; font-size: 0.9rem;">
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 0.5rem;">
+                            <div style="color: #6b7280;">最后发生:</div>
+                            <div style="font-weight: 600; color: #111827;">${lastTime}</div>
+                            ${firstTime && eventCount > 1 ? `
+                                <div style="color: #6b7280;">首次发生:</div>
+                                <div style="font-weight: 600; color: #111827;">${firstTime}</div>
+                                <div style="color: #6b7280;">发生次数:</div>
+                                <div style="font-weight: 600; color: ${eventCount >= 100 ? '#ef4444' : eventCount >= 10 ? '#f59e0b' : '#6b7280'};">${eventCount} 次</div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="sec-modal-section">
+                    <h4 class="sec-modal-section-title">
+                        <i class="fa fa-file-text-o"></i> 详细信息
+                    </h4>
+                    <pre class="sec-modal-pre" style="white-space: pre-wrap; word-wrap: break-word;">${event.message}</pre>
+                </div>
+                
+                ${eventCount >= 10 ? `
+                    <div class="sec-alert sec-alert-warning">
+                        <i class="fa fa-lightbulb-o"></i>
+                        <div>
+                            <strong>提示:</strong> 此事件重复发生 ${eventCount} 次，可能存在以下问题：
+                            <ul class="sec-modal-tip-list">
+                                <li>镜像拉取失败 - 检查镜像名称和仓库配置</li>
+                                <li>资源不足 - 检查节点资源（CPU/内存/磁盘）</li>
+                                <li>网络问题 - 检查集群网络连接</li>
+                                <li>权限问题 - 检查 ServiceAccount 和 RBAC 配置</li>
+                            </ul>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="sec-modal-footer">
+                    <button onclick="closeModal()" class="sec-modal-btn">
+                        <i class="fa fa-check"></i> 关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Refresh All
+function refreshAll(event) {
+    console.log('🔄 全部刷新：清除所有缓存并获取最新数据');
+    
+    // Show refresh feedback
+    const btn = event.target.closest('.sec-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中...';
+    btn.disabled = true;
+    
+    // 隐藏缓存状态提示
+    const cacheStatus = document.getElementById('cacheStatus');
+    cacheStatus.style.display = 'none';
+    
+    // 强制刷新所有数据（添加 force=true 参数清除缓存）
+    const promises = [];
+    
+    // 1. 刷新安全状态
+    promises.push(
+        fetch('/container/api/v1/security/status/?force=true')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.engines) {
+                    renderEngineSelector(data.engines);
+                    renderSecurityStatus(data.engines);
+                    
+                    // 选择第一个引擎（如果没有选中）
+                    if (!currentEngineId && data.engines[0]?.engine_id) {
+                        currentEngineId = data.engines[0].engine_id;
+                    }
+                    
+                   
+                }
+            })
+    );
+    
+    // 2. 刷新当前引擎的 Pod 监控
+    if (currentEngineId) {
+        promises.push(
+            fetch(`/container/api/v1/security/engine/${currentEngineId}/pods/?force=true`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderPodMonitor(data.data);
+                        updateStats(data.data);
+                        
+        
+                    }
+                })
+        );
+        
+        // 3. 刷新安全事件
+        promises.push(
+            fetch(`/container/api/v1/security/engine/${currentEngineId}/events/?force=true`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderSecurityEvents(data.events);
+                        
+                    }
+                })
+        );
+    }
+    
+    // 等待所有请求完成
+    Promise.all(promises)
+        .then(() => {
+            updateLastUpdateTime();
+            showSuccessToast('数据更新成功');
+        })
+        .catch(error => {
+            showErrorToast('刷新失败: ' + error.message);
+        })
+        .finally(() => {
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 500);
+        });
+}
+
+// Update Cache Status Indicator
+function updateCacheStatus(isCached) {
+    const cacheStatus = document.getElementById('cacheStatus');
+    if (isCached) {
+        cacheStatus.style.display = 'inline-flex';
+        cacheStatus.style.alignItems = 'center';
+        cacheStatus.style.gap = '0.5rem';
+    } else {
+        cacheStatus.style.display = 'none';
+    }
+}
+
+// Helper Functions
+function showEmptyState(containerId, title, description = '') {
+    const container = typeof containerId === 'string' ? 
+        document.getElementById(containerId) : containerId;
+    
+    container.innerHTML = `
+        <div class="sec-empty-state">
+            <i class="fa fa-inbox"></i>
+            <h3>${title}</h3>
+            ${description ? `<p style="font-size: 0.9rem; margin: 0;">${description}</p>` : ''}
+        </div>
+    `;
+}
+
+// Animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+    }
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

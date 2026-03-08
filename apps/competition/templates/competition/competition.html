@@ -2,91 +2,402 @@
 {% load static %}
 {% load blog_tags %}
 {% load humanize %}
-{% load ctf_tags %}
-{% block head_title %}竞赛中心 - SnowCTF{% endblock %}
+{% load com_tags %}
+{% block head_title %}竞赛中心{% endblock %}
 {% block metas %}
-<meta name="description" content="参与 CTF 挑战，提升您的网络安全技能。多种类型和难度的挑战等待您来挑战！">
-<meta name="keywords" content="CTF,Web安全,黑客挑战,网络安全,靶场">
+<meta name="description" content="{{ site_description }}">
+<meta name="keywords" content="{{ site_keywords }}">
 {% endblock %}
 
 {% block top-file %}
-<!-- 引入 Bootstrap CSS -->
-
-
+<link href="{% static 'public/css/ctf.css' %}?v=20251228.01" rel="stylesheet">
 {% endblock %}
 
 {% block base_content %}
 <div class="container">
-    <div class="row">
-        <div class="col-lg-8">
-
-
-
-            <div class="summary-list">
-                {% for competition in competitions %}
-
-                <div class="article-block col-lg-12 mt-2">
-
-                    <div class="media mb-1 mb-sm-2 p-2 p-lg-3">
-                        <div class="align-self-center rounded-6 mr-2 mr-lg-3 w-25 modal-open">
-                            <a href="{% url 'competition:competition_detail' competition.slug %}">
-                                <img class="w-100 article-img" src="{{ competition.img_link.url }}"
-                                    alt="{{ competition.title}}">
+    <div class="col-12 mx-auto">
+        <!-- 标题 -->
+        
+        <!-- 筛选栏 -->
+        <div class="card recruit-filter-card border-0 rounded-6 mb-3 p-3">
+            <form method="get" id="filterForm">
+                <div class="form-row align-items-center">
+                    <!-- 状态 -->
+                    <div class="col-md-2 mb-2">
+                        <select class="form-control f-15" name="status">
+                            <option value="">全部状态</option>
+                            <option value="upcoming" {% if request.GET.status == 'upcoming' %}selected{% endif %}>未开始</option>
+                            <option value="ongoing" {% if request.GET.status == 'ongoing' %}selected{% endif %}>进行中</option>
+                            <option value="ended" {% if request.GET.status == 'ended' %}selected{% endif %}>已结束</option>
+                        </select>
+                    </div>
+                    <!-- 类型 -->
+                    <div class="col-md-2 mb-2">
+                        <select class="form-control f-15" name="type">
+                            <option value="">全部类型</option>
+                            <option value="individual" {% if request.GET.type == 'individual' %}selected{% endif %}>个人赛</option>
+                            <option value="team" {% if request.GET.type == 'team' %}selected{% endif %}>团体赛</option>
+                        </select>
+                    </div>
+                    <!-- 搜索关键词 -->
+                    <div class="col-md-5 mb-2 f-15">
+                        <input type="text" class="form-control" name="q" value="{{ search_query|default:'' }}" placeholder="搜索比赛名称、描述或标识">
+                    </div>
+                    <!-- 按钮 -->
+                    <div class="col-md-3 mb-2 f-15">
+                        <div class="d-flex">
+                            <button type="submit" class="btn btn-primary recruit-btn-primary flex-fill mr-2">
+                                <i class="bi bi-funnel-fill mr-1"></i>筛选
+                            </button>
+                            <a href="{% url 'competition:CompetitionView' %}" class="btn btn-outline-secondary recruit-btn-reset flex-fill" title="清除所有筛选条件">
+                                <i class="bi bi-arrow-clockwise mr-1"></i>重置
                             </a>
-                        </div>
-
-
-                        <div class="media-body">
-                            {% if competition.start_time > now %}
-                            <div class="position-absolute"
-                                style="top: 0; right: 0; width: 50px; height: 50px; background-color: #ffc107; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
-                                <span
-                                    style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">未开始</span>
-                            </div>
-                            {% elif competition.end_time < now %} <div class="position-absolute"
-                                style="top: 0; right: 0; width: 50px; height: 50px; background-color: #dc3545; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
-                                <span
-                                    style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">已结束</span>
-                        </div>
-                        {% else %}
-                        <div class="position-absolute"
-                            style="top: 0; right: 0; width: 50px; height: 50px; background-color: #007bff; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
-                            <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">进行中</span>
-                        </div>
-                        {% endif %}
-                        <h2 class="mt-0 font-weight-bold text-info f-17">
-                            <a href="{% url 'competition:competition_detail' competition.slug %}">{{ competition.title}}</a>
-                        </h2>
-                        <p class="d-none d-sm-block mb-2 f-15">
-                            {{ competition.description|my_slice:':50' }}</p>
-                        <div class="meta-container mb-0 f-12">
-
-                            <span><i class="fa fa-eye ml-2 mr-1"></i>{{ competition.end_time|date:"Y-m-d H:i" }}</span>
-
                         </div>
                     </div>
                 </div>
+            </form>
+        </div>
 
+        <div>
+            {% for competition in competitions %}
+            <div class="card border-0 rounded-6 mb-md-3 mt-2 challenge-card">
+                <div class="card-body">
+                    {% if competition.start_time > now %}
+                    <div class="position-absolute"
+                        style="top: 0; right: 0; width: 50px; height: 50px; background-color: #ffc107; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
+                        <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">未开始</span>
+                    </div>
+                    {% elif competition.end_time < now %} <div class="position-absolute"
+                        style="top: 0; right: 0; width: 50px; height: 50px; background-color: #dc3545; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
+                        <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">已结束</span>
+                </div>
+                {% else %}
+                <div class="position-absolute"
+                    style="top: 0; right: 0; width: 50px; height: 50px; background-color: #007bff; color: white; font-size: 10px; z-index: 1; display: flex; justify-content: center; align-items: center; clip-path: polygon(100% 0, 0 0, 100% 100%);">
+                    <span style="transform: rotate(45deg) translate(0px, -10px); position: absolute;">进行中</span>
+                </div>
+                {% endif %}
+
+                <div class="row align-items-stretch">
+                    <!-- 左侧图片 -->
+                    <div class="col-md-3 d-flex">
+                        <div class="competition-img-wrapper position-relative overflow-hidden rounded-6 w-100">
+                            <img class="w-100 h-100 rounded-6" src="{{ competition.img_link.url }}" alt="{{ competition.title }}" style="object-fit: cover; transition: transform 0.3s ease;">
+                            <div class="competition-img-overlay position-absolute w-100 h-100" style="top: 0; left: 0; background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 100%); opacity: 0; transition: opacity 0.3s ease;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧内容 -->
+                    <div class="col-md-9 d-flex flex-column">
+                        <h2 class="mt-0 font-weight-bold text-primary f-17 d-flex align-items-center">
+                            <a href="{% url 'competition:competition_detail' competition.slug %}">{{competition.title}}</a>
+                            
+                            
+                            
+                            <!-- 添加比赛类型标签 -->
+                            {% with competition_type=competition.get_competition_type_display visibility_type=competition.get_visibility_type_display %}
+                                {% if competition_type == '个人赛' %}
+                                    {% if visibility_type == '公开赛' %}
+                                        <span class="comp-tags ml-2 px-2 py-1 d-flex align-items-center">
+                                            <i class="bi bi-person-circle mr-1"></i>个人公开赛
+                                        </span>
+                                    {% else %}
+                                        <span class="comp-tags ml-2 px-2 py-1 d-flex align-items-center">
+                                            <i class="bi bi-person-fill-lock mr-1"></i>个人内部赛
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    {% if visibility_type == '公开赛' %}
+                                        <span class="comp-tags ml-2 px-2 py-1 d-flex align-items-center">
+                                            <i class="bi bi-people-fill mr-1"></i>团队公开赛
+                                        </span>
+                                    {% else %}
+                                        <span class="comp-tags ml-2 px-2 py-1 d-flex align-items-center">
+                                            <i class="bi bi-shield-lock-fill mr-1"></i>团队内部赛
+                                        </span>
+                                    {% endif %}
+                                {% endif %}
+                            {% endwith %}
+                            
+                            <!-- 添加双赛道标识 -->
+                            {% if competition.related_quiz %}
+                                <span class="comp-tags ml-2 px-2 py-1 d-flex align-items-center" style="background-color: rgba(251, 191, 36, 0.2); color: #d97706;">
+                                    <i class="fa fa-trophy mr-1"></i>实操+理论
+                                </span>
+                            {% endif %}
+                            
+                        </h2>
+                        <p class="d-none d-sm-block mb-3 f-15">{{ competition.description|my_slice:':100' }}</p>
+
+                        <!-- 在比赛描述下方添加比赛信息卡片 -->
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-clock-history text-primary mr-2" style="font-size: 1.3rem;"></i>
+                                            <div>
+                                                <small class="text-muted d-block">开始时间</small>
+                                                <strong>{{ competition.start_time|date:"Y-m-d H:i" }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-hourglass-split text-danger mr-2" style="font-size: 1.3rem;"></i>
+                                            <div>
+                                                <small class="text-muted d-block">结束时间</small>
+                                                <strong>{{ competition.end_time|date:"Y-m-d H:i" }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="card border-0 bg-light register-card">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-pencil-square text-success mr-2" style="font-size: 1.3rem;"></i>
+                                            <div class="w-100">
+                                                <small class="text-muted d-block">报名状态</small>
+                                                
+                                                
+                                                {% if competition.start_time > now %}
+                                                    <!-- 可以报名 -->
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        
+                                                        {% if user.is_authenticated %}
+                                                            <a href="{% url 'competition:registration_detail' competition.slug competition.re_slug %}" class="d-flex align-items-center">
+                                                                <strong class="text-align">去报名</strong> <i class="bi bi-arrow-right-circle-fill ml-1"></i>
+                                                            </a>
+                                                        {% else %}
+                                                            <a href="{% url 'account_login' %}?next={% url 'competition:registration_detail' competition.slug competition.re_slug %}" class="d-flex align-items-center">
+                                                                <strong class="text-align">去报名</strong> <i class="bi bi-arrow-right-circle-fill ml-1"></i>
+                                                            </a>
+                                                        {% endif %}
+                                                    </div>
+                                                
+                                                {% else %}
+                                                    <!-- 已结束 -->
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <strong class="text-align">报名已截止</strong>
+                                                        <i class="bi bi-x-circle text-muted"></i>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-
-            {% empty %}
-            <div class="p-3 mt-3 bg-white">
-                <p>暂时没有比赛!</p>
+        </div>
+        {% empty %}
+        <div class="card border-0 rounded-6">
+            <div class="card-body">
+                <p class="mb-0">没有找到符合条件的赛事。</p>
             </div>
-            {% endfor %}
         </div>
-        </div>
-
-
-        <div class="col-lg-4 d-none d-lg-block">
-            {% include 'public/tags/base_right.html' %}
-        </div>
-
+        {% endfor %}
     </div>
+
+    {% if is_paginated %}
+            <div class="page-inner text-center">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
+                        <span class="n">上一页</span>
+                    </a>
+                {% endif %}
+                
+                {% for page in paginator.page_range %}
+                    {% if page_obj.number == page %}
+                        <span class="page-active">{{ page }}</span>
+                    {% elif page == "..." %}
+                        <span class="mx-0" style="background: none;width:1rem">{{ page }}</span>
+                    {% else %}
+                        <a href="?page={{ page }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
+                            <span>{{ page }}</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.difficulty %}&difficulty={{ request.GET.difficulty }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.author %}&author={{ request.GET.author }}{% endif %}{% if request.GET.sort_by %}&sort_by={{ request.GET.sort_by }}{% endif %}">
+                        <span class="n">下一页</span>
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
 </div>
+</div>
+{% endblock %}
 
+{% block end_file %}
+<style>
+/* 比赛封面图片样式 */
+.competition-img-wrapper {
+    min-height: 160px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
 
+.competition-img-wrapper:hover img {
+    transform: scale(1.05);
+}
 
+.competition-img-wrapper:hover .competition-img-overlay {
+    opacity: 1;
+}
 
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .competition-img-wrapper {
+        height: 180px;
+        min-height: auto;
+        margin-bottom: 1rem;
+    }
+}
+</style>
 
+<script>
+// 自定义下拉框初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化所有select为自定义下拉框
+    initCustomSelects();
+    
+    // 表单提交前移除空值参数
+    var form = document.getElementById('filterForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault(); // 阻止默认提交
+            
+            // 收集所有非空参数
+            var params = new URLSearchParams();
+            var inputs = this.querySelectorAll('input, select');
+            var hasValue = false;
+            
+            inputs.forEach(function(input) {
+                if (input.type !== 'hidden' && input.name && input.value && input.value.trim() !== '') {
+                    params.append(input.name, input.value.trim());
+                    hasValue = true;
+                }
+            });
+            
+            // 构建新URL
+            var baseUrl = window.location.pathname;
+            var newUrl = hasValue ? baseUrl + '?' + params.toString() : baseUrl;
+            
+            // 跳转到新URL
+            window.location.href = newUrl;
+        });
+    }
+});
+
+function initCustomSelects() {
+    const selects = document.querySelectorAll('.recruit-filter-card select.form-control');
+    
+    selects.forEach(select => {
+        // 创建自定义下拉框包装器
+        const wrapper = document.createElement('div');
+        wrapper.className = 'recruit-select-wrapper';
+        
+        // 创建显示区域
+        const display = document.createElement('div');
+        display.className = 'recruit-select-display';
+        
+        // 创建显示文本
+        const displayText = document.createElement('span');
+        displayText.className = 'recruit-select-text';
+        const selectedOption = select.options[select.selectedIndex];
+        displayText.textContent = selectedOption.text;
+        display.appendChild(displayText);
+        
+        // 创建箭头
+        const arrow = document.createElement('span');
+        arrow.className = 'recruit-select-arrow';
+        display.appendChild(arrow);
+        
+        // 创建下拉列表
+        const dropdown = document.createElement('div');
+        dropdown.className = 'recruit-select-dropdown';
+        
+        // 添加选项
+        Array.from(select.options).forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'recruit-select-option';
+            if (option.selected) {
+                optionDiv.classList.add('selected');
+            }
+            optionDiv.textContent = option.text;
+            optionDiv.dataset.value = option.value;
+            optionDiv.dataset.index = index;
+            
+            // 点击选项
+            optionDiv.addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                // 更新原生select
+                select.selectedIndex = index;
+                select.value = option.value;
+                
+                // 触发change事件
+                select.dispatchEvent(new Event('change'));
+                
+                // 更新显示
+                displayText.textContent = option.text;
+                
+                // 更新选中状态
+                dropdown.querySelectorAll('.recruit-select-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                optionDiv.classList.add('selected');
+                
+                // 关闭下拉
+                dropdown.classList.remove('show');
+                display.classList.remove('active');
+            });
+            
+            dropdown.appendChild(optionDiv);
+        });
+        
+        // 插入到DOM
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(display);
+        wrapper.appendChild(dropdown);
+        
+        // 点击显示区域切换下拉
+        display.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            // 关闭其他下拉框
+            document.querySelectorAll('.recruit-select-dropdown.show').forEach(dd => {
+                if (dd !== dropdown) {
+                    dd.classList.remove('show');
+                    dd.previousElementSibling.classList.remove('active');
+                }
+            });
+            
+            // 切换当前下拉框
+            dropdown.classList.toggle('show');
+            display.classList.toggle('active');
+        });
+    });
+    
+    // 点击页面其他地方关闭所有下拉框
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.recruit-select-dropdown.show').forEach(dropdown => {
+            dropdown.classList.remove('show');
+            dropdown.previousElementSibling.classList.remove('active');
+        });
+    });
+}
+</script>
 {% endblock %}

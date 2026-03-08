@@ -1,41 +1,510 @@
-{% extends "public/base.html" %}
+<!DOCTYPE html>
 {% load static blog_tags %}
-
-{% block metas %}
-    <meta name="description" content="用户账号管理，使用django-allauth社交用户系统，支持微博、Github等社交账号登录，加入{{ site_end_title }}，查看更多信息。">
-    <meta name="keywords" content="django-allauth,社交用户系统,OAuth 2.0">
-{% endblock %}
-
-{% block top-file %}
-<link href="{% static 'public/css/account.css' %}?v=20171229.019906" rel="stylesheet">
-{% endblock %}
-
-{% block base_content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12 col-sm-8 col-md-6 offset-sm-2 offset-md-3 px-xl-5">
-            <div class="card rounded-6 px-3 px-lg-4">
-                <div class="card-header text-center bg-white py-2">
-                    <h3 class="my-1 text-primary">{% block user_title %}账号管理{% endblock %}</h3>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block head_title %}账号管理{% endblock %} - {{ site_name }}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="{% static 'public/bootstrap/4.3.1/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'public/font-awesome/4.7.0/css/font-awesome.min.css' %}" rel="stylesheet">
+    <link href="{% static 'public/css/bootstrap-icons.min.css' %}" rel="stylesheet">
+    <script src="{% static 'public/js/headroom.min.js' %}"></script>
+    
+    <link href="{% static 'public/css/account.css' %}" rel="stylesheet">
+    <link href="{% static 'public/css/toast.css' %}" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #fff;
+        }
+        
+        .auth-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        #hint_id_password {
+            display: none !important;
+        }
+        
+        /* 左侧展示区域 */
+        .auth-left {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .auth-left::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("{% static 'public/img/svg/illustration-3.svg' %}") no-repeat center;
+            background-size: 80%;
+            opacity: 0.1;
+        }
+        
+        .auth-left-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            color: #fff;
+            max-width: 600px;
+        }
+        
+        .auth-logo {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .auth-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+        }
+        
+        .auth-subtitle {
+            font-size: 1.2rem;
+            opacity: 0.95;
+            line-height: 1.6;
+        }
+        
+        .auth-image {
+            max-width: 500px;
+            margin: 2rem auto 0;
+        }
+        
+        .auth-image img {
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 10px 30px rgba(0,0,0,0.2));
+        }
+        
+        /* 右侧表单区域 */
+        .auth-right {
+            flex: 0 0 700px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 6rem 3rem 4rem;
+            background: #fff;
+        }
+        
+        .auth-form-container {
+            width: 100%;
+            max-width: 420px;
+        }
+        
+        .auth-form-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .auth-form-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #24292f;
+            margin-bottom: 0.5rem;
+        }
+        
+        .auth-form-description {
+            color: #6c757d;
+            font-size: 0.95rem;
+        }
+        
+        .auth-form {
+            margin-bottom: 1.5rem;
+        }
+        
+        .auth-form .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .auth-form label {
+            font-weight: 500;
+            color: #24292f;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .auth-form .form-control {
+            height: 46px;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+        
+        .auth-form .form-control:focus {
+            border-color: #1890ff;
+            box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+        }
+        
+        .auth-form textarea.form-control {
+            height: auto;
+        }
+        
+        .auth-form-check {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .auth-form-check input {
+            margin-right: 0.5rem;
+        }
+        
+        .auth-form-check label {
+            margin: 0;
+            font-weight: 400;
+            font-size: 0.9rem;
+        }
+        
+        .auth-btn {
+            width: 100%;
+            height: 46px;
+            border: none;
+            border-radius: 6px;
+            background: #1890ff;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        
+        .auth-btn:hover {
+            background: #0958d9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+        }
+        
+        .auth-btn:active {
+            transform: translateY(0);
+        }
+        
+        .auth-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.2);
+        }
+        
+        .auth-divider {
+            text-align: center;
+            margin: 2rem 0;
+            position: relative;
+        }
+        
+        .auth-divider::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 1px;
+            background: #e1e4e8;
+        }
+        
+        .auth-divider span {
+            position: relative;
+            background: #fff;
+            padding: 0 1rem;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .auth-social {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .auth-social-btn {
+            flex: 1;
+            height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            background: #fff;
+            color: #24292f;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        
+        .auth-social-btn:hover {
+            background: #24292f;
+            border-color: #24292f;
+            color: #fff;
+            text-decoration: none;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .auth-social-btn i {
+            font-size: 1.3rem;
+            margin-right: 0.5rem;
+        }
+        
+        .auth-social-btn:hover i {
+            color: #fff;
+        }
+        
+        .auth-footer {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .auth-footer a {
+            color: #1890ff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .auth-links {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .auth-links a {
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .auth-links a:hover {
+            color: #1890ff;
+        }
+        
+        .alert {
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .asteriskField {
+            color: #dc3545;
+            margin-left: 0.25rem;
+        }
+        
+        /* 表单错误样式 */
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+        
+        .form-control.is-invalid:focus {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+        }
+        
+        .form-control.is-invalid {
+            border-color: #dc3545;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right calc(0.375em + 0.1875rem) center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+            padding-right: calc(1.5em + 0.75rem);
+        }
+        
+        /* 非字段错误的样式（crispy forms 使用 alert 类） */
+        .alert {
+            border: none;
+            border-left: 4px solid;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .alert-danger,
+        .alert.alert-danger {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        
+        /* crispy forms 的非字段错误容器 */
+        .alert ul {
+            margin: 0;
+            padding-left: 1.2rem;
+            list-style: none;
+        }
+        
+        .alert ul li {
+            position: relative;
+            padding-left: 0;
+        }
+        
+        .alert ul li::before {
+            content: "•";
+            position: absolute;
+            left: -1rem;
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        /* 字段级错误提示 */
+        .invalid-feedback,
+        .text-danger,
+        .error {
+            display: block !important;
+            color: #dc3545 !important;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            font-weight: 500;
+        }
+        
+        /* Bootstrap 4 crispy forms 的错误提示 */
+        .form-group .invalid-feedback {
+            display: block !important;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 991px) {
+            .auth-container {
+                flex-direction: column;
+            }
+            
+            .auth-left {
+                display: none;
+            }
+            
+            .auth-right {
+                flex: 1;
+                padding: 2rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .auth-right {
+                padding: 1.5rem;
+            }
+            
+            .auth-form-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Django消息提示 - 使用Custom Toast样式 -->
+    {% if messages %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const messages = [
+            {% for message in messages %}
+            {
+                text: "{{ message|escapejs }}",
+                type: "{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}"
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        // 类型和标题映射
+        const titleMap = {
+            'success': '成功',
+            'danger': '错误',
+            'warning': '警告',
+            'info': '提示'
+        };
+        
+        messages.forEach(function(msg) {
+            const title = titleMap[msg.type] || '提示';
+            showToast(msg.text, title, 3000, msg.type);
+        });
+    });
+    </script>
+    {% endif %}
+    
+    <div class="auth-container">
+        <!-- 左侧展示区域 -->
+        <div class="auth-left">
+            <div class="auth-left-content">
+                <div class="auth-logo">
+                    <i class="bi bi-shield-lock"></i>
                 </div>
-                <div class="card-body card-login">{% block content %}{% endblock %}</div>
-                <div class="text-center mb-5" id="social-login">
-                    <div class="login-title">
-                        <span>快速登录</span>
-                    </div>
-                    <div class="login-link">
-                        {% get_request_param request 'next' as next_url %}
-                        <a class="mx-4" href="/accounts/weibo/login/?next={{ next_url  }}" title="社交账号登录有点慢，请耐心等候！"><i class="fa fa-weibo fa-2x"></i></a>
-                        <a class="mx-4" href="/accounts/github/login/?next={{ next_url }}" title="社交账号登录有点慢，请耐心等候！"><i class="fa fa-github fa-2x"></i></a>
-                    </div>
+                <h1 class="auth-title">
+                    {% if homepage_content %}
+                        {{ homepage_content.main_title|safe }}
+                    {% else %}
+                        {% block left_title %}网络安全综合学习平台{% endblock %}
+                    {% endif %}
+                </h1>
+                {% if homepage_content and homepage_content.main_subtitle %}
+                <p class="auth-subtitle" style="font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem;">
+                    {{ homepage_content.main_subtitle }}
+                </p>
+                {% endif %}
+                <p class="auth-subtitle">
+                    {% if homepage_content %}
+                        {{ homepage_content.main_description }}
+                    {% else %}
+                        {% block left_subtitle %}一个致力于开源、共享、共创的网络安全、数据安全、人工智能安全研究的实验室{% endblock %}
+                    {% endif %}
+                </p>
+                <div class="auth-image">
+                    {% if homepage_content and homepage_content.main_image_url %}
+                        <img src="{{ homepage_content.main_image_url }}" alt="{{ homepage_content.main_title }}">
+                    {% else %}
+                        {% block left_image %}
+                        <img src="{% static 'public/img/svg/illustration-3.svg' %}" alt="安全学习">
+                        {% endblock %}
+                    {% endif %}
                 </div>
             </div>
         </div>
+        
+        <!-- 右侧表单区域 -->
+        <div class="auth-right">
+            <div class="auth-form-container">
+                <div class="auth-form-header">
+                    <h2 class="auth-form-title">{% block user_title %}账号管理{% endblock %}</h2>
+                    <p class="auth-form-description">{% block form_description %}{% endblock %}</p>
+                </div>
+                
+                {% block content %}{% endblock %}
+                
+                
+                
+                {% block auth_footer %}{% endblock %}
+            </div>
+        </div>
     </div>
-</div>
-{% endblock %}
-
-{% block end_file %}
-{% block extra_body %}
-{% endblock %}
-{% endblock %}
+    
+    <!-- Bootstrap JS -->
+    <script src="{% static 'public/bootstrap/5.3.3/js/bootstrap.bundle.min.js' %}"></script>
+    
+    <!-- Toast 提示框 -->
+    <script src="{% static 'public/js/toast.js' %}"></script>
+    
+    {% block extra_body %}{% endblock %}
+</body>
+</html>

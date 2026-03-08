@@ -1,0 +1,139 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load blog_tags %}
+{% load highlight %}
+
+{% block head_title %}Wiki 搜索：{{ query }}{% endblock %}
+{% block metas %}
+<meta name="description" content="Wiki 知识库搜索：{{ query }}">
+<meta name="keywords" content="{{ query }},wiki,知识库搜索">
+{% endblock %}
+
+{% block top-file %}
+<style>
+    /* 搜索关键字高亮样式 */
+    mark.search-highlight,
+    .highlighted {
+        background: linear-gradient(120deg, #fef08a 0%, #fde047 100%);
+        color: #854d0e;
+        padding: 0.125rem 0.25rem;
+        border-radius: 3px;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    em {
+        background: linear-gradient(120deg, #fef08a 0%, #fde047 100%);
+        color: #854d0e;
+        padding: 0.125rem 0.25rem;
+        border-radius: 3px;
+        font-weight: 600;
+        font-style: normal;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- 搜索标题 -->
+            <div class="mb-4">
+                <h2 class="mb-3">搜索结果：<span class="text-primary">"{{ query }}"</span></h2>
+                <p class="text-muted">
+                    共找到 <strong class="text-info">{{ paginator.count }}</strong> 篇 Wiki 文章
+                </p>
+            </div>
+
+            <!-- 搜索结果列表 -->
+            {% if search_list %}
+                <div class="search-results">
+                    {% for result in search_list %}
+                        {% with article=result.object %}
+                        <div class="card mb-3 shadow-sm hover:shadow-lg transition-shadow">
+                            <div class="card-body">
+                                <h5 class="card-title mb-2">
+                                    <a href="{{ article.get_absolute_url }}" class="text-dark text-decoration-none">
+                                        {% if query %}
+                                            {% highlight article.title with query %}
+                                        {% else %}
+                                            {{ article.title }}
+                                        {% endif %}
+                                    </a>
+                                </h5>
+                                
+                                <div class="mb-2">
+                                    {% if article.topic and article.topic.subject %}
+                                    <span class="badge badge-primary">
+                                        <i class="fa fa-folder-o"></i> {{ article.topic.subject.name }}
+                                    </span>
+                                    {% endif %}
+                                    <span class="text-muted ml-2">
+                                        <i class="fa fa-eye"></i> {{ article.views }}
+                                    </span>
+                                    <span class="text-muted ml-2">
+                                        <i class="fa fa-calendar-o"></i> {{ article.create_date|date:"Y-m-d" }}
+                                    </span>
+                                </div>
+                                
+                                {% if article.summary %}
+                                <p class="card-text text-muted mb-0" style="line-height: 1.6;">
+                                    {% if query %}
+                                        {% highlight article.summary with query max_length 200 %}
+                                    {% else %}
+                                        {{ article.summary|truncatewords:30 }}
+                                    {% endif %}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endwith %}
+                    {% endfor %}
+                </div>
+
+                <!-- 分页 -->
+                {% if is_paginated %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?q={{ query }}&page={{ page_obj.previous_page_number }}">
+                                        <i class="fa fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?q={{ query }}&page={{ page_obj.next_page_number }}">
+                                        <i class="fa fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info text-center">
+                    <i class="fa fa-search fa-3x mb-3"></i>
+                    <p class="mb-0">没有找到相关的 Wiki 文章</p>
+                </div>
+            {% endif %}
+
+            <!-- 返回按钮 -->
+            <div class="text-center mt-4">
+                <a href="{% url 'blog:index' %}" class="btn btn-outline-primary">
+                    <i class="fa fa-arrow-left"></i> 返回 Wiki 首页
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

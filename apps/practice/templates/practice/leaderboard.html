@@ -1,0 +1,161 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load blog_tags %}
+{% load humanize %}
+{% load pre_tags %}
+
+{% block head_title %}综合排行榜 - 漏洞靶场{% endblock %}
+{% block metas %}
+<meta name="description" content="{{ site_description }}">
+<meta name="keywords" content="{{ site_keywords }}">
+
+{% endblock %}
+{% block top-file %}
+<link href="{% static 'public/css/ctf.css' %}?v=20251228.01" rel="stylesheet">
+<link href="{% static 'practice/css/practice.css' %}?v=20251230.01" rel="stylesheet">
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-12 ">
+            <!-- 页面标题 -->
+
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'practice:challenge_list' %}">漏洞靶场</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">排行榜</li>
+                </ol>
+            </nav>
+            
+
+            <!-- 排行榜卡片 -->
+            <div class="card border-0 rounded-6 shadow-sm ctf-ranking-card">
+                <div class="card-header pr-card-header f-15 ctf-ranking-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="pr-card-title ctf-ranking-title mb-0">
+                            <i class="bi bi-fire"></i>
+                            分数排行
+                        </h6>
+                    </div>
+                </div>
+                <div class="card-body ctf-ranking-body">
+                    {% if users %}
+                    <!-- 使用表格展示排行榜 -->
+                    <div class="table-responsive">
+                        <table class="table mb-0 ctf-ranking-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;">排名</th>
+                                    <th>用户</th>
+                                    <th style="width: 120px;" class="text-right">解题数</th>
+                                    <th style="width: 120px;" class="text-right">分数</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>
+                                        <span class="pr-rank-number">{{ user.rank }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="pr-rank-user">
+                                            {% if user.avatar %}
+                                                <img src="{{ user.avatar }}" alt="{{ user.user }}" class="pr-rank-avatar">
+                                            {% endif %}
+                                            <a href="{% url 'public:profileViews' user.uuid %}" class="pr-rank-name" title="前往 {{ user.user }} 的个人主页">
+                                                {{ user.user }}
+                                            </a>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <span style="color: #6c757d; font-size: 14px;">
+                                            <i class="fa fa-flag-checkered mr-1" style="color: #52c41a;"></i>
+                                            {{ user.solves }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right">
+                                        <span class="pr-rank-score">{{ user.score }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <!-- 空状态 -->
+                    <div class="pr-empty-state">
+                        <div class="pr-empty-icon">
+                            <i class="bi bi-inbox"></i>
+                        </div>
+                        <p class="pr-empty-text">暂无排行数据</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- 分页组件 -->
+                {% if users.has_other_pages %}
+                <div class="card-footer ctf-ranking-footer">
+                    <nav aria-label="排行榜分页">
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            {% if users.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ users.previous_page_number }}">
+                                        上一页
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">上一页</span>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in users.paginator.page_range %}
+                                {% if page_num == users.number %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% elif page_num > users.number|add:'-3' and page_num < users.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                                    </li>
+                                {% elif page_num == 1 or page_num == users.paginator.num_pages %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                                    </li>
+                                {% elif page_num == users.number|add:'-3' or page_num == users.number|add:'3' %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if users.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ users.next_page_number }}">
+                                        下一页
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">下一页</span>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+
+          
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'public/js/ctf.js' %}"></script>
+{% endblock %}
+

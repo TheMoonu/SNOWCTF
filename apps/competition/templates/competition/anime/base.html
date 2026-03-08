@@ -1,0 +1,450 @@
+{% load static %}
+{% load comment_tags %}
+{% load blog_tags %}
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ competition.description }}">
+    {% if site_favicon %}
+    <link rel="shortcut icon" href="{{ site_favicon }}" type="image/x-icon"/>
+    {% else %}
+    <link rel="shortcut icon" href="{% static 'public/img/favicon.ico' %}" type="image/x-icon"/>
+    {% endif %}
+    <title>{% block title %}{{ competition.title }}{% endblock %}</title>
+    
+  
+    <script>
+      
+        if (/Edge|Edg/.test(navigator.userAgent)) {
+            document.documentElement.className += ' edge-browser';
+        }
+        
+        if (/Firefox/.test(navigator.userAgent)) {
+            document.documentElement.className += ' firefox-browser';
+        }
+    </script>
+    <style>
+      
+        .firefox-browser .track-glow-ring {
+            display: none !important;
+        }
+
+        .firefox-browser .track-card,
+        .firefox-browser .combined-ranking-section,
+        .firefox-browser .tech-navbar,
+        .firefox-browser .tech-sidebar-card,
+        .firefox-browser .tech-filter-panel,
+        .firefox-browser .tech-challenge-card,
+        .firefox-browser .tech-ranking-card {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        
+    
+        .firefox-browser *:not(#tech-loading-overlay):not(#tech-loading-overlay *):not(.tech-loading-overlay):not(.tech-loading-overlay *):not(.tech-challenge-card) {
+            animation: none !important;
+            transition: none !important;
+        }
+  
+        .firefox-browser .tech-challenge-card {
+            transition: all 0.4s ease-out !important;
+        }
+        
+
+        .edge-browser .track-glow-ring,
+        .edge-browser .track-card::before,
+        .edge-browser .track-card::after,
+        .edge-browser .btn-shine {
+            display: none !important;
+        }
+        
+      
+        .edge-browser .anime-decoration-left,
+        .edge-browser .anime-decoration-right {
+            animation: none !important;
+        }
+        
+        .edge-browser .anime-decoration-left img,
+        .edge-browser .anime-decoration-right img {
+            filter: blur(1.5px) !important;
+            opacity: 0.28 !important;
+        }
+        
+      
+        .edge-browser *:not(#tech-loading-overlay):not(#tech-loading-overlay *):not(.tech-loading-overlay):not(.tech-loading-overlay *):not(.tech-challenge-card) {
+            animation: none !important;
+            transition: none !important;
+        }
+        
+        
+        .edge-browser .tech-challenge-card {
+            transition: all 0.4s ease-out !important;
+        }
+        
+       
+        .edge-browser .tech-loading-overlay {
+            backdrop-filter: none !important;
+        }
+        
+        .edge-browser .track-card,
+        .edge-browser .combined-ranking-section,
+        .edge-browser .tech-navbar {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        
+        .edge-browser .track-card {
+            background: #f8fafc !important;
+        }
+    </style>
+    
+    <!-- Bootstrap CSS -->
+    <link href="{% static 'blog/bootstrap/4.3.1/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'blog/font-awesome/4.7.0/css/font-awesome.min.css' %}" rel="stylesheet">
+    <link href="{% static 'public/css/animebase.css' %}?v=20260201.37" rel="stylesheet">
+    <link href="{% static 'public/css/animebase-optimized.css' %}?v=20260203.55" rel="stylesheet">
+    <link href="{% static 'public/css/toast.css' %}?v=20260131.01" rel="stylesheet">
+    
+   
+    {% block extra_css %}{% endblock %}
+</head>
+
+
+<body>
+    
+    <div class="tech-bg"></div>
+    
+  
+    {% if anime_side_left_image %}
+    <div class="anime-decoration-left">
+        <img src="{{ anime_side_left_image }}" alt="装饰图片">
+    </div>
+    {% endif %}
+    
+   
+    {% if anime_side_right_image %}
+    <div class="anime-decoration-right">
+        <img src="{{ anime_side_right_image }}" alt="装饰图片">
+    </div>
+    {% endif %}
+
+   
+    <div id="tech-loading-overlay" class="tech-loading-overlay">
+        <div class="tech-loading-content">
+            <div class="tech-loading-spinner">
+                <div class="tech-spinner-ring"></div>
+                <div class="tech-spinner-ring"></div>
+                <div class="tech-spinner-ring"></div>
+                <div class="tech-spinner-core"></div>
+            </div>
+            <div class="tech-loading-text">
+                <span class="tech-loading-dot">.</span>
+                <span class="tech-loading-dot">.</span>
+                <span class="tech-loading-dot">.</span>
+            </div>
+        </div>
+    </div>
+
+  
+    {% include 'competition/anime/navbar.html' %}
+
+ 
+    <div class="tech-main-container">
+        {% block content %}{% endblock %}
+    </div>
+
+
+    <script src="{% static 'public/js/jq/3.7.1/jquery.min.js' %}"></script>
+    <script src="{% static 'public/js/toast.js' %}"></script>
+    <script src="{% static 'public/bootstrap/5.3.3/js/bootstrap.bundle.min.js' %}"></script>
+    
+
+    <script>
+        (function() {
+            const loadingOverlay = document.getElementById('tech-loading-overlay');
+            
+         
+            function showTechLoading() {
+                if (loadingOverlay) {
+                    
+                    function getScrollbarWidth() {
+                        const outer = document.createElement('div');
+                        outer.style.visibility = 'hidden';
+                        outer.style.overflow = 'scroll';
+                        outer.style.width = '100px';
+                        document.body.appendChild(outer);
+                        
+                        const inner = document.createElement('div');
+                        inner.style.width = '100%';
+                        outer.appendChild(inner);
+                        
+                        const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
+                        document.body.removeChild(outer);
+                        
+                        return scrollbarWidth;
+                    }
+                    
+                    const hasScrollbar = document.body.scrollHeight > window.innerHeight;
+                    const scrollbarWidth = getScrollbarWidth();
+                    
+                 
+                    document.documentElement.style.setProperty('--scrollbar-width', scrollbarWidth + 'px');
+                    
+                    
+                    if (hasScrollbar && scrollbarWidth > 0) {
+                        document.body.classList.add('has-scrollbar');
+                    }
+                    document.body.classList.add('tech-no-scroll');
+                    loadingOverlay.classList.add('active');
+                }
+            }
+            
+           
+            function hideTechLoading() {
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('active');
+                
+                    document.body.classList.remove('tech-no-scroll');
+                    document.body.classList.remove('has-scrollbar');
+                }
+            }
+            
+ 
+            function shouldShowLoading(element) {
+                if (!element) return false;
+                
+            
+                if (element.classList.contains('no-loading')) {
+                    return false;
+                }
+                
+            
+                if (element.dataset.loading === 'false') {
+                    return false;
+                }
+                
+                if (element.hasAttribute('data-no-loading')) {
+                    return false;
+                }
+                
+                return true;
+            }
+ 
+            window.showTechLoading = showTechLoading;
+            window.hideTechLoading = hideTechLoading;
+            
+            window.techLoadingEnabled = true;
+            
+            window.disableTechLoadingOnce = function() {
+                window.techLoadingEnabled = false;
+            };
+            
+          
+            if (typeof $ !== 'undefined') {
+             
+                $.ajaxSetup({
+                    beforeSend: function(xhr, settings) {
+                     
+                        if (settings.showLoading !== false && window.techLoadingEnabled) {
+                            showTechLoading();
+                        }
+                    },
+                    complete: function() {
+                        hideTechLoading();
+                       
+                        window.techLoadingEnabled = true;
+                    }
+                });
+            }
+            
+           
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('a');
+                if (link && link.href && 
+                    !link.hasAttribute('download') && 
+                    !link.target && 
+                    link.href.indexOf(window.location.origin) === 0 &&
+                    !link.href.includes('#') &&
+                    shouldShowLoading(link)) {
+                    showTechLoading();
+                }
+            });
+            
+         
+            document.addEventListener('click', function(e) {
+                const button = e.target.closest('button');
+                if (button && 
+                    button.type === 'button' && 
+                    button.dataset.showLoading === 'true') {
+                    showTechLoading();
+                
+                    const duration = parseInt(button.dataset.loadingDuration) || 0;
+                    if (duration > 0) {
+                        setTimeout(hideTechLoading, duration);
+                    }
+                }
+            });
+
+            document.addEventListener('submit', function(e) {
+                if (shouldShowLoading(e.target)) {
+                    showTechLoading();
+                }
+            });
+            
+
+            window.addEventListener('pageshow', function(event) {
+              
+                if (event.persisted) {
+                    hideTechLoading();
+                }
+            });
+
+            window.addEventListener('load', function() {
+                hideTechLoading();
+            });
+        })();
+    </script>
+    
+ 
+    <script>
+        (function() {
+            
+            const isEdge = /Edge|Edg/.test(navigator.userAgent);
+            
+            if (isEdge) {
+          
+                document.documentElement.classList.add('edge-browser');
+                if (document.body) {
+                    document.body.classList.add('edge-browser');
+                } else {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.body.classList.add('edge-browser');
+                    });
+                }
+                
+              
+                
+               
+                if (window.location.pathname.includes('entrance')) {
+               
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        .track-glow-ring {
+                            display: none !important;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                    
+                    
+                }
+            }
+            
+       
+            const isFirefox = /Firefox/.test(navigator.userAgent);
+            
+            if (isFirefox) {
+                document.documentElement.classList.add('firefox-browser');
+                if (document.body) {
+                    document.body.classList.add('firefox-browser');
+                } else {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.body.classList.add('firefox-browser');
+                    });
+                }
+                
+              
+                
+                // 针对双赛道页面的额外优化
+                if (window.location.pathname.includes('entrance')) {
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        .track-glow-ring {
+                            display: none !important;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+            }
+        
+            const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
+            
+        })();
+    </script>
+
+
+    {% if user.is_authenticated %}
+    <script>
+        const msgs = {% get_notifications_count user 'false' %};
+        if (msgs > 0) {
+            
+            const hasShownNotification = sessionStorage.getItem('notification_shown');
+            
+            
+            if (!hasShownNotification) {
+                showInfoToast("您有新的消息");
+                sessionStorage.setItem('notification_shown', 'true');
+            }
+            
+          
+            let _record = 0;
+            const myTitle = document.title;
+
+            function titleBlink() {
+                _record++;
+                if (_record % 2) {
+                    document.title = '【 】' + myTitle;
+                } else {
+                    document.title = '【新消息】' + myTitle;
+                }
+                setTimeout("titleBlink()", 500);
+            }
+
+            titleBlink();
+        } else {
+            
+            sessionStorage.removeItem('notification_shown');
+        }
+    </script>
+    {% endif %}
+
+    {% if messages %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const messages = [
+            {% for message in messages %}
+            {
+                text: "{{ message|escapejs }}",
+                type: "{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}"
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        // 类型和标题映射
+        const titleMap = {
+            'success': '成功',
+            'danger': '错误',
+            'warning': '警告',
+            'info': '提示'
+        };
+        
+        messages.forEach(function(msg) {
+            const title = titleMap[msg.type] || '提示';
+            showToast(msg.text, title, 5000, msg.type);
+        });
+    });
+    </script>
+    
+    {% endif %}
+    
+    <!-- 额外的 JavaScript -->
+    {% block extra_js %}
+    
+    
+    
+    {% endblock %}
+</body>
+</html>

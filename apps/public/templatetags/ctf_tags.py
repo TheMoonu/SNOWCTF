@@ -8,16 +8,19 @@ from django.core.cache import cache
 from django.db.models.aggregates import Count
 from django.utils.html import mark_safe
 from django.db.models import Q
-from challenge.models import (
-    Challenge,
+from practice.models import (
+    PC_Challenge,
     Tag,
 )
 
 from django.utils import timezone
 import markdown as md
-from competition.models import Competition, ScoreUser, ScoreTeam, Submission
+from competition.models import Competition, ScoreUser, ScoreTeam
 
 from django.core.serializers.json import DjangoJSONEncoder
+import markdown as md_lib
+# 导入自定义 Markdown 扩展
+from utils.markdown_ext import IconExtension, AlertExtension, DelExtension
 
 register = template.Library()
 
@@ -38,7 +41,9 @@ def get_user_ctf_stats(user, competition=None):
             'solved_count': 0,
             'user_points': 0,
             'team_score': 0,
-            'team_rank': '-'
+            'team_rank': '-',
+            'user_rank': '-',
+            'is_team_competition': False
         }
 
     # 获取当前比赛
@@ -53,39 +58,71 @@ def get_user_ctf_stats(user, competition=None):
             'solved_count': 0,
             'user_points': 0,
             'team_score': 0,
-            'team_rank': '-'
+            'team_rank': '-',
+            'user_rank': '-',
+            'is_team_competition': False
         }
 
-    # 构建缓存键
-    cache_key = f'user_ctf_stats:{user.id}:{competition.id}'
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        return json.loads(cached_data)
-
+    # 判断比赛类型
+    is_team_competition = competition.competition_type == 'team'
+    
     # 获取用户得分记录
     user_score = ScoreUser.objects.filter(
         user=user,
         competition=competition
     ).first()
+    
+    # 获取团队信息（如果是团队赛）
+    team = None
     team_score = None
-    if user_score and user_score.team:
-        team = user_score.team
+    if is_team_competition:
+        if user_score and user_score.team:
+            team = user_score.team
+        else:
+            team = user.teams.filter(competition=competition).first()
+        
+        if team:
+            team_score = ScoreTeam.objects.filter(
+                team=team,
+                competition=competition
+            ).first()
+    
+    # 构建缓存键（团队赛使用队伍ID，个人赛使用用户ID）
+    if is_team_competition and team:
+        # 团队赛：用队伍ID作为主键，用户ID作为次键（因为个人数据不同）
+        cache_key = f'user_ctf_stats:team:{team.id}:user:{user.id}:{competition.id}'
     else:
-        team = user.teams.filter(competition=competition).first()
-    if team:
-        team_score = ScoreTeam.objects.filter(
-            team=team,
-            competition=competition
-        ).first()
+        # 个人赛：直接用用户ID
+        cache_key = f'user_ctf_stats:individual:{user.id}:{competition.id}'
+    
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return json.loads(cached_data)
+
+    # 构建统计数据
     stats = {
         'solved_count': user_score.solved_challenges.count() if user_score else 0,
         'user_points': user_score.points if user_score else 0,
-        'team_score': team_score.score if team_score else 0,
-        'team_rank': team_score.rank if team_score else '-'
+        'is_team_competition': is_team_competition
     }
+    
+    if is_team_competition:
+        # 团队赛：返回团队分数和排名
+        stats.update({
+            'team_score': team_score.score if team_score else 0,
+            'team_rank': team_score.rank if team_score else '-',
+            'user_rank': '-'
+        })
+    else:
+        # 个人赛：返回个人排名
+        stats.update({
+            'team_score': 0,
+            'team_rank': '-',
+            'user_rank': user_score.rank if user_score else '-'
+        })
 
     # 缓存数据（5分钟）
-    cache.set(cache_key, json.dumps(stats, cls=DjangoJSONEncoder), 600)
+    cache.set(cache_key, json.dumps(stats, cls=DjangoJSONEncoder), 300)
 
     return stats
 
@@ -110,24 +147,7 @@ def get_challenge_categories():
     
     return result
 
-@register.simple_tag
-def get_all_challenge_tags():
-    """
-    返回所有被使用的挑战标签及其使用次数，使用 Redis 缓存结果
-    不返回挑战数为 0 的标签
-    """
-    cache_key = 'all_challenge_tags'
-    
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        return json.loads(cached_data)
-    
-    tags = Tag.objects.annotate(count=Count('challenge')).filter(count__gt=0).order_by('-count', 'name')
-    result = {tag.name: tag.count for tag in tags}
-    
-    cache.set(cache_key, json.dumps(result), 3600)
-    
-    return result
+
 
 
 
@@ -186,20 +206,7 @@ def get_challenge_solve_records(challenge, limit=5):
     return solve_records
     
 
-@register.simple_tag
-def get_challenge_tags(challenge_uuid):
-    cache_key = f'challenge_tags_{challenge_uuid}'
-    tags = cache.get(cache_key)
-    
-    if tags is None:
-        try:
-            challenge = Challenge.objects.get(uuid=challenge_uuid)
-            tags = list(challenge.tags.values_list('name', flat=True))
-            cache.set(cache_key, tags, 3600)  # 缓存1小时
-        except Challenge.DoesNotExist:
-            tags = []
-    
-    return tags
+
 
 
 @register.filter
@@ -211,20 +218,6 @@ def format_k(value):
         return str(value)
     except (ValueError, TypeError):
         return value
-
-@register.filter
-def markdown(value):
-    # 添加 'strikethrough' 扩展以支持删除线语法
-    return md.markdown(value or '', extensions=[
-        'extra',         # 基础扩展
-        'codehilite',   # 代码高亮
-        'sane_lists',   # 更好的列表支持
-        'nl2br',        # 换行支持
-        'pymdownx.tilde',
-        'tables', # 表格支持,
-        
-    ])
-
 
 
 @register.inclusion_tag('public/tags/competition_countdown.html')
@@ -405,82 +398,3 @@ def compact_time(value):
     
     years = int(days // 365)
     return f"{years}年前"
-
-
-@register.simple_tag # 指定模板文件
-def get_first_blood(challenge,competition=None):
-    # 获取一血、二血、三血的用户或队伍和时间
-    first_blood = Submission.objects.filter(
-        challenge=challenge,
-        competition = competition,
-        status='correct'
-    ).order_by('created_at').first()
-
-   
-
-    # 根据比赛类型，返回队伍名还是用户名
-    if first_blood and first_blood.competition and first_blood.competition.competition_type == 'team':
-        first_blood_info = first_blood.team.name if first_blood.team else '无队伍'
-    else:
-        first_blood_info = first_blood.user.username if first_blood else '暂无'
-
-    
-
-    return first_blood_info
-        
-
-@register.simple_tag # 指定模板文件
-def get_second_blood(challenge, competition=None):
-
-    second_blood = Submission.objects.filter(
-        challenge=challenge,
-        competition =competition,
-        status='correct'
-    ).order_by('created_at')[1] if Submission.objects.filter(
-        challenge=challenge,
-        competition =competition,
-        status='correct'
-    ).count() >= 2 else None
-
-    # 根据比赛类型，返回队伍名还是用户名
-
-
-    if second_blood and second_blood.competition and second_blood.competition.competition_type == 'team':
-        second_blood_info = second_blood.team.name if second_blood.team else '无队伍'
-    else:
-        second_blood_info = second_blood.user.username if second_blood else '暂无'
-
-
-
-    return second_blood_info
-
-@register.simple_tag # 指定模板文件
-def get_third_blood(challenge, competition=None ):
-    # 获取一血、二血、三血的用户或队伍和时间
-
-
-    third_blood = Submission.objects.filter(
-        challenge=challenge,
-        competition= competition,
-        status='correct'
-    ).order_by('created_at')[2] if Submission.objects.filter(
-        challenge=challenge,
-        competition =competition,
-        status='correct'
-    ).count() >= 3 else None
-
-
-
-    if third_blood and third_blood.competition and third_blood.competition.competition_type == 'team':
-        third_blood_info = third_blood.team.name if third_blood.team else '无队伍'
-    else:
-        third_blood_info = third_blood.user.username if third_blood else '暂无'
-
-    return third_blood_info
-
-@register.filter
-def dict_get(dictionary, key):
-    """获取字典中的值，如果键不存在则返回None"""
-    if isinstance(dictionary, dict):
-        return dictionary.get(key)
-    return None

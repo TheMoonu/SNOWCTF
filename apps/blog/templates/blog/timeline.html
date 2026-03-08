@@ -1,0 +1,54 @@
+{% extends 'public/base.html' %}
+{% load static %}
+{% load blog_tags %}
+
+{% block top-file %}
+    <link href="{% static 'blog/css/timeline.css' %}?v=1.07" rel="stylesheet">
+{% endblock %}
+
+{% block head_title %}更新日志{% endblock %}
+
+
+{% block base_content %}
+    <div class="container">
+        <div class="page-header mt-0">
+            <h1 id="timeline"><i class="fa fa-hourglass-half mr-2"></i>更新日志</h1>
+        </div>
+        {% get_new_timeline_id as new_timeline_id %}
+        <ul class="timeline" id="timeline">
+            {% for timeline in timeline_list %}
+                {% if timeline.side == 'L' %}
+                    <li>
+                        {% else %}
+                    <li class="timeline-inverted">{% endif %}
+            <div class="timeline-badge {{ timeline.icon_color }}"><i class="{{ timeline.icon }}"></i></div>
+            <div class="timeline-panel rounded-6">
+                <div class="timeline-heading">
+                    <h2 class="timeline-title text-info">{{ timeline.title }}</h2>
+                    <p class="mb-1">
+                        <span class="text-muted"><i
+                                class="glyphicon glyphicon-time"></i> {{ timeline.update_date|date:'Y-m-d' }}</span>
+                        <span class="pull-right" id="star"
+                              title="{% get_star_title timeline.star_num %}">{% get_star timeline.star_num %}</span>
+                    </p>
+                </div>
+                <div class="timeline-body">
+                    {{ timeline.content|safe }}
+                </div>
+            </div>
+            </li>
+            {% empty %}
+                <p>暂时没有时间线</p>
+            {% endfor %}
+        </ul>
+    </div>
+{% endblock %}
+
+{% block js-file %}
+    <script>
+        $(document).ready(function () {
+            $(".timeline-body a").attr("target", "_blank");
+        });
+
+    </script>
+{% endblock %}

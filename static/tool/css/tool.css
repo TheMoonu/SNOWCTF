@@ -1,0 +1,258 @@
+/* ============ 工具卡片样式 - 简洁白色版 ============ */
+.tool-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #fff;
+    position: relative;
+}
+
+.tool-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    border-color: #d1d5db;
+}
+
+.tool-card-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.tool-card-link:hover {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* 工具头部 */
+.tool-header {
+    padding: 1.5rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    transition: all 0.3s ease;
+}
+
+.tool-card:hover .tool-header {
+    background: #fff;
+}
+
+/* 图标容器 */
+.tool-icon-wrapper {
+    width: 56px;
+    height: 56px;
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.tool-card:hover .tool-icon-wrapper {
+    transform: scale(1.05);
+    border-color: #3b82f6;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.15);
+}
+
+.tool-icon {
+    font-size: 32px;
+    color: #3b82f6;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 工具信息 */
+.tool-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+/* 防止 tool-info 内的 state-label 被拉伸 */
+.tool-info .state-label {
+    align-self: flex-start;
+    max-width: 100%;
+}
+
+.tool-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: #1f2937;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tool-tag {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 500;
+    background: #e5e7eb;
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    max-width: fit-content;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 工具内容区 */
+.tool-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
+}
+
+.tool-desc {
+    font-size: 0.9rem;
+    color: #666;
+    line-height: 1.6;
+    margin: 0;
+    flex: 1;
+    /* 限制为3行，超出显示省略号 */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 4.8em;
+}
+
+/* 操作按钮 */
+.tool-action {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: auto;
+}
+
+.tool-btn {
+    font-size: 0.85rem;
+    color: #3b82f6;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    position: relative;
+    padding-right: 4px;
+}
+
+.tool-card:hover .tool-btn {
+    color: #2563eb;
+    padding-right: 8px;
+}
+
+/* ============ 其他样式保持 ============ */
+.tool-cate .card-header strong {
+    padding-bottom: 12px;
+    border-bottom: 2px solid #00AAEE;
+}
+
+.tool-cate .card-header {
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+.title-info {
+    border-left: 4px solid #17a2b8;
+}
+
+pre {
+    border: none;
+    background-color: #e4eaef;
+    border-radius: 8px;
+    font-size: 85%;
+    padding: .75rem;
+    overflow-x: auto;
+}
+
+.re-result pre {
+    margin-bottom: 0;
+}
+
+.re-result p {
+    margin-bottom: 5px;
+}
+
+.tool-link-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card ul {
+    line-height: 2;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    .tool-header {
+        padding: 1.25rem 1rem;
+    }
+    
+    .tool-icon-wrapper {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .tool-icon {
+        font-size: 32px;
+    }
+    
+    .tool-title {
+        font-size: 1rem;
+    }
+    
+    .tool-body {
+        padding: 1rem;
+    }
+    
+    .tool-desc {
+        font-size: 0.85rem;
+        -webkit-line-clamp: 2;
+        min-height: 3.2em;
+    }
+}
+
+@media (max-width: 576px) {
+    .tool-card {
+        border-radius: 12px;
+    }
+    
+    .tool-header {
+        padding: 1rem 0.875rem;
+        gap: 0.75rem;
+    }
+    
+    .tool-icon-wrapper {
+        width: 44px;
+        height: 44px;
+    }
+    
+    .tool-icon {
+        font-size: 28px;
+    }
+    
+    .tool-title {
+        font-size: 0.95rem;
+    }
+    
+    .tool-body {
+        padding: 0.875rem;
+    }
+}

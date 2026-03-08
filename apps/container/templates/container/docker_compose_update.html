@@ -1,0 +1,417 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}修改Docker Compose配置{% endblock %}
+
+{% block top-file %}
+<style>
+    .container-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        padding: 30px;
+        margin-bottom: 25px;
+        border: none;
+    }
+    
+    .container-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+        color: #333;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 15px;
+    }
+    
+    .container-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-align: center;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .container-btn-primary {
+        background-color: #6591f1;
+        color: white;
+    }
+    
+    .container-btn-primary:hover {
+        background-color: #5080e0;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(101, 145, 241, 0.2);
+    }
+    
+    .container-btn-secondary {
+        background-color: #f0f0f0;
+        color: #333;
+    }
+    
+    .container-btn-secondary:hover {
+        background-color: #e0e0e0;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .form-group label {
+        font-weight: 500;
+        color: #444;
+        margin-bottom: 5px;
+    }
+    
+    .form-group .form-text {
+        color: #777;
+        font-size: 0.8rem;
+    }
+    
+    .form-control {
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        padding: 8px 12px;
+        transition: all 0.2s;
+    }
+    
+    .form-control:focus {
+        border-color: #6591f1;
+        box-shadow: 0 0 0 0.2rem rgba(101, 145, 241, 0.25);
+    }
+    
+    .form-control-file {
+        padding: 8px 0;
+    }
+    
+    .invalid-feedback {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 5px;
+    }
+    
+    .conditional-field {
+        display: none;
+    }
+    
+    /* 验证码样式 */
+    .captcha-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .captcha-input {
+        flex: 1;
+    }
+    
+    .captcha-image {
+        height: 38px;
+        border-radius: 4px;
+    }
+    
+    .captcha-refresh {
+        cursor: pointer;
+        color: #6591f1;
+        font-size: 1.2rem;
+    }
+    
+    .captcha-refresh:hover {
+        color: #5080e0;
+    }
+
+    .container-file-upload {
+        position: relative;
+        width: 100%;
+        height: 200px;
+        border: 2px dashed #ccc;
+        border-radius: 5px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+    }
+    .container-file-upload:hover {
+        border-color: #007bff;
+        background-color: #e9ecef;
+    }
+    .container-file-upload.dragover {
+        border-color: #28a745;
+        background-color: #e8f5e9;
+    }
+    .container-file-icon {
+        font-size: 48px;
+        color: #6c757d;
+        margin-bottom: 10px;
+    }
+    .container-file-text {
+        font-size: 16px;
+        color: #495057;
+        margin-bottom: 5px;
+    }
+    .container-file-subtext {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    .container-file-preview {
+        display: none;
+        margin-top: 10px;
+    }
+    .container-file-name {
+        font-size: 14px;
+        color: #28a745;
+    }
+    #id_compose_file {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-user mr-1"></i><a href="{% url 'public:profileViews' user.uuid %}">个人中心</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'container:docker_compose_list' %}">Docker Compose配置列表</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">修改配置</li>
+                </ol>
+            </nav>
+
+            <!-- 表单卡片 -->
+            <div class="container-card">
+                <h2 class="container-title">修改Docker Compose配置</h2>
+                
+                <form method="post" enctype="multipart/form-data" id="dockerComposeForm">
+                    {% csrf_token %}
+                    
+                    <!-- 名称 -->
+                    <div class="form-group">
+                        <label for="{{ form.name.id_for_label }}">配置名称</label>
+                        {{ form.name }}
+                        <small class="form-text text-muted">{{ form.name.help_text }}</small>
+                        {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.name.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 配置类型 -->
+                    <div class="form-group">
+                        <label for="{{ form.compose_type.id_for_label }}">配置类型</label>
+                        {{ form.compose_type }}
+                        <small class="form-text text-muted">{{ form.compose_type.help_text }}</small>
+                        {% if form.compose_type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.compose_type.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 手动编写内容 -->
+                    <div class="form-group conditional-field" id="compose_content_group">
+                        <label for="{{ form.compose_content.id_for_label }}">Compose内容</label>
+                        {{ form.compose_content }}
+                        <small class="form-text text-muted">{{ form.compose_content.help_text }}</small>
+                        {% if form.compose_content.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.compose_content.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 上传文件 -->
+                    <div class="form-group conditional-field" id="compose_file_group">
+                        <label for="{{ form.compose_file.id_for_label }}">Compose文件</label>
+                        {% if object.compose_file %}
+                            <p class="text-success mb-2">
+                                <i class="fa fa-check-circle"></i> 已上传文件
+                            </p>
+                        {% endif %}
+                        <div class="container-file-upload" id="fileUploadArea">
+                            {{ form.compose_file }}
+                            <div class="container-file-icon">
+                                <i class="fa fa-cloud-upload-alt"></i>
+                            </div>
+                            <div class="container-file-text">点击或拖拽上传文件</div>
+                            <div class="container-file-subtext">上传包含docker-compose.yml的zip文件</div>
+                            <div class="container-file-preview" id="filePreview">
+                                <div class="container-file-name" id="fileName"></div>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">{{ form.compose_file.help_text }}</small>
+                        {% if form.compose_file.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.compose_file.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const fileUploadArea = document.getElementById('fileUploadArea');
+                            const fileInput = document.getElementById('id_compose_file');
+                            const fileName = document.getElementById('fileName');
+                            const filePreview = document.getElementById('filePreview');
+
+                            // 拖拽事件处理
+                            fileUploadArea.addEventListener('dragover', function(e) {
+                                e.preventDefault();
+                                this.classList.add('dragover');
+                            });
+
+                            fileUploadArea.addEventListener('dragleave', function(e) {
+                                e.preventDefault();
+                                this.classList.remove('dragover');
+                            });
+
+                            fileUploadArea.addEventListener('drop', function(e) {
+                                e.preventDefault();
+                                this.classList.remove('dragover');
+                                if (e.dataTransfer.files.length) {
+                                    fileInput.files = e.dataTransfer.files;
+                                    updateFileName();
+                                }
+                            });
+
+                            // 文件选择事件处理
+                            fileInput.addEventListener('change', updateFileName);
+
+                            function updateFileName() {
+                                if (fileInput.files.length) {
+                                    fileName.textContent = fileInput.files[0].name;
+                                    filePreview.style.display = 'block';
+                                } else {
+                                    filePreview.style.display = 'none';
+                                }
+                            }
+                        });
+                    </script>
+                    
+                    <!-- Flag脚本 -->
+                    <div class="form-group">
+                        <label for="{{ form.flag_script.id_for_label }}">Flag脚本</label>
+                        {{ form.flag_script }}
+                        <small class="form-text text-muted">{{ form.flag_script.help_text }}</small>
+                        {% if form.flag_script.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.flag_script.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 验证码 -->
+                    <div class="form-group">
+                        <label for="{{ form.captcha.id_for_label }}">验证码<span class="text-danger">*</span></label>
+                        {{ form.captcha_key }}
+                        <div class="captcha-container">
+                            <div class="captcha-input">
+                                {{ form.captcha }}
+                            </div>
+                            <img src="{{ captcha_image }}" alt="验证码" class="captcha-image" id="captchaImage">
+                            <i class="fa fa-sync captcha-refresh" id="refreshCaptcha" title="刷新验证码"></i>
+                        </div>
+                        <div class="form-text text-muted">请输入图片中显示的验证码</div>
+                        {% if form.captcha.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.captcha.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 按钮 -->
+                    <div class="form-group mt-4 mb-0 d-flex justify-content-between">
+                        <a href="{% url 'container:docker_compose_list' %}" class="container-btn container-btn-secondary">
+                            <i class="fa fa-arrow-left mr-1"></i> 返回列表
+                        </a>
+                        {% if object.review_status == 'APPROVED' and not user.is_superuser %}
+                            <button type="button" class="container-btn container-btn-secondary" disabled>
+                                <i class="fa fa-lock mr-1"></i> 已审核通过，无法修改
+                            </button>
+                        {% else %}
+                            <button type="submit" class="container-btn container-btn-primary">
+                                <i class="fa fa-save mr-1"></i> 保存修改
+                            </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const composeTypeSelect = document.getElementById('id_compose_type');
+        const composeContentGroup = document.getElementById('compose_content_group');
+        const composeFileGroup = document.getElementById('compose_file_group');
+        
+        // 初始化显示/隐藏字段
+        updateFieldVisibility();
+        
+        // 监听类型变化
+        composeTypeSelect.addEventListener('change', updateFieldVisibility);
+        
+        function updateFieldVisibility() {
+            const selectedType = composeTypeSelect.value;
+            
+            if (selectedType === 'MANUAL') {
+                composeContentGroup.style.display = 'block';
+                composeFileGroup.style.display = 'none';
+            } else if (selectedType === 'FILE') {
+                composeContentGroup.style.display = 'none';
+                composeFileGroup.style.display = 'block';
+            }
+        }
+        
+        // 验证码刷新功能
+        const refreshCaptchaBtn = document.getElementById('refreshCaptcha');
+        const captchaImage = document.getElementById('captchaImage');
+        
+        function refreshCaptcha() {
+            fetch('/container/api/v1/captcha/refresh/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    captchaImage.src = data.captcha_image;
+                    document.getElementById('id_captcha_key').value = data.captcha_key;
+                    document.getElementById('id_captcha').value = '';
+                }
+            })
+            .catch(error => console.error('Error refreshing captcha:', error));
+        }
+        
+        // 页面加载时刷新验证码
+        refreshCaptcha();
+        
+        if (refreshCaptchaBtn) {
+            refreshCaptchaBtn.addEventListener('click', refreshCaptcha);
+        }
+        
+        if (captchaImage) {
+            captchaImage.addEventListener('click', refreshCaptcha);
+        }
+    });
+</script>
+{% endblock %} 

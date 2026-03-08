@@ -1,0 +1,970 @@
+{% extends 'public/base.html' %}
+{% load static %}
+{% load quiz_tags %}
+{% load pre_tags %}
+{% block head_title %}管理竞赛 - {{ quiz.title }}{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'quiz/css/quiz.css' %}?v=20260123.01" rel="stylesheet">
+<link href="{% static 'public/css/monokai-2.css' %}?v=20251228.01" rel="stylesheet">
+<style>
+    /* 强制分页按钮颜色为蓝色 */
+    .pagination .page-item a.page-link,
+    .pagination .page-item .page-link {
+        color: #1890ff !important;
+    }
+    .pagination .page-item a.page-link:hover {
+        color: #1890ff !important;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<style>
+.question-row {
+    transition: background-color 0.2s ease;
+}
+.question-row:hover {
+    background-color: #f8f9fa !important;
+}
+.question-content-cell {
+    line-height: 1.5;
+
+}
+.question-remove-btn-table {
+    opacity: 0.3;
+    transition: all 0.2s ease;
+    text-decoration: none !important;
+}
+.question-row:hover .question-remove-btn-table {
+    opacity: 0.6;
+}
+.question-remove-btn-table:hover {
+    opacity: 1 !important;
+    transform: scale(1.3);
+    color: #c82333 !important;
+}
+.question-remove-btn-table:focus {
+    outline: none;
+    box-shadow: none;
+}
+.table thead th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    font-size: 0.9rem;
+
+}
+.table td {
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+}
+</style>
+
+<div class="container">
+    <div class="row">
+        <!-- 左侧：竞赛设置 -->
+        <div class="col-lg-9">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'quiz:quiz_list' %}">知识竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'quiz:my_quizzes' %}">我的竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ quiz.title }} - 管理竞赛</li>
+                </ol>
+            </nav>
+            
+            <!-- 竞赛基本信息 -->
+            <div class="card border-0 shadow-sm mb-4 rounded-6">
+                <div class="card-body p-4">
+                    <h5 class="mb-4"><i class="bi bi-gear text-primary mr-2"></i>{{ quiz.title }} - 竞赛设置</h5>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- 基本信息 -->
+                        <div class="mb-4">
+                            <h6 class="text-muted mb-3">基本信息</h6>
+                            <div class="form-group mb-3">
+                                <label class="font-weight-bold">{{ form.title.label }}</label>
+                                {{ form.title }}
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label class="font-weight-bold">{{ form.description.label }}</label>
+                                {{ form.description }}
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label class="font-weight-bold">{{ form.duration.label }}</label>
+                                        {{ form.duration }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label class="font-weight-bold">{{ form.max_attempts.label }}</label>
+                                        {{ form.max_attempts }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 时间设置 -->
+                        <div class="mb-4 pb-3 border-bottom">
+                            <h6 class="text-muted mb-3">时间设置</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label class="font-weight-bold">{{ form.start_time.label }}</label>
+                                        {{ form.start_time }}
+                                        <small class="form-text text-muted">留空则不限制</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label class="font-weight-bold">{{ form.end_time.label }}</label>
+                                        {{ form.end_time }}
+                                        <small class="form-text text-muted">留空则不限制</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 功能开关 -->
+                        <div class="mb-4 pb-3 border-bottom">
+                            <h6 class="text-muted mb-3">功能开关</h6>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check">
+                                        {{ form.enable_pass_score }}
+                                        <label class="form-check-label">
+                                            {{ form.enable_pass_score.label }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">{{ form.pass_score.label }}</label>
+                                        {{ form.pass_score }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                {{ form.show_answer }}
+                                <label class="form-check-label">
+                                    {{ form.show_answer.label }}
+                                    <small class="text-muted">（用户答题后可以查看正确答案和解析）</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                {{ form.show_leaderboard }}
+                                <label class="form-check-label">
+                                    {{ form.show_leaderboard.label }}
+                                    <small class="text-muted">（显示竞赛排行榜）</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                {{ form.enable_anti_cheat }}
+                                <label class="form-check-label">
+                                    {{ form.enable_anti_cheat.label }}
+                                    <small class="text-muted">（监控切屏、失焦等行为）</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-2">
+                                {{ form.random_order }}
+                                <label class="form-check-label">
+                                    {{ form.random_order.label }}
+                                    <small class="text-muted">（开启后每个用户看到的题目顺序不同）</small>
+                                    <small class="text-muted">（同一用户多次查看顺序保持一致）</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                {{ form.is_active }}
+                                <label class="form-check-label font-weight-bold text-primary">
+                                    {{ form.is_active.label }}
+                                    <small class="text-muted">（激活后用户才能看到和参加）</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- 报名设置 -->
+                        <div class="mb-4 pb-3 border-bottom">
+                            <h6 class="text-muted mb-3">报名设置</h6>
+                            
+                            <div class="form-check mb-2">
+                                {{ form.require_registration }}
+                                <label class="form-check-label">
+                                    {{ form.require_registration.label }}
+                                    <small class="text-muted">（开启后用户需要先报名才能参赛，如果被关联到CTF竞赛这个将会被自动开启）</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                {{ form.require_approval }}
+                                <label class="form-check-label">
+                                    {{ form.require_approval.label }}
+                                    <small class="text-muted">（需要管理员审核通过才能参赛）</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- 提交按钮 -->
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-check-circle"></i> 保存设置
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- 题目管理 -->
+            <div class="card border-0 shadow-sm rounded-6" id="question-list-section">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-check text-primary"></i> 题目管理 
+                            <span class="text-muted" style="font-size: 0.9rem; font-weight: normal;">共 {{ total_questions }} 题</span>
+                        </h5>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-success mr-2" onclick="openImportModal()">
+                                <i class="bi bi-upload"></i> 批量导入
+                            </button>
+                            <a href="{% url 'quiz:create_question' quiz.slug %}" class="btn btn-sm btn-primary mr-2">
+                                <i class="bi bi-plus-circle"></i> 创建题目
+                            </a>
+                            <a href="{% url 'quiz:add_question_page' quiz.slug %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-collection"></i> 从题库添加
+                            </a>
+                        </div>
+                    </div>
+                    
+                    {% if questions %}
+                    <div class="table-responsive ">
+                        <table class="table table-hover align-middle mb-0 dynamic-table table-responsive-sm border-0 shadow-sm rounded-6">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th width="60" class="text-center">序号</th>
+                                    <th width="100">类型</th>
+                                    <th>题目内容</th>
+                                    <th width="80" class="text-center">分数</th>
+                                    <th width="80" class="text-center">难度</th>
+                                    <th width="60" class="text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for qq in questions %}
+                                <tr class="question-row">
+                                    <td class="text-center text-muted">{{ forloop.counter }}</td>
+                                    <td>
+                                        <span class="text-primary small">{{ qq.question.get_question_type_display }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="question-content-cell" style="max-width: 500px; max-height: 60px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.5;">
+                                            {{ qq.question.content|striptags|truncatechars:50 }}
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="text-muted">{{ qq.question.score }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="text-muted small">{{ qq.question.get_difficulty_display }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div style="display: inline-flex; gap: 8px;">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-link text-info p-0" 
+                                                    onclick="viewQuestion({{ qq.question.id }})"
+                                                    title="查看详情">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-link text-danger p-0 question-remove-btn-table" 
+                                                    onclick="removeQuestion(this)"
+                                                    title="移除题目"
+                                                    data-question-id="{{ qq.question.id }}">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页导航 -->
+                    {% if questions.has_other_pages %}
+                    <nav aria-label="题目分页" class="mt-3">
+                        <ul class="pagination pagination-sm justify-content-center">
+                            {% if questions.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ questions.previous_page_number }}#question-list-section">上一页</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">上一页</span>
+                            </li>
+                            {% endif %}
+                            
+                            {% for num in questions.paginator.page_range %}
+                                {% if num == 1 or num == questions.paginator.num_pages or num == questions.number or num >= questions.number|add:'-2' and num <= questions.number|add:'2' %}
+                                    {% if questions.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}#question-list-section">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% elif num == questions.number|add:'-3' or num == questions.number|add:'3' %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if questions.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ questions.next_page_number }}#question-list-section">下一页</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">下一页</span>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="mt-3 mb-0">还没有添加题目</p>
+                        <p class="small">点击上方按钮创建或从题库添加题目</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧：侧边栏 -->
+        <div class="col-lg-3">
+            {% include 'quiz/creator/tags/creator_sidebar.html' %}
+            
+            <!-- 管理操作 -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="bi bi-gear text-danger"></i> 管理操作</h6>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-sm btn-outline-warning btn-block" onclick="toggleStatus()">
+                            <i class="bi bi-toggle-on"></i> 
+                            {% if quiz.is_active %}停用竞赛{% else %}激活竞赛{% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger btn-block" onclick="deleteQuiz()">
+                            <i class="bi bi-trash"></i> 删除竞赛
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 确认模态框 -->
+<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="confirmModalTitle">确认操作</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="confirmModalBody">
+                确定要执行此操作吗？
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmModalBtn">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentAction = null;
+
+// 显示确认模态框
+function showConfirm(title, message, callback) {
+    document.getElementById('confirmModalTitle').textContent = title;
+    document.getElementById('confirmModalBody').textContent = message;
+    currentAction = callback;
+    $('#confirmModal').modal('show');
+}
+
+// 确认按钮点击
+document.getElementById('confirmModalBtn').addEventListener('click', function() {
+    $('#confirmModal').modal('hide');
+    if (currentAction) {
+        currentAction();
+        currentAction = null;
+    }
+});
+
+// 移除题目
+function removeQuestion(btn) {
+    // 从按钮的 data 属性中读取题目ID
+    const questionId = btn.getAttribute('data-question-id');
+    
+    if (!questionId || questionId === 'None' || questionId === '') {
+        showErrorToast('题目ID缺失，无法执行移除操作');
+        console.error('Question ID is missing:', questionId);
+        return;
+    }
+    
+    showConfirm('移除题目', '确定要从竞赛中移除此题目吗？', function() {
+        const row = btn.closest('tr');
+        btn.disabled = true;
+        
+        fetch('{% url "quiz:remove_question_from_quiz" quiz.slug %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ question_id: parseInt(questionId) })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessToast('题目已成功移除');
+                // 淡出并移除行
+                row.style.transition = 'opacity 0.3s ease';
+                row.style.opacity = '0';
+                setTimeout(() => {
+                    row.remove();
+                    // 如果没有题目了，刷新页面
+                    const tbody = document.querySelector('tbody');
+                    if (tbody && tbody.children.length === 0) {
+                        location.reload();
+                    }
+                }, 300);
+            } else {
+                showErrorToast(data.message || '移除失败，请重试');
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误，请检查连接后重试');
+            console.error('Remove question error:', error);
+            btn.disabled = false;
+        });
+    });
+}
+
+// 切换竞赛状态
+function toggleStatus() {
+    const isActive = {{ quiz.is_active|yesno:"true,false" }};
+    const action = isActive ? '停用' : '激活';
+    
+    showConfirm(action + '竞赛', `确定要${action}此竞赛吗？`, function() {
+        fetch('{% url "quiz:toggle_quiz_status" quiz.slug %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessToast(`竞赛已${action}`);
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showErrorToast(data.message || '操作失败，请重试');
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误，请检查连接后重试');
+        });
+    });
+}
+
+// 查看题目详情
+function viewQuestion(questionId) {
+    fetch(`/quiz/question/${questionId}/detail/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const q = data.question;
+            const isSubjective = ['fill_blank', 'essay'].includes(q.question_type);
+            
+            let html = `
+                <div style="padding: 20px;">
+                    <div style="margin-bottom: 20px;">
+                        <span class="state-label state-label-info" style="margin-right: 8px;">${q.type_display}</span>
+                        <span class="state-label state-label-secondary">${q.difficulty_display}</span>
+                        ${q.category ? `<span class="state-label state-label-info" style="margin-left: 8px;">${q.category}</span>` : ''}
+                        <span class="state-label state-label-warning" style="margin-left: 8px;">${q.score} 分</span>
+                        ${isSubjective ? '<span class="state-label state-label-danger" style="margin-left: 8px;">需人工批改</span>' : ''}
+                    </div>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                        <strong style="color: #333; display: block; margin-bottom: 10px;">题目：</strong>
+                        <div class="quiz-question-content question-content markdown-content">${q.content}</div>
+                    </div>
+            `;
+            
+            // 主观题显示标准答案
+            if (isSubjective) {
+                if (q.standard_answer) {
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <strong style="color: #333; display: block; margin-bottom: 10px;">标准答案：</strong>
+                            <div style="background: #d4edda; border: 1px solid #28a745; border-left: 3px solid #28a745; padding: 12px 15px; border-radius: 4px;">
+                                <div class="quiz-question-content question-content markdown-content" style="color: #155724; white-space: pre-wrap;">${q.standard_answer}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 10px 15px; border-radius: 4px; color: #856404;">
+                                <i class="bi bi-info-circle"></i> 未设置标准答案
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                // 客观题显示选项
+                html += `
+                    <div style="margin-bottom: 20px;">
+                        <strong style="color: #333; display: block; margin-bottom: 10px;">选项：</strong>
+                `;
+                
+                q.options.forEach(opt => {
+                    const isCorrect = opt.is_correct;
+                    const bgColor = isCorrect ? '#d4edda' : '#fff';
+                    const borderColor = isCorrect ? '#28a745' : '#dee2e6';
+                    const icon = isCorrect ? '✓' : '';
+                    html += `
+                        <div style="background: ${bgColor}; border: 1px solid ${borderColor}; padding: 10px 15px; margin-bottom: 8px; border-radius: 4px; display: flex; align-items: flex-start;">
+                            <span style="font-weight: bold; margin-right: 10px; color: #333; flex-shrink: 0;">${opt.order}.</span>
+                            <div class="option-content" style="flex: 1; color: #555;">${opt.content}</div>
+                            ${icon ? `<span style="color: #28a745; font-weight: bold; margin-left: 10px; flex-shrink: 0;">${icon}</span>` : ''}
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            }
+            
+            if (q.explanation) {
+                html += `
+                    <div style="background: #fff3cd; border-left: 3px solid #ffc107; padding: 12px 15px; border-radius: 4px;">
+                        <strong style="color: #856404; display: block; margin-bottom: 8px;">答案解析：</strong>
+                        <div class="quiz-question-content question-content markdown-content" style="color: #856404;">${q.explanation}</div>
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            
+            document.getElementById('questionDetailBody').innerHTML = html;
+            if (typeof $ !== 'undefined') {
+                $('#questionDetailModal').modal('show');
+            } else {
+                const modal = document.getElementById('questionDetailModal');
+                if (modal) {
+                    modal.classList.add('show');
+                    modal.style.display = 'block';
+                    document.body.classList.add('modal-open');
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    backdrop.id = 'question-detail-backdrop';
+                    document.body.appendChild(backdrop);
+                }
+            }
+        } else {
+            showErrorToast(data.message || '获取题目详情失败');
+        }
+    })
+    .catch(error => {
+        showErrorToast('网络错误，请重试');
+        console.error('Error:', error);
+    });
+}
+
+// 删除竞赛
+function deleteQuiz() {
+    showConfirm('删除竞赛', '确定要删除此竞赛吗？此操作无法恢复！', function() {
+        fetch('{% url "quiz:creator_delete_quiz" quiz.slug %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessToast('竞赛已删除');
+                setTimeout(() => {
+                    window.location.href = '{% url "quiz:my_quizzes" %}';
+                }, 800);
+            } else {
+                showErrorToast(data.message || '删除失败，请重试');
+            }
+        })
+        .catch(error => {
+            showErrorToast('网络错误，请检查连接后重试');
+        });
+    });
+}
+
+// 打开导入模态框
+function openImportModal() {
+    const modal = document.getElementById('importModal');
+    if (modal) {
+        if (typeof $ !== 'undefined') {
+            $('#importModal').modal('show');
+        } else {
+            // Fallback: 手动显示模态框
+            modal.classList.add('show');
+            modal.style.display = 'block';
+            document.body.classList.add('modal-open');
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.id = 'import-modal-backdrop';
+            document.body.appendChild(backdrop);
+        }
+    }
+}
+
+// 关闭题目详情模态框
+function closeQuestionDetailModal() {
+    const modal = document.getElementById('questionDetailModal');
+    if (modal) {
+        if (typeof $ !== 'undefined') {
+            $('#questionDetailModal').modal('hide');
+        } else {
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            const backdrop = document.getElementById('question-detail-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+    }
+}
+
+// 关闭导入模态框
+function closeImportModal() {
+    const modal = document.getElementById('importModal');
+    if (modal) {
+        if (typeof $ !== 'undefined') {
+            $('#importModal').modal('hide');
+        } else {
+            // Fallback: 手动隐藏模态框
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            const backdrop = document.getElementById('import-modal-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+    }
+    const form = document.getElementById('import-form');
+    const selectedFile = document.getElementById('selected-file');
+    const uploadBtn = document.getElementById('upload-btn');
+    if (form) form.reset();
+    if (selectedFile) selectedFile.style.display = 'none';
+    if (uploadBtn) uploadBtn.disabled = true;
+}
+
+// 页面加载完成后绑定事件
+document.addEventListener('DOMContentLoaded', function() {
+    // 文件选择
+    const excelFile = document.getElementById('excel_file');
+    const dropZone = document.getElementById('quiz-drop-zone');
+    
+    // 处理文件选择
+    function handleFileSelect(file) {
+        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+            const fileName = document.getElementById('file-name');
+            const selectedFile = document.getElementById('selected-file');
+            const uploadBtn = document.getElementById('upload-btn');
+            if (fileName) fileName.textContent = file.name;
+            if (selectedFile) selectedFile.style.display = 'block';
+            if (uploadBtn) uploadBtn.disabled = false;
+        } else if (file) {
+            alert('请上传 Excel 文件（.xlsx 或 .xls）');
+        }
+    }
+    
+    // 点击上传区域
+    if (dropZone) {
+        dropZone.addEventListener('click', function() {
+            if (excelFile) excelFile.click();
+        });
+    }
+    
+    // 文件输入变化
+    if (excelFile) {
+        excelFile.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            handleFileSelect(file);
+        });
+    }
+    
+    // 拖拽上传
+    if (dropZone) {
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.add('quiz-drag-over');
+        });
+        
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('quiz-drag-over');
+        });
+        
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('quiz-drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                // 设置到文件输入框
+                if (excelFile) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    excelFile.files = dataTransfer.files;
+                }
+                handleFileSelect(file);
+            }
+        });
+    }
+
+    // 表单提交
+    const importForm = document.getElementById('import-form');
+    if (importForm) {
+        importForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const btn = document.getElementById('upload-btn');
+            
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 导入中...';
+            }
+            
+            fetch('{% url "quiz:import_questions" quiz.slug %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessToast(data.message);
+                    closeImportModal();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    let errorMsg = data.message;
+                    if (data.errors && data.errors.length > 0) {
+                        errorMsg += '\n前5个错误：\n' + data.errors.slice(0, 5).join('\n');
+                    }
+                    showErrorToast(errorMsg);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-upload"></i> 开始导入';
+                    }
+                }
+            })
+            .catch(error => {
+                showErrorToast('上传失败：' + error);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-upload"></i> 开始导入';
+                }
+            });
+        });
+    }
+});
+</script>
+
+<!-- 导入模态框 -->
+<div class="modal fade" id="importModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content quiz-import-modal">
+            <div class="modal-header" style="border-bottom: 1px solid #e9ecef; background: white;">
+                <h5 class="modal-title" style="color: #333; font-weight: 600;">批量导入题目</h5>
+                <button type="button" class="close" data-dismiss="modal" onclick="closeImportModal()">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 30px;">
+                <div style="background: #f8f9fa; border-left: 3px solid #17a2b8; padding: 12px 15px; margin-bottom: 25px; border-radius: 3px;">
+                    <small style="color: #666;">
+                        <strong>说明：</strong>下载模板，按格式填写题目后上传。题目类型：单选/多选/判断；正确答案：单选填A，多选填AB，判断填A或B
+                    </small>
+                </div>
+                
+                <div style="margin-bottom: 30px;">
+                    <label class="font-weight-bold mb-3" style="color: #333;">步骤 1：下载模板</label>
+                    <div>
+                        <a href="{% url 'quiz:download_import_template' %}" class="btn btn-outline-secondary" download style="border-radius: 4px;">
+                            <i class="bi bi-download"></i> 下载 Excel 模板
+                        </a>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="font-weight-bold mb-3" style="color: #333;">步骤 2：上传文件</label>
+                    <form id="import-form" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div id="quiz-drop-zone" style="border: 2px dashed #ddd; border-radius: 8px; padding: 40px; text-align: center; background: #fafafa; cursor: pointer; transition: all 0.3s; margin-bottom: 15px;">
+                            <div style="color: #999; font-size: 48px; margin-bottom: 10px;">
+                                <i class="bi bi-file-earmark-arrow-up"></i>
+                            </div>
+                            <p style="margin: 0 0 5px 0; color: #666; font-size: 15px;">点击或拖拽文件到此处上传</p>
+                            <p style="margin: 0; color: #999; font-size: 13px;">支持 .xlsx 和 .xls 格式</p>
+                            <input type="file" id="excel_file" name="excel_file" accept=".xlsx,.xls" style="display: none;" required>
+                        </div>
+                        <div id="selected-file" style="display: none; padding: 12px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px;">
+                            <strong style="color: #155724;">已选择：</strong> <span id="file-name" style="color: #155724;"></span>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-block" id="upload-btn" disabled style="padding: 12px; border-radius: 4px; font-weight: 500;">
+                            <i class="bi bi-upload"></i> 开始导入
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#quiz-drop-zone:hover {
+    border-color: #28a745;
+    background: #f0f8f0;
+}
+#quiz-drop-zone.quiz-drag-over {
+    border-color: #28a745;
+    background: #e8f5e9;
+    border-style: solid;
+}
+
+/* 题目详情样式 - 避免冲突使用 quiz- 前缀 */
+.quiz-detail-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.quiz-badge-primary { background: #007bff; color: white; }
+.quiz-badge-secondary { background: #6c757d; color: white; }
+.quiz-badge-info { background: #17a2b8; color: white; }
+.quiz-badge-warning { background: #ffc107; color: #333; }
+
+
+
+/* 确保模态框中的代码块正确换行 */
+#questionDetailModal .quiz-question-content pre,
+#questionDetailModal .question-content pre,
+#questionDetailModal .markdown-content pre {
+    white-space: pre !important;
+    word-wrap: normal !important;
+    word-break: normal !important;
+    overflow-x: auto !important;
+}
+
+#questionDetailModal .quiz-question-content .codehilite pre,
+#questionDetailModal .question-content .codehilite pre,
+#questionDetailModal .markdown-content .codehilite pre {
+    white-space: pre !important;
+    word-wrap: normal !important;
+    word-break: normal !important;
+}
+
+#questionDetailModal .quiz-question-content code,
+#questionDetailModal .question-content code,
+#questionDetailModal .markdown-content code {
+    white-space: pre !important;
+}
+
+/* 重置模态框中的段落和文本间距，避免继承过大的间距 */
+#questionDetailModal .quiz-question-content p,
+#questionDetailModal .question-content p,
+#questionDetailModal .markdown-content p {
+    margin-bottom: 0.5em !important;
+}
+
+#questionDetailModal .quiz-question-content p:last-child,
+#questionDetailModal .question-content p:last-child,
+#questionDetailModal .markdown-content p:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* 重置选项内容的margin，确保上下边距一致 */
+#questionDetailModal .option-content * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* 只有代码块才需要大间距 */
+#questionDetailModal .quiz-question-content .codehilite,
+#questionDetailModal .question-content .codehilite,
+#questionDetailModal .markdown-content .codehilite {
+    margin: 15px 0 !important;
+}
+
+#questionDetailModal .quiz-question-content .codehilite:first-child,
+#questionDetailModal .question-content .codehilite:first-child,
+#questionDetailModal .markdown-content .codehilite:first-child {
+    margin-top: 0 !important;
+}
+
+#questionDetailModal .quiz-question-content .codehilite:last-child,
+#questionDetailModal .question-content .codehilite:last-child,
+#questionDetailModal .markdown-content .codehilite:last-child {
+    margin-bottom: 0 !important;
+}
+</style>
+
+<!-- 题目详情模态框 -->
+<div class="modal fade" id="questionDetailModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header" style="border-bottom: 1px solid #e9ecef; background: white;">
+                <h5 class="modal-title" style="color: #333; font-weight: 600;">题目详情</h5>
+                <button type="button" class="close" data-dismiss="modal" onclick="closeQuestionDetailModal()">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="questionDetailBody" style="padding: 0;">
+                <!-- 内容通过 JavaScript 动态加载 -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,631 @@
+{% extends 'public/base.html' %}
+{% load static %}
+
+{% block head_title %}报名管理 - {{ quiz.title }}{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'quiz/css/quiz.css' %}" rel="stylesheet">
+<style>
+    .stats-card-compact {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #e9ecef;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: all 0.3s;
+    }
+    
+    .stats-card-compact:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+
+    .stats-card-compact .stats-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .stats-card-compact .stats-label {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: inline-block;
+    }
+
+    .status-pending {
+        background: #fff7e6;
+        color: #d48806;
+        border: 1px solid #ffd591;
+    }
+
+    .status-approved {
+        background: #f6ffed;
+        color: #389e0d;
+        border: 1px solid #b7eb8f;
+    }
+
+    .status-rejected {
+        background: #fff1f0;
+        color: #cf1322;
+        border: 1px solid #ffa39e;
+    }
+
+    .action-btn {
+        padding: 2px 8px;
+        font-size: 0.85rem;
+        margin: 0 2px;
+    }
+
+    .filter-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .filter-card .form-inline {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .filter-card label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 0;
+    }
+
+    .filter-card .form-control {
+        border-color: #ced4da;
+    }
+
+    .filter-card .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+
+    .filter-card .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+
+    .filter-card .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #004085;
+    }
+
+    /* 全局筛选框样式 */
+    .filter-select {
+        border: 1px solid #b3d9ff;
+        border-radius: 6px;
+        padding: 6px 32px 6px 12px;
+        background-color: #e6f3ff;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23007bff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 12px;
+        color: #0056b3;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.3s;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,123,255,0.1);
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+    }
+
+    .filter-select:hover {
+        border-color: #80c1ff;
+        background-color: #cce7ff;
+        box-shadow: 0 2px 5px rgba(0,123,255,0.15);
+    }
+
+    .filter-select:focus {
+        outline: none;
+        border-color: #007bff;
+        background-color: #e6f3ff;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.2);
+    }
+
+    /* 下拉框选项样式 */
+    .filter-select option {
+        padding: 8px 12px;
+        background-color: #fff;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+
+    .filter-select option:hover {
+        background-color: #f8f9fa;
+    }
+
+    .filter-select option:checked {
+        background-color: #007bff;
+        color: #fff;
+    }
+
+    /* 搜索输入框样式 */
+    .filter-input {
+        border: 1px solid #e0e0e0;
+        border-radius: 6px 0 0 6px;
+        padding: 5px 12px;
+        background-color: #fff;
+        color: #495057;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .filter-input:hover {
+        border-color: #b0b0b0;
+    }
+
+    .filter-input:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.15);
+    }
+
+    /* 搜索按钮样式 */
+    .filter-search-btn {
+        border-radius: 0 6px 6px 0;
+        padding: 5px 15px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* 清除按钮样式 */
+    .filter-clear-btn {
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 5px 12px;
+        background-color: #fff;
+        color: #6c757d;
+        transition: all 0.3s;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .filter-clear-btn:hover {
+        border-color: #dc3545;
+        color: #dc3545;
+        box-shadow: 0 2px 5px rgba(220,53,69,0.15);
+    }
+
+    /* 自定义下拉框 */
+    .custom-select-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    .custom-select-trigger {
+        border: 1px solid #b3d9ff;
+        border-radius: 6px;
+        padding: 6px 15px 6px 12px;
+
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23007bff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 12px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        user-select: none;
+        min-width: 120px;
+        transition: all 0.3s;
+    }
+
+    .custom-select-trigger:hover {
+        background-color: #cce7ff;
+        border-color: #80c1ff;
+    }
+
+    .custom-select-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: #fff;
+        border: 1px solid #b3d9ff;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+        z-index: 1000;
+        display: none;
+        overflow-y: auto;
+    }
+
+    .custom-select-dropdown.active {
+        display: block;
+    }
+
+    /* 分页样式统一 */
+    .pagination .page-link {
+        border-radius: 8px !important;
+        margin: 0 3px;
+    }
+
+    .pagination .page-item:first-child .page-link,
+    .pagination .page-item:last-child .page-link {
+        border-radius: 8px !important;
+    }
+
+
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container mb-5">
+    <div class="row">
+        <!-- 左侧：报名管理 -->
+        <div class="col-lg-9">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white border-0 mb-2 py-2 f-15" style="border-radius: 8px;">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'quiz:quiz_list' %}">知识竞赛</a>
+                    </li>   
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'quiz:my_quizzes' %}">我的竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item active">报名管理</li>
+                </ol>
+            </nav>
+
+            <!-- 统计卡片 -->
+            <div class="row">
+                <div class="col-md-3 mb-2">
+                    <div class="stats-card-compact">
+                        <div class="stats-number text-primary">{{ total_count }}</div>
+                        <div class="stats-label">总报名数</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <div class="stats-card-compact">
+                        <div class="stats-number text-success">{{ approved_count }}</div>
+                        <div class="stats-label">已通过</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <div class="stats-card-compact">
+                        <div class="stats-number text-warning">{{ pending_count }}</div>
+                        <div class="stats-label">待审核</div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <div class="stats-card-compact">
+                        <div class="stats-number text-danger">{{ rejected_count }}</div>
+                        <div class="stats-label">已拒绝</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 筛选和搜索 -->
+            <div class="card border-0 shadow-sm mb-3 filter-card">
+                <h6 class="font-weight-bold mb-3">
+                    <i class="fa fa-filter text-primary mr-2"></i>筛选
+                </h6>
+                <form method="get" class="form-inline" id="filterForm">
+                    <div class="form-group mr-3 mb-2 mb-md-0">
+                        <label class="mr-2">
+                            <i class="fa fa-tag mr-1"></i>状态：
+                        </label>
+                        <input type="hidden" name="status" id="statusInput" value="{{ status_filter }}">
+                        <div class="custom-select-wrapper">
+                            <div class="custom-select-trigger" id="statusSelect">
+                                {% if status_filter == 'approved' %}
+                                    已通过
+                                {% elif status_filter == 'pending' %}
+                                    待审核
+                                {% elif status_filter == 'rejected' %}
+                                    已拒绝
+                                {% else %}
+                                    全部
+                                {% endif %}
+                            </div>
+                            <div class="custom-select-dropdown" id="statusDropdown">
+                                <div class="custom-select-option {% if not status_filter %}selected{% endif %}" data-value="">全部</div>
+                                <div class="custom-select-option {% if status_filter == 'approved' %}selected{% endif %}" data-value="approved">已通过</div>
+                                <div class="custom-select-option {% if status_filter == 'pending' %}selected{% endif %}" data-value="pending">待审核</div>
+                                <div class="custom-select-option {% if status_filter == 'rejected' %}selected{% endif %}" data-value="rejected">已拒绝</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </form>
+            </div>
+
+            <!-- 报名列表 -->
+            <div class="card border-0 shadow-sm" style="border-radius: 8px;">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="mb-0">
+                        <i class="fa fa-list text-primary mr-2"></i>报名列表
+                        <span class="text-muted small ml-2">(共 {{ total_count }} 人)</span>
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if registrations %}
+                    <div class="table-responsive">
+                        <table class="table mb-0 dynamic-table">
+                            <thead>
+                                <tr>
+                                    
+                                    <th style="white-space: nowrap;">姓名</th>
+                                    <th style="white-space: nowrap;">学号</th>
+                                    <th style="white-space: nowrap;">部门</th>
+                                    <th style="white-space: nowrap;">手机</th>
+                                    <th style="white-space: nowrap;">报名时间</th>
+                                    <th style="white-space: nowrap;">状态</th>
+                                    <th style="white-space: nowrap;" class="text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reg in registrations %}
+                                <tr>
+                                    
+                                    <td>{{ reg.name|default:"-" }}</td>
+                                    <td>{{ reg.student_id|default:"-" }}</td>
+                                    <td>{{ reg.role|default:"-" }}</td>
+                                    <td>{{ reg.phone|default:"-" }}</td>
+                                    <td class="small text-muted">{{ reg.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if reg.status == 'pending' %}
+                                            <span class="status-badge status-pending">
+                                                <i class="fa fa-clock-o mr-1"></i>待审核
+                                            </span>
+                                        {% elif reg.status == 'approved' %}
+                                            <span class="status-badge status-approved">
+                                                <i class="fa fa-check-circle mr-1"></i>已通过
+                                            </span>
+                                        {% else %}
+                                            <span class="status-badge status-rejected">
+                                                <i class="fa fa-times-circle mr-1"></i>已拒绝
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if reg.status != 'approved' %}
+                                        <button class="btn btn-sm btn-success action-btn update-status-btn" 
+                                                data-reg-id="{{ reg.id }}" 
+                                                data-status="approved"
+                                                title="通过">
+                                            <i class="fa fa-check"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% if reg.status != 'rejected' %}
+                                        <button class="btn btn-sm btn-danger action-btn update-status-btn" 
+                                                data-reg-id="{{ reg.id }}" 
+                                                data-status="rejected"
+                                                title="拒绝">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页 -->
+                    {% if page_obj.has_other_pages %}
+                    <div class="p-3 border-top">
+                        <nav aria-label="报名记录分页">
+                            <ul class="pagination pagination-sm justify-content-center mb-0">
+                                {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">上一页</a>
+                                </li>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">下一页</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fa fa-inbox fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <p class="mt-2 mb-0">暂无报名记录</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：侧边栏 -->
+        <div class="col-lg-3">
+            {% include 'quiz/creator/tags/creator_sidebar.html' %}
+        </div>
+    </div>
+</div>
+
+<!-- 确认模态框 -->
+<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title font-weight-bold">
+                    <i class="fa fa-exclamation-circle text-warning mr-2"></i>
+                    <span id="modalTitle">确认操作</span>
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-4">
+                <p id="modalMessage" class="mb-0"></p>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">
+                    <i class="fa fa-times mr-1"></i>取消
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="confirmBtn">
+                    <i class="fa fa-check mr-1"></i>确定
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentAction = null;
+    
+    // ========== 自定义下拉框功能 ==========
+    const selectTrigger = document.getElementById('statusSelect');
+    const selectDropdown = document.getElementById('statusDropdown');
+    const statusInput = document.getElementById('statusInput');
+    const filterForm = document.getElementById('filterForm');
+    
+    // 点击触发器切换下拉框
+    if (selectTrigger) {
+        selectTrigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            selectDropdown.classList.toggle('active');
+        });
+    }
+    
+    // 点击选项
+    if (selectDropdown) {
+        const options = selectDropdown.querySelectorAll('.custom-select-option');
+        options.forEach(option => {
+            option.addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                // 更新选中状态
+                options.forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                
+                // 更新触发器文本
+                selectTrigger.textContent = this.textContent;
+                
+                // 更新隐藏输入框的值
+                statusInput.value = this.dataset.value;
+                
+                // 关闭下拉框
+                selectDropdown.classList.remove('active');
+                
+                // 自动提交表单
+                filterForm.submit();
+            });
+        });
+    }
+    
+    // 点击外部关闭下拉框
+    document.addEventListener('click', function() {
+        if (selectDropdown) {
+            selectDropdown.classList.remove('active');
+        }
+    });
+    
+    // ========== 报名审核功能 ==========
+    
+    const statusText = {
+        'approved': '通过',
+        'rejected': '拒绝',
+        'pending': '待审核'
+    };
+    
+    const statusColors = {
+        'approved': 'success',
+        'rejected': 'danger',
+        'pending': 'warning'
+    };
+    
+    // 事件委托处理所有更新状态按钮
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.update-status-btn');
+        if (!btn) return;
+        
+        const registrationId = btn.dataset.regId;
+        const newStatus = btn.dataset.status;
+        
+        // 设置模态框内容
+        document.getElementById('modalTitle').textContent = '确认' + statusText[newStatus] + '报名';
+        document.getElementById('modalMessage').textContent = '确定要' + statusText[newStatus] + '该报名申请吗？';
+        
+        // 更新确认按钮样式
+        const confirmBtn = document.getElementById('confirmBtn');
+        confirmBtn.className = 'btn btn-' + statusColors[newStatus] + ' btn-sm';
+        
+        // 显示确认模态框
+        $('#confirmModal').modal('show');
+        
+        // 设置确认操作
+        currentAction = function() {
+            $('#confirmModal').modal('hide');
+            
+            const url = "{% url 'quiz:update_registration_status' quiz.slug 0 %}".replace('/0/', '/' + registrationId + '/');
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: 'status=' + newStatus
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showResult('success', data.message);
+                    setTimeout(function() {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showResult('error', '操作失败：' + data.message);
+                }
+            })
+            .catch(error => {
+                showResult('error', '操作失败，请重试');
+                console.error('Error:', error);
+            });
+        };
+    });
+    
+    // 确认按钮点击事件
+    document.getElementById('confirmBtn').addEventListener('click', function() {
+        if (currentAction) {
+            currentAction();
+            currentAction = null;
+        }
+    });
+    
+    // 显示结果提示
+    function showResult(type, message) {
+        if (type === 'success') {
+            showSuccessToast(message, '操作成功', 2000);
+        } else {
+            showErrorToast(message, '操作失败', 3000);
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,192 @@
+<div class="card border-0 rounded-6 px-3 mb-2 mb-md-3">
+    <div class="card-body px-0 pt-3">
+        {% if competition %}
+            <div>
+                <div class="competition-status">
+                    {% if competition_status == 'upcoming' %}
+                        <div class="status-indicator upcoming">
+                            <i class="fa fa-clock-o"></i> 即将开始
+                        </div>
+                        <div class="countdown-wrapper" data-start-time="{{ competition.start_time|date:'Y/m/d H:i:s' }}">
+                            <div class="time-unit">
+                                <span class="time-value days">00</span>
+                                <span class="time-label">天</span>
+                            </div>
+                            <div class="time-unit">
+                                <span class="time-value hours">00</span>
+                                <span class="time-label">时</span>
+                            </div>
+                            <div class="time-unit">
+                                <span class="time-value minutes">00</span>
+                                <span class="time-label">分</span>
+                            </div>
+                            <div class="time-unit">
+                                <span class="time-value seconds">00</span>
+                                <span class="time-label">秒</span>
+                            </div>
+                        </div>
+                    {% elif competition_status == 'ongoing' %}
+                        
+                        <div class="countdown-wrapper" data-end-time="{{ competition.end_time|date:'Y/m/d H:i:s' }}">
+                            <div class="time-unit">
+                                <span class="time-value days">00</span>
+                                <span class="time-label">天</span>
+                            </div>
+                            <div class="time-unit">
+                                <span class="time-value hours">00</span>
+                                <span class="time-label">时</span>
+                            </div>
+                            <div class="time-unit">
+                                <span class="time-value minutes">00</span>
+                                <span class="time-label">分</span>
+                            </div>
+                            <div class="time-unit">
+                                <span class="time-value seconds">00</span>
+                                <span class="time-label">秒</span>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="status-indicator ended">
+                            <i class="fa fa-check-circle"></i> 已结束
+                        </div>
+                        <div class="time-range">
+                            {{ competition.start_time|date:"Y-m-d H:i" }} 至 {{ competition.end_time|date:"Y-m-d H:i" }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center text-muted py-4">
+                暂无比赛信息
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.competition-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 5px 0 15px;
+}
+
+.status-indicator {
+    width: 110px;
+    text-align: center;
+    padding: 6px 0;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 15px;
+}
+
+.status-indicator.upcoming {
+    background-color: #edf2ff;
+    color: #4263eb;
+}
+
+.status-indicator.ongoing {
+    background-color: #e6fcf5;
+    color: #12b886;
+}
+
+.status-indicator.ended {
+    background-color: #f1f3f5;
+    color: #495057;
+}
+
+.countdown-wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.time-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.time-value {
+    background-color: #f8f9fa;
+    color: #343a40;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 600;
+    border: 1px solid #e9ecef;
+}
+
+.time-label {
+    margin-top: 5px;
+    color: #868e96;
+    font-size: 12px;
+}
+
+.time-range {
+    padding: 8px 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #495057;
+    border: 1px solid #e9ecef;
+}
+
+@media (max-width: 340px) {
+    .countdown-wrapper {
+        gap: 5px;
+    }
+    
+    .time-value {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function updateCountdown(timerElement) {
+        const startTime = timerElement.dataset.startTime;
+        const endTime = timerElement.dataset.endTime;
+        const targetTime = startTime || endTime;
+        
+        if (!targetTime) return;
+
+        function update() {
+            const now = new Date().getTime();
+            const target = new Date(targetTime).getTime();
+            const distance = target - now;
+
+            if (distance < 0) {
+                location.reload();
+                return;
+            }
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            timerElement.querySelector('.days').textContent = String(days).padStart(2, '0');
+            timerElement.querySelector('.hours').textContent = String(hours).padStart(2, '0');
+            timerElement.querySelector('.minutes').textContent = String(minutes).padStart(2, '0');
+            timerElement.querySelector('.seconds').textContent = String(seconds).padStart(2, '0');
+        }
+
+        update();
+        return setInterval(update, 1000);
+    }
+
+    document.querySelectorAll('.countdown-wrapper').forEach(timer => {
+        updateCountdown(timer);
+    });
+});
+</script>

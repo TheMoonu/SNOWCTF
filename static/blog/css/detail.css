@@ -1,0 +1,393 @@
+.f-17 {
+    font-size: 15px;
+}
+
+.nowpage .breadcrumb {
+    background-color: transparent;
+}
+
+
+/*设置文章导航*/
+.article-toc {
+    position: sticky;
+    top: 70px;  /* 距离顶部的距离，避开导航栏 */
+    max-height: calc(100vh - 90px);  /* 最大高度为视口高度减去顶部距离和底部留白 */
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: white;
+    padding: 1rem 1rem .2rem 0;
+    transition: top 0.3s ease;
+}
+
+.subject-list::-webkit-scrollbar,
+.article-toc::-webkit-scrollbar {
+    width: 4px;
+}
+
+.subject-list::-webkit-scrollbar-track,
+.article-toc::-webkit-scrollbar-track {
+    box-shadow: none;
+    border-radius: 2px
+}
+
+.subject-list::-webkit-scrollbar-thumb,
+.article-toc::-webkit-scrollbar-thumb {
+    background-color: #e4e6eb;
+    outline: none;
+    border-radius: 2px
+}
+
+.article-toc .toc-title {
+    margin-left: 1rem;
+    padding-bottom: .6rem;
+    margin-bottom: .8rem;
+    border-bottom: 1px solid #e4e6eb;
+}
+
+.article-toc ul {
+    padding-left: 1rem;
+    list-style-type: none;
+}
+
+.article-toc ul > li > ul li {
+    font-size: 94%;
+}
+
+.article-toc li {
+    margin-top: .4em;
+    margin-bottom: .4em;
+}
+
+.article-body .alert p {
+    margin-bottom: .1rem;
+}
+
+.toc a {
+    display: block;
+    color: rgba(60, 60, 67, .8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.toc a:hover {
+    color: rgba(33, 37, 41, 1);
+}
+
+.toc a.active {
+    color: #1e92f1;
+}
+
+
+.toc a::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 3px;
+    height: 1.2rem;
+    border-radius: 2px;
+    background-color: transparent;
+}
+
+.toc a.active::before {
+    background-color: #1e92f1;
+}
+
+blockquote {
+    margin: 0 0 .5em;
+}
+
+pre {
+    line-height: 1.5;
+    overflow-: auto;
+    position: relative;
+}
+
+.codehilite {
+    position: relative;
+}
+
+/* 旧的复制代码样式已被统一的 markdown-code-copy.js 和 public.css 替代 */
+/* .code-wrapper {
+    border-radius: 8px 8px 0 0;
+    background-color: #292b30;
+    display: flex;
+    justify-content: space-between;
+    height: 1.8rem;
+}
+
+.code-wrapper:before {
+    margin-top: .5rem;
+    margin-left: 1rem;
+    content: " ";
+    -webkit-border-radius: 50%;
+    background: #fc625d;
+    width: .7rem;
+    height: .7rem;
+    -webkit-box-shadow: 20px 0 #fdbc40, 40px 0 #35cd4b;
+}
+
+.code-wrapper .code-lang {
+    display: block;
+    font-size: .9rem;
+    margin-right: 1rem;
+}
+
+.codehilite button {
+    display: none;
+    background-color: transparent;
+    border: none;
+    color: #A6ACCD;
+    font-size: .9rem;
+    cursor: pointer;
+    outline: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin-right: .6rem;
+    z-index: 999;
+}
+
+.codehilite:hover button {
+    display: block;
+}
+
+.codehilite:hover .code-lang {
+    display: none;
+} */
+
+
+/* pre next blog */
+.more-blog {
+    text-align: center;
+    position: fixed;
+    top: 50%;
+    z-index: 88;
+    color: #ccc;
+}
+
+.more-blog a {
+    padding: 5rem 1rem;
+}
+
+.more-page-card a {
+    background: var(--izone-background-container);
+    color: var(--izone-font-default);
+    padding: 5px 14px;
+    border-radius: 14px;
+}
+
+#icon-pre-blog {
+    left: 2%;
+}
+
+#icon-next-blog {
+    right: 2%;
+}
+
+/*subject start*/
+
+.subject-block {
+    padding-right: 0;
+}
+
+.toc-block {
+    padding-left: 0;
+}
+
+.subject-list {
+    color: rgba(60, 60, 67, .8);
+    position: fixed;
+    width: 19%;
+    overflow: auto;
+    background: white;
+    padding: 1rem 1rem 0.2rem 0;
+}
+
+.subject-list .toc-title {
+    color: #2d3039;
+    margin-left: 1rem;
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid #e4e6eb;
+}
+
+.subject-article-list ul {
+    padding-left: 1rem;
+    list-style-type: none;
+}
+
+.subject-article-list a.active::before {
+    background-color: #ea6f5a;
+}
+
+.subject-article-list a.active {
+    position: relative;
+    color: #ea6f5a;
+}
+
+.active-subject .subcategory-title {
+    color: #ea6f5a;
+}
+
+.subject-article-list ul > li > ul a::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    border-radius: 2px;
+    left: -1.1rem;
+    height: 100%;
+    width: .1rem;
+}
+
+.subject-article-list li {
+    margin-top: 0.4rem;
+    margin-bottom: 0.4rem;
+}
+
+
+.subject-article-list ul > li ul {
+    border-left: rgba(60, 60, 60, .1) solid .1rem;
+}
+
+.subject-subcategory {
+    position: relative;
+    display: flex;
+    width: 100%;
+}
+
+.subcategory-title {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    font-weight: 600;
+}
+
+.subject-subcategory {
+    cursor: pointer;
+}
+
+.subject-subcategory .caret {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 1rem;
+    height: 1rem;
+    color: rgba(60, 60, 67, .43);
+    cursor: pointer;
+    transition: color .25s;
+}
+
+.collapsed .caret-icon {
+    transform: rotate(0)
+}
+
+.caret-icon {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    transform: rotate(90deg);
+    transition: transform .25s;
+}
+
+nav.nav-code-group {
+    background: #292b30;
+    border-radius: 8px 8px 0 0;
+    padding-bottom: -1px;
+    border-bottom: 1px solid #222;
+}
+
+nav.nav-code-group .nav-tabs .nav-link {
+    border: none;
+    border-radius: 8px 8px 0 0;
+    color: #909095;
+    text-decoration: none;
+}
+
+nav.nav-code-group .nav-tabs .nav-link.active {
+    background: #292b30;
+    color: #fff;
+    margin-bottom: -1px;
+    border-bottom: 1px solid #20c997;
+}
+
+nav.nav-code-group .nav-tabs {
+    border-bottom: none;
+
+}
+
+nav.nav-code-group .nav-tabs .nav-item {
+    margin-bottom: 0;
+}
+
+div.code-group .code-wrapper {
+    border-radius: 0;
+}
+
+/*subject end*/
+
+/* Small devices (landscape phones, 576px and up) */
+/* X-iPhone6 AND plus */
+@media (min-width: 576px) {
+    .f-17 {
+        font-size: 15px;
+    }
+}
+
+/* Medium devices (tablets, 768px and up) */
+/* Y-iPad mini */
+@media (min-width: 768px) {
+    .f-17 {
+        font-size: 16px;
+    }
+}
+
+/* Large devices (desktops, 992px and up) */
+/* X-iPad Y-iPad Pro*/
+@media (min-width: 992px) {
+    .subject-col-7 {
+        flex: 0 0 60%;
+        max-width: 60%;
+    }
+
+    .subject-col-2 {
+        flex: 0 0 20%;
+        max-width: 20%;
+    }
+
+    .subject-list,
+    .toc-block .article-toc {
+        max-height: 673px;
+    }
+}
+
+/* Extra large devices (large desktops, 1200px and up) */
+/* PC X-iPad Pro*/
+@media (min-width: 1200px) {
+    .subject-list,
+    .toc-block .article-toc {
+        max-height: 694px;
+    }
+}
+
+@media (min-width: 1450px) {
+    .subject-col-7 {
+        max-width: 834px;
+    }
+
+    .subject-col-2 {
+        max-width: 300px;
+    }
+
+    .article-toc,
+    .subject-list {
+        max-width: 284px
+    }
+}
+
+@media (min-width: 2560px) {
+    .subject-list,
+    .toc-block .article-toc {
+        max-height: 1230px;
+    }
+}

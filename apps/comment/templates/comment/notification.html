@@ -3,96 +3,169 @@
 {% load humanize %}
 {% load comment_tags blog_tags %}
 
-{% block head_title %}个人信息推送{% endblock %}
+{% block head_title %}消息通知{% endblock %}
 
 {% block top-file %}
-    <link href="{% static 'comment/css/notification.css' %}?v=20190704" rel="stylesheet">
+    <link href="{% static 'comment/css/notification.css' %}?v=20251230.01" rel="stylesheet">
 {% endblock %}
 
 {% block base_content %}
     <div class="container">
         <div class="row">
-            <div class="col-md-8 col-lg-9">
-                {% get_notifications user is_read as notifications %}
-                <ul class="cbp_tmtimeline f-16">
-                    {% for each in notifications|slice:":30" %}
-                        <li>
-                            <time class="cbp_tmtime" datetime="{{ each.create_date }}">
-                                <span>{{ each.create_date|date:"Y/m/d" }}</span>
-                                <span>{{ each.create_date|date:"H:i" }}</span>
-                            </time>
-                            <div class="cbp_tmicon"><i class="fa fa-envelope"></i></div>
-                            <div class="cbp_tmlabel">
-                                {% if each.tag == "comment" %}
-                                    <h2>
-                                        <strong>{{ each.create_p }}</strong>&nbsp;在&nbsp;
-                                        {% if each.comment.belong.title %}
-                                        <a class="text-info" title="查看评论详情"
-                                           href="{{ each.comment.get_absolute_url }}">
-                                            {{ each.comment.belong.title }}</a>
-                                        {% else %}
-                                        <a class="text-info" title="查看评论详情"
-                                           href="{{ each.comment.get_absolute_url }}">
-                                            [已删除]</a>
+            <!-- 左侧：通知列表 -->
+            <div class="col-lg-9">
+                <div class="notification-list">
+                    {% for each in notifications %}
+                        <div class="notification-item {% if not each.is_read %}unread{% endif %}">
+                            <!-- 时间戳 -->
+                            <div class="notification-time">
+                                <div class="time-date">{{ each.create_date|date:"m/d" }}</div>
+                                <div class="time-clock">{{ each.create_date|date:"H:i" }}</div>
+                            </div>
+                            
+                            <!-- 内容区域 -->
+                            <div class="notification-content">
+                                <!-- 图标和标题 -->
+                                <div class="notification-header">
+                                    <div class="notification-icon {% if each.tag == 'system' %}system{% else %}comment{% endif %}">
+                                        <i class="fa {% if each.tag == 'system' %}fa-bell{% else %}fa-comment{% endif %}"></i>
+                                    </div>
+                                    <div class="notification-title">
+                                        {% if each.tag == "comment" %}
+                                            <strong>{{ each.create_p }}</strong> 在
+                                            {% if each.comment.belong.title %}
+                                            <a href="{{ each.comment.belong.get_absolute_url }}#com-{{ each.comment.id }}">
+                                                {{ each.comment.belong.title }}</a>
+                                            {% else %}
+                                            <span class="text-muted">[已删除]</span>
+                                            {% endif %}
+                                            中@了你
+                                        {% elif each.tag == "system" %}
+                                            <span class="system-badge">系统通知</span>
+                                            {{ each.title }}
                                         {% endif %}
-                                        &nbsp;中@了你，并评论道：
-                                    </h2>
-                                    <p>{{ each.comment.content|my_slice:':130' }}</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- 正文内容 -->
+                                {% if each.tag == "comment" %}
+                                    <div class="notification-body">{{ each.comment.content|my_slice:':130' }}</div>
                                 {% elif each.tag == "system" %}
-                                    <h2>
-                                        <span class="text-primary">【系统通知】</span>{{ each.title }}
-                                    </h2>
-                                    <div>{{ each.content|safe }}</div>
+                                    <div class="notification-body">{{ each.content|safe }}</div>
                                 {% endif %}
-                                {% if not each.is_read %}
-                                    <div class="to_read pb-1">
-                                        <button class="btn btn-success float-right f-14 btn-sm" data-id="{{ each.id }}"
+                                
+                                <!-- 操作按钮 -->
+                                <div class="notification-actions">
+                                    {% if not each.is_read %}
+                                        <button class="btn-action btn-read" data-id="{{ each.id }}"
                                                 data-csrf="{{ csrf_token }}" data-tag="{{ each.tag }}"
-                                                data-url="{% url 'comment:mark_to_read' %}">标为已读
+                                                data-url="{% url 'comment:mark_to_read' %}">
+                                            <i class="fa fa-check"></i> 标为已读
                                         </button>
-                                    </div>
-                                {% else %}
-                                    <div class="to_delete pb-1">
-                                        <button class="btn btn-danger float-right f-14 btn-sm" data-id="{{ each.id }}"
+                                    {% else %}
+                                        <button class="btn-action btn-delete" data-id="{{ each.id }}"
                                                 data-csrf="{{ csrf_token }}" data-tag="{{ each.tag }}"
-                                                data-url="{% url 'comment:mark_to_delete' %}">删除信息
+                                                data-url="{% url 'comment:mark_to_delete' %}">
+                                            <i class="fa fa-trash"></i> 删除
                                         </button>
-                                    </div>
-                                {% endif %}
+                                    {% endif %}
+                                </div>
                             </div>
-                        </li>
+                        </div>
                     {% empty %}
-                        <li>
-                            <time class="cbp_tmtime" datetime="{{ now_date }}">
-                                <span>{{ now_date|date:"Y/m/d" }}</span>
-                                <span>{{ now_date|date:"H:i" }}</span>
-                            </time>
-                            <div class="cbp_tmicon"><i class="fa fa-envelope"></i></div>
-                            <div class="cbp_tmlabel">
-                                <h2>你暂时没有任何推送消息！</h2>
-                            </div>
-                        </li>
+                        <div class="notification-empty">
+                            <i class="fa fa-inbox"></i>
+                            <p>暂无消息通知</p>
+                        </div>
                     {% endfor %}
-                </ul>
-            </div>
-            <div class="col-md-4 col-lg-3">
-                <div class="card border-0" id="notes-main">
-                    <div class="card-header bg-white border-0">
-                        <h4><strong><i class="fa fa-bell-o mr-1"></i>&nbsp;提示信息</strong></h4>
-                    </div>
-                    <div class="card-body pt-0 url-menu">
-                        <ul class="list-group">
-                            {% url 'comment:notification' as all_url %}
-                            {% url 'comment:notification_no_read' as no_read_url %}
-                            <a class="list-group-item {% if request.path == all_url %}active{% endif %}"
-                               href="{{ all_url }}">全部信息
-                                <span class="badge float-right">{% get_notifications_count user %}</span>
-                            </a>
-                            <a class="list-group-item {% if request.path == no_read_url %}active{% endif %}"
-                               href="{{ no_read_url }}">未读信息
-                                <span class="badge float-right">{% get_notifications_count user 'false' %}</span>
-                            </a>
+                </div>
+                
+                <!-- 分页导航 -->
+                {% if notifications.has_other_pages %}
+                <div class="pagination-wrapper">
+                    <nav aria-label="通知分页">
+                        <ul class="pagination justify-content-center">
+                            {% if notifications.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1" aria-label="首页">
+                                        <i class="fa fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ notifications.previous_page_number }}" aria-label="上一页">
+                                        <i class="fa fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link"><i class="fa fa-angle-double-left"></i></span>
+                                </li>
+                                <li class="page-item disabled">
+                                    <span class="page-link"><i class="fa fa-angle-left"></i></span>
+                                </li>
+                            {% endif %}
+                            
+                            {% for num in notifications.paginator.page_range %}
+                                {% if notifications.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > notifications.number|add:'-3' and num < notifications.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if notifications.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ notifications.next_page_number }}" aria-label="下一页">
+                                        <i class="fa fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ notifications.paginator.num_pages }}" aria-label="末页">
+                                        <i class="fa fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link"><i class="fa fa-angle-right"></i></span>
+                                </li>
+                                <li class="page-item disabled">
+                                    <span class="page-link"><i class="fa fa-angle-double-right"></i></span>
+                                </li>
+                            {% endif %}
                         </ul>
+                        <div class="pagination-info">
+                            第 {{ notifications.number }} / {{ notifications.paginator.num_pages }} 页，
+                            共 {{ notifications.paginator.count }} 条通知
+                        </div>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- 右侧：筛选面板 -->
+            <div class="col-lg-3">
+                <div class="notification-sidebar">
+                    <div class="sidebar-header">
+                        <i class="fa fa-filter"></i>
+                        <span>筛选</span>
+                    </div>
+                    <div class="sidebar-menu">
+                        {% url 'comment:notification' as all_url %}
+                        {% url 'comment:notification_no_read' as no_read_url %}
+                        <a href="{{ all_url }}" class="menu-item {% if request.path == all_url %}active{% endif %}">
+                            <i class="fa fa-inbox"></i>
+                            <span>全部消息</span>
+                            <span class="badge">{% get_notifications_count user %}</span>
+                        </a>
+                        <a href="{{ no_read_url }}" class="menu-item {% if request.path == no_read_url %}active{% endif %}">
+                            <i class="fa fa-envelope"></i>
+                            <span>未读消息</span>
+                            <span class="badge unread">{% get_notifications_count user 'false' %}</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -101,7 +174,7 @@
 {% endblock %}
 
 {% block end_file %}
-    <script src="{% static 'comment/js/notification.js' %}?v=20230704.1"></script>
+    <script src="{% static 'comment/js/notification.js' %}?v=20251210"></script>
 {% endblock %}
 
 

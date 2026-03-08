@@ -1,0 +1,416 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .bulk-create-page {
+        padding: 20px;
+    }
+    
+    .page-title {
+        font-size: 24px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    
+    .form-section {
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+        max-width: 600px;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    
+    .form-label .required {
+        color: #f56c6c;
+        margin-left: 4px;
+    }
+    
+    .form-input,
+    .form-select,
+    .form-textarea {
+        width: 100%;
+        max-width: 100%;
+        padding: 10px 15px;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #606266;
+        line-height: 1.5;
+        transition: all 0.3s;
+        box-sizing: border-box;
+        height: auto;
+    }
+    
+    .form-input {
+        height: 40px;
+    }
+    
+    .form-select {
+        height: 40px;
+    }
+    
+    .form-select[multiple] {
+        height: auto;
+        min-height: 120px;
+        padding: 8px;
+    }
+    
+    .form-select[multiple] option {
+        padding: 6px 10px;
+        border-radius: 3px;
+        margin-bottom: 2px;
+    }
+    
+    .form-select[multiple] option:hover {
+        background: #f5f7fa;
+    }
+    
+    .form-select[multiple] option:checked {
+        background: #409eff;
+        color: white;
+    }
+    
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+        border-color: #409eff;
+        outline: none;
+    }
+    
+    .form-textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .form-hint {
+        font-size: 12px;
+        color: #909399;
+        margin-top: 5px;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+    
+    .preview-box {
+        background: #f5f7fa;
+        border: 1px solid #e4e7ed;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        max-width: 100%;
+        overflow: hidden;
+    }
+    
+    .preview-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: #606266;
+        margin-bottom: 10px;
+    }
+    
+    .preview-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        max-width: 100%;
+    }
+    
+    .preview-item {
+        background: #fff;
+        border: 1px solid #e4e7ed;
+        padding: 4px 12px;
+        border-radius: 3px;
+        font-size: 12px;
+        color: #606266;
+        white-space: nowrap;
+    }
+    
+    .action-bar {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .action-btn {
+        padding: 9px 15px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        border: 1px solid #dcdfe6;
+        background: #fff;
+        color: #606266;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    
+    .action-btn:hover {
+        color: #409eff;
+        border-color: #c6e2ff;
+        background-color: #ecf5ff;
+    }
+    
+    .action-btn.primary {
+        background: #409eff;
+        border-color: #409eff;
+        color: #fff;
+    }
+    
+    .action-btn.primary:hover {
+        background: #66b1ff;
+        border-color: #66b1ff;
+        color: #fff;
+    }
+    
+    .action-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .action-btn.primary:disabled {
+        background: #a0cfff;
+        border-color: #a0cfff;
+    }
+    
+    .info-alert {
+        background: #ecf5ff;
+        border: 1px solid #b3d8ff;
+        border-radius: 4px;
+        padding: 12px 15px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        color: #409eff;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">主页</a>
+    &rsaquo; <a href="{% url 'admin:practice_pc_challenge_changelist' %}">题目配置</a>
+    &rsaquo; 批量创建题目
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="bulk-create-page">
+    <h1 class="page-title">批量创建题目</h1>
+    
+
+    <form method="post" id="bulkCreateForm">
+        {% csrf_token %}
+        
+        <div class="form-section">
+            <div class="form-group">
+                <label class="form-label">
+                    题目类型 <span class="required">*</span>
+                </label>
+                <select name="category" class="form-select" id="categorySelect" required>
+                    <option value="">请选择类型</option>
+                    {% for cat_key, cat_name in categories %}
+                    <option value="{{ cat_key }}">{{ cat_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    创建数量 <span class="required">*</span>
+                </label>
+                <input type="number" 
+                       name="count" 
+                       class="form-input" 
+                       id="countInput"
+                       min="1" 
+                       max="50" 
+                       value="10" 
+                       required>
+                <div class="form-hint">一次最多创建50道题目</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    名称前缀
+                </label>
+                <input type="text" 
+                       name="name_prefix" 
+                       class="form-input" 
+                       id="prefixInput"
+                       placeholder="留空则使用题目类型作为前缀">
+                <div class="form-hint">例如：输入"Test"，生成的题目名称为 Test1, Test2...</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    难度 <span class="required">*</span>
+                </label>
+                <select name="difficulty" class="form-select" required>
+                    <option value="Easy">简单 (Easy)</option>
+                    <option value="Medium" selected>中等 (Medium)</option>
+                    <option value="Hard">困难 (Hard)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    题目分数
+                </label>
+                <input type="number" 
+                       name="points" 
+                       class="form-input" 
+                       value="100" 
+                       min="10" 
+                       max="1000">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    金币
+                </label>
+                <input type="number" 
+                       name="coins" 
+                       class="form-input" 
+                       value="4" 
+                       min="0" 
+                       max="100">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    Flag类型
+                </label>
+                <select name="flag_type" class="form-select">
+                    <option value="STATIC">静态Flag</option>
+                    <option value="DYNAMIC" selected>动态Flag</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    学习岛标签（可选）
+                </label>
+                <select name="tags" class="form-select" multiple size="5">
+                    {% for tag in tags %}
+                    <option value="{{ tag.id }}">{{ tag.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-hint">按住 Ctrl/Cmd 可多选标签</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    题目描述模板
+                </label>
+                <textarea name="description_template" 
+                          class="form-textarea" 
+                          placeholder="留空则使用默认描述"></textarea>
+                <div class="form-hint">可使用变量：category, difficulty, number（系统会自动替换）</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    <input type="checkbox" name="is_active" checked> 创建后直接激活
+                </label>
+            </div>
+            
+            <div id="previewBox" class="preview-box" style="display:none;">
+                <div class="preview-title">题目名称预览：</div>
+                <div class="preview-items" id="previewItems"></div>
+            </div>
+            
+            <div class="action-bar">
+                <a href="{% url 'admin:practice_pc_challenge_changelist' %}" class="action-btn">返回</a>
+                <button type="submit" class="action-btn primary" id="btnSubmit">批量创建</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    const categorySelect = document.getElementById('categorySelect');
+    const countInput = document.getElementById('countInput');
+    const prefixInput = document.getElementById('prefixInput');
+    const previewBox = document.getElementById('previewBox');
+    const previewItems = document.getElementById('previewItems');
+    
+    // 监听变化，更新预览
+    categorySelect.addEventListener('change', updatePreview);
+    countInput.addEventListener('input', updatePreview);
+    prefixInput.addEventListener('input', updatePreview);
+    
+    function updatePreview() {
+        const category = categorySelect.value;
+        const count = parseInt(countInput.value) || 0;
+        const prefix = prefixInput.value || category;
+        
+        if (!category || count <= 0 || count > 50) {
+            previewBox.style.display = 'none';
+            return;
+        }
+        
+        previewBox.style.display = 'block';
+        previewItems.innerHTML = '';
+        
+        const displayCount = Math.min(count, 10);
+        for (let i = 1; i <= displayCount; i++) {
+            const item = document.createElement('div');
+            item.className = 'preview-item';
+            item.textContent = prefix + i;
+            previewItems.appendChild(item);
+        }
+        
+        if (count > 10) {
+            const item = document.createElement('div');
+            item.className = 'preview-item';
+            item.textContent = '...';
+            previewItems.appendChild(item);
+        }
+    }
+    
+    // 表单提交
+    document.getElementById('bulkCreateForm').onsubmit = function(e) {
+        const count = parseInt(countInput.value);
+        const submitBtn = document.getElementById('btnSubmit');
+        
+        // 防止重复提交
+        if (submitBtn.disabled) {
+            e.preventDefault();
+            return false;
+        }
+        
+        if (count > 30) {
+            if (!confirm(`您将创建 ${count} 道题目，这可能需要一些时间。确定继续吗？`)) {
+                e.preventDefault();
+                return false;
+            }
+        }
+        
+        // 禁用按钮，防止重复点击
+        submitBtn.disabled = true;
+        submitBtn.textContent = '创建中...';
+        
+        return true;
+    };
+</script>
+{% endblock %}
+

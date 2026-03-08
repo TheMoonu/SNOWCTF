@@ -1,0 +1,28 @@
+{% extends 'public/base.html' %}
+{% load static %}
+
+{% block head_title %}用户服务协议与隐私保护{% endblock %}
+{% block metas %}
+    <meta name="description"
+          content="用户服务协议与隐私保护">
+    <meta name="keywords" content="用户服务协议与隐私保护">
+{% endblock %}
+{% block top-file %}
+    <style>
+        .card img {
+            max-width: 100%;
+        }
+    </style>
+{% endblock %}
+
+
+{% block base_content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12" style="line-height:2">
+                <div class="card rounded-6 border-0 p-3 f-16">{{ body|safe }}</div>
+            </div>
+            
+        </div>
+    </div>
+{% endblock %}

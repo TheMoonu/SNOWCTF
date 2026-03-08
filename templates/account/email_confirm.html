@@ -3,9 +3,9 @@
 {% load i18n %}
 {% load account %}
 
-{% block head_title %}{% trans "Confirm E-mail Address" %}{% endblock %}
-{% block user_title %}{% trans "Confirm E-mail Address" %}{% endblock %}
-
+{% block head_title %}确认邮箱地址{% endblock %}
+{% block user_title %}确认邮箱地址{% endblock %}
+{% block form_description %}请确认您的邮箱地址以完成验证{% endblock %}
 
 {% block content %}
 
@@ -13,18 +13,27 @@
 
 {% user_display confirmation.email_address.user as user_display %}
 
-<p>{% blocktrans with confirmation.email_address.email as email %}Please confirm that <a href="mailto:{{ email }}">{{ email }}</a> is an e-mail address for user {{ user_display }}.{% endblocktrans %}</p>
+<div class="alert alert-info" role="alert">
+    <i class="bi bi-envelope me-2"></i>
+    请确认 <a href="mailto:{{ confirmation.email_address.email }}">{{ confirmation.email_address.email }}</a> 是用户 {{ user_display }} 的邮箱地址。
+</div>
 
-<form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+<form class="auth-form" method="post" action="{% url 'account_confirm_email' confirmation.key %}">
 {% csrf_token %}
-    <button class="btn btn-primary btn-sm" type="submit">{% trans 'Confirm' %}</button>
+    <button class="auth-btn" type="submit">
+        <i class="bi bi-check-circle me-2"></i>
+        确认邮箱
+    </button>
 </form>
 
 {% else %}
 
 {% url 'account_email' as email_url %}
 
-<p>{% blocktrans %}This e-mail confirmation link expired or is invalid. Please <a href="{{ email_url }}">issue a new e-mail confirmation request</a>.{% endblocktrans %}</p>
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    此邮箱确认链接已过期或无效。请 <a href="{{ email_url }}">重新发送邮箱确认请求</a>。
+</div>
 
 {% endif %}
 

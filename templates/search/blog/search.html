@@ -1,0 +1,265 @@
+{# templates/search/blog/search.html - 统一搜索页面 #}
+{% extends 'public/base.html' %}
+{% load blog_tags highlight %}
+{% load static %}
+
+{% block head_title %}搜索：{{ query }}{% endblock %}
+{% block metas %}
+    <meta name="description" content="搜索：{{ query }}，网站全文搜索功能，搜索文章、靶场题目和安全岗位">
+    <meta name="keywords" content="{{ query }},全文搜索,文章,靶场,安全岗位">
+{% endblock %}
+
+{% block base_content %}
+<div class="container ">
+    {# 搜索标题和统计 #}
+    <div class="search-header mb-4">
+        <h1 class="search-title">
+            <i class="fa fa-search mr-2"></i>
+            {% if query %}
+                "{{ query }}" 的搜索结果
+            {% else %}
+                站内搜索
+            {% endif %}
+        </h1>
+        
+        {% if query %}
+        {# 类型过滤标签 #}
+        <div class="search-filter-tabs">
+           
+            <a href="?q={{ query }}&type=article" 
+               class="search-tab search-tab-article {% if search_type == 'article' %}active{% endif %}">
+                文章
+                <span class="tab-count">{{ article_count }}</span>
+            </a>
+           
+          
+            <a href="?q={{ query }}&type=challenge" 
+               class="search-tab search-tab-challenge {% if search_type == 'challenge' %}active{% endif %}">
+                靶场题目
+                <span class="tab-count">{{ challenge_count }}</span>
+            </a>
+        
+          
+                <a href="?q={{ query }}&type=job" 
+                    class="search-tab search-tab-job {% if search_type == 'job' %}active{% endif %}">
+                    安全岗位
+                    <span class="tab-count">{{ job_count }}</span>
+                </a>
+          
+        </div>
+        <p class="search-stats">
+            找到 <strong>{{ paginator.count }}</strong> 条相关结果
+        </p>
+        {% else %}
+        <p class="search-empty-tip">
+            <i class="fa fa-lightbulb mr-2"></i>输入关键词搜索文章、靶场题目或安全岗位
+        </p>
+        {% endif %}
+    </div>
+
+    {% if query %}
+        {# 搜索结果 #}
+        <div class="row" id="searchResults">
+            {% include 'search/blog/search_result_list.html' %}
+        </div>
+
+        {# 分页 #}
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="搜索结果分页">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?q={{ query }}&type={{ search_type }}&page={{ page_obj.previous_page_number }}">上一页</a>
+                </li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?q={{ query }}&type={{ search_type }}&page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?q={{ query }}&type={{ search_type }}&page={{ page_obj.next_page_number }}">下一页</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% endif %}
+</div>
+
+<style>
+/* ========== 搜索页面主体样式 ========== */
+.search-header {
+    background: #fff;
+    padding: 32px;
+    border-radius: 12px;
+  
+}
+
+.search-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: #262626;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.search-title i {
+    color: #1890ff;
+}
+
+/* 搜索过滤标签 */
+.search-filter-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.search-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: #f5f5f5;
+    color: #595959;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.search-tab:hover {
+    background: #e6f7ff;
+    color: #1890ff;
+    text-decoration: none;
+}
+
+.search-tab.active {
+    background: #1890ff;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+.search-tab-article.active {
+    background: linear-gradient(135deg, #1890ff, #69c0ff);
+}
+
+.search-tab-challenge.active {
+    background: linear-gradient(135deg, #1890ff, #69c0ff);
+}
+
+.search-tab-job.active {
+    background: linear-gradient(135deg, #1890ff, #69c0ff);
+}
+
+.tab-count {
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.3);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.search-tab.active .tab-count {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+/* 搜索统计 */
+.search-stats {
+    font-size: 15px;
+    color: #8c8c8c;
+    margin: 0;
+}
+
+.search-stats strong {
+    color: #1890ff;
+    font-size: 18px;
+}
+
+.search-empty-tip {
+    font-size: 16px;
+    color: #8c8c8c;
+    margin: 0;
+    padding: 20px;
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+/* 分页样式优化 */
+.pagination {
+    margin-top: 40px;
+}
+
+.pagination .page-link {
+    border-radius: 6px;
+    margin: 0 4px;
+    border: 1px solid #e8e8e8;
+    color: #595959;
+    transition: all 0.2s;
+}
+
+.pagination .page-link:hover {
+    background: #1890ff;
+    border-color: #1890ff;
+    color: #fff;
+}
+
+.pagination .page-item.active .page-link {
+    background: #1890ff;
+    border-color: #1890ff;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .search-header {
+        padding: 20px;
+    }
+    
+    .search-title {
+        font-size: 22px;
+        margin-bottom: 20px;
+    }
+    
+    .search-filter-tabs {
+        gap: 8px;
+    }
+    
+    .search-tab {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+    
+    .tab-count {
+        font-size: 12px;
+        padding: 2px 6px;
+    }
+}
+
+/* 空状态 */
+.search-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #8c8c8c;
+}
+
+.search-empty-state i {
+    font-size: 48px;
+    color: #d9d9d9;
+    margin-bottom: 16px;
+}
+
+.search-empty-state p {
+    font-size: 16px;
+    margin: 0;
+}
+</style>
+{% endblock %}

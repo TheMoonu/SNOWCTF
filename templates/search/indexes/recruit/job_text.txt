@@ -1,0 +1,17 @@
+{{ object.title }}
+{{ object.title }}
+{{ object.title }}
+{{ object.get_track_display }}
+{{ object.get_RecruitmentType_display }}
+{% for city in object.cityname.all %}
+{{ city.name }}
+{% endfor %}
+{% for company in object.companyname.all %}
+{{ company.company_name }}
+{% endfor %}
+{% for tag in object.page_keywords.all %}
+{{ tag.name }}
+{% endfor %}
+{{ object.description }}
+{{ object.requirements }}
+

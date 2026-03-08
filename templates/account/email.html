@@ -3,72 +3,678 @@
 {% load i18n %}
 {% load crispy_forms_tags %}
 
-{% block head_title %}{% trans "Account" %}{% endblock %}
-{% block user_title %}{% trans "E-mail Addresses" %}{% endblock %}
+{% block head_title %}{% trans "邮箱管理" %}{% endblock %}
+{% block user_title %}{% trans "电子邮件地址" %}{% endblock %}
+{% block form_description %}管理您的电子邮件地址{% endblock %}
 
 {% block content %}
-{% if user.emailaddress_set.all %}
-<p>{% trans 'The following e-mail addresses are associated with your account:' %}</p>
+<style>
+    .email-management {
+        max-width: 100%;
+    }
+    
+    /* 邮箱列表卡片 */
+    .email-card {
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: box-shadow 0.3s ease;
+    }
+    
 
-<form action="{% url 'account_email' %}" class="email_list" method="post">
-{% csrf_token %}
-<fieldset class="blockLabels">
+    
+    .email-card-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .email-card-title i {
+        margin-right: 8px;
+        color: #5189f0;
+    }
+    
+    /* 邮箱项目 */
+    .email-item {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        border: 2px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .email-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .email-item:hover {
+        background: #f0f2f5;
+    }
+    
+    .email-item.selected {
+        border-color: #5189f0;
+        background: #f0f7ff;
+    }
+    
+    .email-item input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        margin-right: 12px;
+        cursor: pointer;
+    }
+    
+    .email-info {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .email-address {
+        font-size: 15px;
+        color: #333;
+        font-weight: 500;
+        margin-right: 10px;
+    }
+    
+    .email-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    
+    .badge-custom {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .badge-verified {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .badge-unverified {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .badge-primary {
+        background: #d1e7fd;
+        color: #004085;
+    }
+    
+    /* 操作按钮组 */
+    .email-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-email {
+        padding: 8px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-email i {
+        font-size: 14px;
+    }
+    
+    .btn-primary-custom {
+        background: #5189f0;
+        color: white;
+    }
+    
+    .btn-primary-custom:hover {
+        background: #3a6fd8;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(81, 137, 240, 0.3);
+    }
+    
+    .btn-secondary-custom {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-secondary-custom:hover {
+        background: #5a6268;
+        transform: translateY(-1px);
+    }
+    
+    .btn-danger-custom {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-danger-custom:hover {
+        background: #c82333;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+    
+    /* 添加邮箱表单 */
+    .add-email-form {
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
 
-  {% for emailaddress in user.emailaddress_set.all %}
-<div class="ctrlHolder">
-      <label for="email_radio_{{forloop.counter}}" class="{% if emailaddress.primary %}primary_email{%endif%}">
+    }
+    
+    .form-section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-section-title i {
+        margin-right: 8px;
+        color: #28a745;
+    }
+    
+    .add-email-form .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .add-email-form label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 5px;
+        font-size: 14px;
+    }
+    
+    .add-email-form input[type="email"] {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: border-color 0.2s ease;
+    }
+    
+    .add-email-form input[type="email"]:focus {
+        outline: none;
+        border-color: #5189f0;
+        box-shadow: 0 0 0 3px rgba(81, 137, 240, 0.1);
+    }
+    
+    .btn-add-email {
+        background: #28a745;
+        color: white;
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-add-email:hover {
+        background: #218838;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    }
+    
+    /* 警告信息 */
+    .alert-warning-custom {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+    
+    .alert-warning-custom i {
+        color: #856404;
+        margin-right: 8px;
+    }
+    
+    .alert-warning-custom strong {
+        color: #856404;
+    }
+    
+    .alert-warning-custom p {
+        margin: 0;
+        color: #856404;
+        font-size: 14px;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 576px) {
+        .email-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .email-info {
+            margin-left: 30px;
+            margin-top: 5px;
+        }
+        
+        .email-actions {
+            width: 100%;
+        }
+        
+        .btn-email {
+            flex: 1;
+            justify-content: center;
+        }
+    }
+    
+    /* 模态框样式 */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        animation: fadeIn 0.2s ease;
+    }
+    
+    .modal-overlay.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-content-custom {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 420px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        animation: slideUp 0.3s ease;
+    }
+    
+    .modal-header-custom {
+        display: flex;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+    
+    .modal-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #fee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 16px;
+    }
+    
+    .modal-icon i {
+        color: #dc3545;
+        font-size: 24px;
+    }
+    
+    .modal-title-custom {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .modal-body-custom {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+    
+    .modal-footer-custom {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+    
+    .modal-btn {
+        padding: 8px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .modal-btn-cancel {
+        background: #f0f2f5;
+        color: #666;
+    }
+    
+    .modal-btn-cancel:hover {
+        background: #e4e6e9;
+    }
+    
+    .modal-btn-confirm {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .modal-btn-confirm:hover {
+        background: #c82333;
+    }
+    
+    .modal-btn-confirm[style*="background: #28a745"]:hover {
+        background: #218838 !important;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+        from { 
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        to { 
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+</style>
 
-      <input id="email_radio_{{forloop.counter}}" type="radio" name="email" {% if emailaddress.primary or user.emailaddress_set.count == 1 %}checked="checked"{%endif %} value="{{emailaddress.email}}"/>
-
-{{ emailaddress.email }}
-    {% if emailaddress.verified %}
-    <span class="verified">{% trans "Verified" %}</span>
+<div class="email-management">
+    {% if user.emailaddress_set.all %}
+    <!-- 现有邮箱列表 -->
+    <div class="email-card">
+        <div class="email-card-title">
+            <i class="bi bi-envelope-check"></i>
+            {% trans '您的电子邮件地址' %}
+        </div>
+        
+        <form action="{% url 'account_email' %}" method="post" id="emailForm">
+            {% csrf_token %}
+            
+            {% for emailaddress in user.emailaddress_set.all %}
+            <div class="email-item {% if emailaddress.primary or user.emailaddress_set.count == 1 %}selected{% endif %}" 
+                 data-email-item>
+                <input id="email_radio_{{forloop.counter}}" 
+                       type="radio" 
+                       name="email" 
+                       {% if emailaddress.primary or user.emailaddress_set.count == 1 %}checked="checked"{% endif %} 
+                       value="{{emailaddress.email}}"
+                       onchange="updateSelection(this)"/>
+                
+                <div class="email-info">
+                    <span class="email-address">{{ emailaddress.email }}</span>
+                    <div class="email-badges">
+                        {% if emailaddress.verified %}
+                        <span class="badge-custom badge-verified">
+                            <i class="bi bi-check-circle"></i> {% trans "已验证" %}
+                        </span>
+                        {% else %}
+                        <span class="badge-custom badge-unverified">
+                            <i class="bi bi-exclamation-circle"></i> {% trans "未验证" %}
+                        </span>
+                        {% endif %}
+                        
+                        {% if emailaddress.primary %}
+                        <span class="badge-custom badge-primary">
+                            <i class="bi bi-star-fill"></i> {% trans "主邮箱" %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <div class="email-actions">
+                <button class="btn-email btn-primary-custom" type="submit" name="action_primary">
+                    <i class="bi bi-star"></i> {% trans '设为主邮箱' %}
+                </button>
+                <button class="btn-email btn-secondary-custom" type="submit" name="action_send">
+                    <i class="bi bi-send"></i> {% trans '重新发送验证' %}
+                </button>
+                <button class="btn-email btn-danger-custom" type="submit" name="action_remove" id="removeBtn">
+                    <i class="bi bi-trash"></i> {% trans '删除' %}
+                </button>
+            </div>
+        </form>
+    </div>
+    
     {% else %}
-    <span class="unverified">{% trans "Unverified" %}</span>
+    <!-- 无邮箱警告 -->
+    <div class="alert-warning-custom">
+        <p>
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <strong>{% trans '警告：' %}</strong> 
+            {% trans "您目前没有设置任何电子邮件地址。建议您添加一个电子邮件地址，以便接收通知、重置密码等。" %}
+        </p>
+    </div>
     {% endif %}
-      {% if emailaddress.primary %}<span class="primary">{% trans "Primary" %}</span>{% endif %}
-</label>
+    
+    <!-- 添加新邮箱 -->
+    <div class="add-email-form">
+        <div class="form-section-title">
+            <i class="bi bi-plus-circle"></i>
+            {% trans "添加新邮箱地址" %}
+        </div>
+        
+        <form method="post" action="{% url 'account_email' %}" id="addEmailForm">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button class="btn-add-email" type="button" id="addBtn" onclick="handleAddEmail()">
+                <i class="bi bi-plus-lg"></i> {% trans "添加邮箱" %}
+            </button>
+        </form>
+    </div>
 </div>
-  {% endfor %}
 
-<div class="buttonHolder">
-      <button class="btn btn-secondary btn-sm" type="submit" name="action_primary" >{% trans 'Make Primary' %}</button>
-      <button class="btn btn-secondary btn-sm" type="submit" name="action_send" >{% trans 'Re-send Verification' %}</button>
-      <button class="btn btn-outline-danger btn-sm" type="submit" name="action_remove" >{% trans 'Remove' %}</button>
+<!-- 删除确认模态框 -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal-content-custom">
+        <div class="modal-header-custom">
+            <div class="modal-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <h3 class="modal-title-custom">删除邮箱地址</h3>
+        </div>
+        <div class="modal-body-custom">
+            <p>确定要删除选中的电子邮件地址吗？</p>
+            <p style="color: #999; font-size: 13px; margin-top: 8px;">此操作不可撤销，删除后您将无法使用该邮箱接收通知。</p>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="modal-btn modal-btn-cancel" onclick="closeDeleteModal()">取消</button>
+            <button class="modal-btn modal-btn-confirm" onclick="confirmDelete()">确认删除</button>
+        </div>
+    </div>
 </div>
 
-</fieldset>
-</form>
-
-{% else %}
-<p><strong>{% trans 'Warning:'%}</strong> {% trans "You currently do not have any e-mail address set up. You should really add an e-mail address so you can receive notifications, reset your password, etc." %}</p>
-
-{% endif %}
-
-
-    <h4>{% trans "Add E-mail Address" %}</h4>
-
-    <form method="post" action="{% url 'account_email' %}" class="add_email">
-        {% csrf_token %}
-        {{ form|crispy }}
-        <button class="btn btn-outline-primary btn-sm" name="action_add" type="submit">{% trans "Add E-mail" %}</button>
-    </form>
+<!-- 添加邮箱确认模态框 -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal-content-custom">
+        <div class="modal-header-custom">
+            <div class="modal-icon" style="background: #e8f5e9;">
+                <i class="bi bi-plus-circle" style="color: #28a745;"></i>
+            </div>
+            <h3 class="modal-title-custom">添加邮箱地址</h3>
+        </div>
+        <div class="modal-body-custom">
+            <p>确定要添加邮箱地址 <strong id="emailToAdd" style="color: #1890ff;"></strong> 吗？</p>
+            <p style="color: #999; font-size: 13px; margin-top: 8px;">添加后系统将发送验证邮件到该邮箱，请及时查收并验证。</p>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="modal-btn modal-btn-cancel" onclick="closeAddModal()">取消</button>
+            <button class="modal-btn modal-btn-confirm" style="background: #28a745;" onclick="confirmAdd()">确认添加</button>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
-
 {% block extra_body %}
 <script type="text/javascript">
+// 删除确认模态框
+var deleteModal = document.getElementById('deleteModal');
+var emailForm = document.getElementById('emailForm');
+
+function showDeleteModal() {
+    deleteModal.classList.add('show');
+}
+
+function closeDeleteModal() {
+    deleteModal.classList.remove('show');
+}
+
+function confirmDelete() {
+    closeDeleteModal();
+    // 提交表单
+    var removeInput = document.createElement('input');
+    removeInput.type = 'hidden';
+    removeInput.name = 'action_remove';
+    removeInput.value = 'remove';
+    emailForm.appendChild(removeInput);
+    emailForm.submit();
+}
+
+// 点击遮罩层关闭删除模态框
+deleteModal.addEventListener('click', function(e) {
+    if (e.target === deleteModal) {
+        closeDeleteModal();
+    }
+});
+
 (function() {
-  var message = "{% trans 'Do you really want to remove the selected e-mail address?' %}";
-  var actions = document.getElementsByName('action_remove');
-  if (actions.length) {
-    actions[0].addEventListener("click", function(e) {
-      if (! confirm(message)) {
-        e.preventDefault();
-      }
-    });
-  }
+    var removeBtn = document.getElementById('removeBtn');
+    if (removeBtn) {
+        removeBtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            showDeleteModal();
+        });
+    }
 })();
+
+// ========== 添加邮箱确认模态框 ==========
+var addModal = document.getElementById('addModal');
+var addEmailForm = document.getElementById('addEmailForm');
+var emailToAddSpan = document.getElementById('emailToAdd');
+
+function showAddModal(emailValue) {
+    if (!emailValue || emailValue.trim() === '') {
+        alert('请输入邮箱地址');
+        return false;
+    }
+    emailToAddSpan.textContent = emailValue;
+    addModal.classList.add('show');
+    return true;
+}
+
+function closeAddModal() {
+    addModal.classList.remove('show');
+}
+
+function handleAddEmail() {
+    // 获取邮箱输入框的值
+    var emailInput = addEmailForm.querySelector('input[name="email"]');
+    if (!emailInput) {
+        console.error('找不到邮箱输入框');
+        return;
+    }
+    
+    var emailValue = emailInput.value.trim();
+    if (!emailValue) {
+        alert('请输入邮箱地址');
+        return;
+    }
+    
+    // 显示确认模态框
+    showAddModal(emailValue);
+}
+
+function confirmAdd() {
+    closeAddModal();
+    
+    // 添加action_add参数
+    var actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action_add';
+    actionInput.value = 'add';
+    addEmailForm.appendChild(actionInput);
+    
+    // 提交表单
+    addEmailForm.submit();
+}
+
+// 点击遮罩层关闭添加模态框
+addModal.addEventListener('click', function(e) {
+    if (e.target === addModal) {
+        closeAddModal();
+    }
+});
+
+// ESC 键关闭所有模态框
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        if (deleteModal.classList.contains('show')) {
+            closeDeleteModal();
+        }
+        if (addModal.classList.contains('show')) {
+            closeAddModal();
+        }
+    }
+});
+
+// 更新选中状态的视觉效果
+function updateSelection(radio) {
+    // 移除所有选中状态
+    document.querySelectorAll('[data-email-item]').forEach(function(item) {
+        item.classList.remove('selected');
+    });
+    
+    // 添加选中状态到当前项
+    var emailItem = radio.closest('[data-email-item]');
+    if (emailItem) {
+        emailItem.classList.add('selected');
+    }
+}
+
+// 为所有邮箱项添加点击事件
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-email-item]').forEach(function(item) {
+        item.addEventListener('click', function(e) {
+            if (e.target.type !== 'radio') {
+                var radio = this.querySelector('input[type="radio"]');
+                if (radio) {
+                    radio.checked = true;
+                    updateSelection(radio);
+                }
+            }
+        });
+    });
+});
 </script>
 {% endblock %}

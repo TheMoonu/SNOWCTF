@@ -1,0 +1,58 @@
+{# templates/search/blog/search_article_list.html #}
+{% load blog_tags oauth_tags comment_tags highlight %}
+
+<div class="snow-waterfall mx-0 px-0"><!-- 和首页同一容器 -->
+{% for article in search_list %}
+  <div class="col-sm-6 col-md-4 p-1 grid-item"><!-- Masonry 识别 -->
+    <div class="snow-card new-loaded" data-id="{{ article.object.id }}">
+      <a href="{{ article.object.get_absolute_url }}" class="snow-card-image">
+        <img src="{{ article.object.img_link.url }}" alt="{{ article.object.title }}" loading="lazy">
+        <div class="xhs-title-mask">{{ article.object.title|my_slice:':26' }}</div>
+      </a>
+
+      <div class="snow-card-content">
+        <h5 class="snow-card-title">
+          <a href="{{ article.object.get_absolute_url }}">
+            {% my_highlight article.object.title|my_slice:':40' query %}
+          </a>
+        </h5>
+
+        <div class="snow-card-summary">
+          {% with article.object.body_to_markdown|safe as this_body %}
+            {% highlight this_body with query max_length 10 %}
+          {% endwith %}
+        </div>
+
+        <div class="snow-card-meta">
+          <a href="{{ article.object.category.get_absolute_url }}" class="snow-category"
+             title="{{ article.object.category.name }}" data-toggle="tooltip" data-placement="top">
+            <i class="fa fa-folder-open"></i> {{ article.object.category.name|my_slice:':4' }}
+          </a>
+          {% if article.object.tags.all %}
+          <div class="snow-tags">
+            {% for tag in article.object.tags.all %}
+            <a href="{% url 'blog:tag' tag.slug %}" class="snow-tag"
+               title="{{ tag.name }}" data-toggle="tooltip" data-placement="top">
+              <i class="fa fa-tag"></i> {{ tag.name|my_slice:':4' }}
+            </a>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="snow-author">
+          {% get_user_avatar_tag article.object.author %}
+          <a href="{% url 'public:profileViews' article.object.author.uuid %}"
+             data-toggle="tooltip" data-placement="top" title="前往个人主页">
+            {{ article.object.author }}
+          </a>
+          <span class="snow-stats">
+            <i class="fa fa-eye"></i> {{ article.object.views }}
+            <i class="fa fa-comments ml-2"></i> {% get_comment_count article.object %}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>

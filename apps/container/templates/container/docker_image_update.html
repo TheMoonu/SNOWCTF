@@ -1,0 +1,466 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}修改镜像{% endblock %}
+
+{% block top-file %}
+<style>
+    .container-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        padding: 30px;
+        margin-bottom: 25px;
+        border: none;
+    }
+    
+    .container-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+        color: #333;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 15px;
+    }
+    
+    .container-form-group {
+        margin-bottom: 22px;
+    }
+    
+    .container-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #444;
+        font-size: 0.95rem;
+    }
+    
+    .container-input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: all 0.2s;
+        background-color: #fafafa;
+    }
+    
+    .container-input:focus {
+        border-color: #6591f1;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(101, 145, 241, 0.1);
+        background-color: #fff;
+    }
+    
+    .container-textarea {
+        min-height: 100px;
+        resize: vertical;
+        font-family: monospace;
+    }
+    
+    .container-select {
+        height: 42px;
+        background-color: #fafafa;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px;
+    }
+    
+    .container-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-align: center;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        text-decoration: none;
+    }
+    
+    .container-btn-primary {
+        background-color: #6591f1;
+        color: white;
+    }
+    
+    .container-btn-primary:hover {
+        background-color: #5080e0;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(101, 145, 241, 0.2);
+        color: white;
+    }
+    
+    .container-btn-secondary {
+        background-color: #f5f5f5;
+        color: #444;
+    }
+    
+    .container-btn-secondary:hover {
+        background-color: #e9e9e9;
+        transform: translateY(-1px);
+        color: #444;
+    }
+    
+    .container-help-text {
+        font-size: 12px;
+        color: #888;
+        margin-top: 6px;
+    }
+    
+    .container-required {
+        color: #e74c3c;
+        margin-left: 3px;
+    }
+    
+    /* 验证码样式 */
+    .captcha-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .captcha-input {
+        flex: 1;
+        margin-right: 10px;
+    }
+    
+    .captcha-image {
+        height: 40px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .captcha-refresh {
+        margin-left: 10px;
+        color: #6591f1;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    
+    .captcha-refresh:hover {
+        color: #5080e0;
+    }
+    
+    .conditional-field {
+        padding-left: 20px;
+        border-left: 3px solid #e0e0e0;
+        margin-top: 15px;
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block base_content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-12 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-3 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-user mr-1"></i><a href="{% url 'public:profileViews' user.uuid %}">个人中心</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'container:docker_image_list' %}">镜像配置列表</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">修改配置</li>
+                </ol>
+            </nav>
+
+            <!-- 表单卡片 -->
+            <div class="container-card">
+                <h2 class="container-title">修改镜像配置</h2>
+                
+                <form method="post" id="imageForm">
+                    {% csrf_token %}
+                    {{ form.captcha_key }}
+                    
+                    <!-- 显示非字段错误 -->
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger" role="alert">
+                            <i class="fa fa-exclamation-triangle mr-2"></i>
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- 基础信息 -->
+                    <div class="container-form-group">
+                        <label class="container-label" for="{{ form.name.id_for_label }}">镜像名称<span class="container-required">*</span></label>
+                        {{ form.name }}
+                        <div class="container-help-text">例如: nginx, ctf/web-challenge, registry.cn-hangzhou.aliyuncs.com/my-namespace/my-image</div>
+                        {% if form.name.errors %}
+                            <div class="text-danger mt-1">{{ form.name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="container-form-group">
+                                <label class="container-label" for="{{ form.tag.id_for_label }}">镜像标签</label>
+                                {{ form.tag }}
+                                <div class="container-help-text">默认为 latest</div>
+                                {% if form.tag.errors %}
+                                    <div class="text-danger mt-1">{{ form.tag.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="container-form-group">
+                                <label class="container-label" for="{{ form.registry.id_for_label }}">镜像仓库</label>
+                                {{ form.registry }}
+                                <div class="container-help-text">默认为 docker.io</div>
+                                {% if form.registry.errors %}
+                                    <div class="text-danger mt-1">{{ form.registry.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="container-form-group">
+                                <label class="container-label" for="{{ form.category.id_for_label }}">镜像类型<span class="container-required">*</span></label>
+                                {{ form.category }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">  
+                            <div class="container-form-group">
+                                <label class="container-label" for="{{ form.entrance.id_for_label }}">入口类型<span class="container-required">*</span></label>
+                                {{ form.entrance }}
+                            </div>
+                        </div>
+                    
+                        <div class="col-md-4">
+                            <div class="container-form-group">
+                                <label class="container-label" for="{{ form.exposed_ports.id_for_label }}">暴露端口<span class="container-required">*</span></label>
+                                {{ form.exposed_ports }}
+                                <div class="container-help-text">容器需要映射的端口，多个端口用逗号分隔，例如: 80,3306</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源限制配置 -->
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
+                        <h4 style="font-size: 1.1rem; margin-bottom: 15px; color: #333;">
+                            <i class="fa fa-server mr-2"></i>资源限制
+                        </h4>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="container-form-group">
+                                    <label class="container-label" for="{{ form.memory_limit.id_for_label }}">内存限制(MB)</label>
+                                    {{ form.memory_limit }}
+                                    <div class="container-help-text">默认值256MB。推荐：轻量级=256MB，中型=512MB，重型=1024MB+</div>
+                                    {% if form.memory_limit.errors %}
+                                        <div class="text-danger mt-1">{{ form.memory_limit.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="container-form-group">
+                                    <label class="container-label" for="{{ form.cpu_limit.id_for_label }}">CPU限制(核心数)</label>
+                                    {{ form.cpu_limit }}
+                                    <div class="container-help-text">默认值0.5核。推荐：轻量级=0.5核，中型=1核，重型=2核+</div>
+                                    {% if form.cpu_limit.errors %}
+                                        <div class="text-danger mt-1">{{ form.cpu_limit.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="container-form-group">
+                        <label class="container-label" for="{{ form.description.id_for_label }}">镜像描述</label>
+                        {{ form.description }}
+                        <div class="container-help-text">描述镜像的功能、适用场景等信息</div>
+                        {% if form.description.errors %}
+                            <div class="text-danger mt-1">{{ form.description.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Flag注入配置 -->
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
+                        <h4 style="font-size: 1.1rem; margin-bottom: 15px; ">
+                            <i class="fa fa-flag mr-2"></i>动态Flag配置
+                        </h4>
+                        
+                        <div class="container-form-group">
+                            <label class="container-label" for="{{ form.flag_inject_method.id_for_label }}">Flag注入方法<span class="container-required">*</span></label>
+                            {{ form.flag_inject_method }}
+                            <div class="container-help-text">选择如何将动态Flag注入到容器中</div>
+                            {% if form.flag_inject_method.errors %}
+                                <div class="text-danger mt-1">{{ form.flag_inject_method.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 标准环境变量字段 -->
+                        <div id="standard_env_hint" class="conditional-field">
+                            <div class="alert alert-info mb-0">
+                                <i class="fa fa-info-circle mr-2"></i>
+                                使用标准环境变量 <code>SNOW_FLAG</code> 注入Flag
+                            </div>
+                        </div>
+                        
+                        <!-- 自定义环境变量字段 -->
+                        <div id="custom_env_field" class="conditional-field">
+                            <div class="container-form-group">
+                                <label class="container-label" for="{{ form.flag_env_name.id_for_label }}">环境变量名<span class="container-required">*</span></label>
+                                {{ form.flag_env_name }}
+                                <div class="container-help-text">自定义Flag环境变量名称</div>
+                                {% if form.flag_env_name.errors %}
+                                    <div class="text-danger mt-1">{{ form.flag_env_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- 脚本注入字段 -->
+                        <div id="script_field" class="conditional-field">
+                            <div class="container-form-group">
+                                <label class="container-label" for="{{ form.flag_script.id_for_label }}">Flag注入脚本<span class="container-required">*</span></label>
+                                {{ form.flag_script }}
+                                <div class="container-help-text">使用 <code>{SNOW_FLAG}</code> 作为占位符</div>
+                                {% if form.flag_script.errors %}
+                                    <div class="text-danger mt-1">{{ form.flag_script.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- 无需注入字段 -->
+                        <div id="none_field" class="conditional-field">
+                            <div class="alert alert-warning mb-0">
+                                <i class="fa fa-exclamation-triangle mr-2"></i>
+                                不注入动态Flag，适用于静态Flag题目
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 验证码 -->
+                    <div class="container-form-group" style="margin-top: 30px;">
+                        <label class="container-label">验证码<span class="container-required">*</span></label>
+                        <div class="captcha-container">
+                            <input type="text" 
+                                   name="captcha" 
+                                   class="container-input captcha-input" 
+                                   placeholder="请输入验证码" 
+                                   required>
+                            <img src="{{ captcha_image }}" 
+                                 alt="验证码" 
+                                 class="captcha-image" 
+                                 id="captcha_image">
+                            <i class="fa fa-sync-alt captcha-refresh" 
+                               id="captcha_refresh" 
+                               title="刷新验证码"></i>
+                        </div>
+                        {% if form.captcha.errors %}
+                            <div class="text-danger mt-1">{{ form.captcha.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 按钮组 -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'container:docker_image_list' %}" 
+                           class="container-btn container-btn-secondary">
+                            <i class="fa fa-arrow-left mr-1"></i>返回列表
+                        </a>
+                        {% if object.review_status == 'APPROVED' and not user.is_superuser %}
+                            <button type="button" class="container-btn container-btn-secondary" disabled>
+                                <i class="fa fa-lock mr-1"></i>已审核通过，无法修改
+                            </button>
+                        {% else %}
+                            <button type="submit" class="container-btn container-btn-primary">
+                                <i class="fa fa-save mr-1"></i>保存修改
+                            </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Flag注入方法切换逻辑
+document.addEventListener('DOMContentLoaded', function() {
+    const flagInjectSelect = document.getElementById('{{ form.flag_inject_method.id_for_label }}');
+    const standardEnvHint = document.getElementById('standard_env_hint');
+    const customEnvField = document.getElementById('custom_env_field');
+    const scriptField = document.getElementById('script_field');
+    const noneField = document.getElementById('none_field');
+    
+    // 美化表单元素
+    document.querySelectorAll('input, textarea, select').forEach(input => {
+        if (input.type !== 'file' && input.type !== 'radio' && input.type !== 'hidden' && input.type !== 'checkbox') {
+            input.classList.add('container-input');
+        }
+        if (input.tagName === 'TEXTAREA') {
+            input.classList.add('container-textarea');
+        }
+        if (input.tagName === 'SELECT') {
+            input.classList.add('container-select');
+        }
+    });
+    
+    function updateFlagFields() {
+        const value = flagInjectSelect.value;
+        
+        // 隐藏所有条件字段
+        standardEnvHint.style.display = 'none';
+        customEnvField.style.display = 'none';
+        scriptField.style.display = 'none';
+        noneField.style.display = 'none';
+        
+        // 根据选择显示对应字段
+        if (value === 'INTERNAL') {
+            standardEnvHint.style.display = 'block';
+        } else if (value === 'CUSTOM_ENV') {
+            customEnvField.style.display = 'block';
+        } else if (value === 'SCRIPT') {
+            scriptField.style.display = 'block';
+        } else if (value === 'NONE') {
+            noneField.style.display = 'block';
+        }
+    }
+    
+    // 初始化
+    updateFlagFields();
+    
+    // 监听变化
+    flagInjectSelect.addEventListener('change', updateFlagFields);
+});
+
+// 验证码刷新功能
+document.getElementById('captcha_refresh').addEventListener('click', function() {
+    const captchaImage = document.getElementById('captcha_image');
+    const captchaKey = document.querySelector('input[name="captcha_key"]');
+    
+    // 创建新的验证码
+    fetch('{% url "container:refresh_captcha" %}')
+        .then(response => response.json())
+        .then(data => {
+            captchaImage.src = data.captcha_image;
+            captchaKey.value = data.captcha_key;
+        })
+        .catch(error => {
+            console.error('刷新验证码失败:', error);
+        });
+});
+
+// 点击验证码图片也刷新
+document.getElementById('captcha_image').addEventListener('click', function() {
+    document.getElementById('captcha_refresh').click();
+});
+
+// 页面加载时刷新验证码
+window.addEventListener('load', function() {
+    document.getElementById('captcha_refresh').click();
+});
+</script>
+{% endblock %}
+

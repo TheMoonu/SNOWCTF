@@ -2,9 +2,20 @@
 
 {% load i18n %}
 
-{% block head_title %}{% trans "Account Inactive" %}{% endblock %}
-{% block user_title %}{% trans "Account Inactive" %}{% endblock %}
+{% block head_title %}账号未激活{% endblock %}
+{% block user_title %}账号未激活{% endblock %}
+{% block form_description %}您的账号当前处于未激活状态{% endblock %}
 
 {% block content %}
-<p>{% trans "This account is inactive." %}</p>
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    该账号尚未激活，请联系管理员或检查您的邮箱完成激活。
+</div>
+
+<div class="text-center mt-4">
+    <a href="/" class="btn btn-primary" style="display: inline-flex; align-items: center; justify-content: center; min-width: 200px; height: 46px; text-decoration: none;">
+        <i class="bi bi-house me-2"></i>
+        返回首页
+    </a>
+</div>
 {% endblock %}

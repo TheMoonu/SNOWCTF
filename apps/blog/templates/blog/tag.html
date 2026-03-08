@@ -1,0 +1,52 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load blog_tags %}
+
+{% block head_title %}{{ search_instance.name }}_{{ search_tag }}{% endblock %}
+{% block metas %}
+    <meta name="description" content="{{ search_instance.description }}">
+    <meta name="keywords" content="{{ search_instance.name }}">
+{% endblock %}
+
+{% block base_content %}
+    <div class="container snow-container-narrow">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="description bg-white px-3 pt-3 pb-1">
+                    <p class="float-right mb-0">共<span class="mx-2 text-info">{{ paginator.count }}</span>篇</p>
+                    <h1 class="f-17"><strong>{{ search_tag }}：{{ search_instance.name }}</strong></h1>
+                    <p class="f-16">{{ search_instance.description }}</p>
+                    {% if user.is_superuser %}
+                        <p class="edit-category-tag f-12">
+                            <a href="{% url 'admin:blog_tag_change' search_instance.pk %}"
+                               target="_blank"
+                               title="后台编辑{{ search_tag }}">
+                                <i class="fa fa-edit ml-2 mr-1"></i>编辑标签</a>
+                        </p>
+                    {% endif %}
+                </div>
+                <div class="text-secondary font-weight-bold py-3 f-15 choice">
+                    <a class="pb-2 {% if not request.GET.sort %}active{% endif %}"
+                       href="{% url 'blog:tag' search_instance.slug %}">
+                        <i class="fa fa-bars mr-1"></i>时间排序</a>
+                    <a class="pb-2 ml-4 {% if request.GET.sort == 'views' %}active{% endif %}"
+                       href="{% url 'blog:tag' search_instance.slug %}?sort=views">
+                        <i class="fa fa-fire mr-1"></i>热度排序</a>
+                </div>
+                <div id="masonry-container" class="snow-waterfall">
+                    {% load_article_summary articles user %}
+                </div>
+            </div>
+            <div class="col-lg-4">
+                {% include 'blog/tags/base_right.html' %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block end_file %}
+
+<script src="{% static 'public/js/snow.js' %}"></script>
+
+{% endblock %}

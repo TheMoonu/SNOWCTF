@@ -1,0 +1,152 @@
+{% load static comment_tags blog_tags %}
+<!-- 科技风格导航栏 -->
+
+{% block top-file %}
+<link href="{% static 'public/css/techbase.css' %}" rel="stylesheet">
+<link href="{% static 'public/css/public.css' %}" rel="stylesheet">
+
+
+{% endblock %}
+
+
+
+<script>
+// 自动隐藏消息提示
+document.addEventListener('DOMContentLoaded', function() {
+    const messageWrappers = document.querySelectorAll('.message-toast-wrapper');
+    
+    messageWrappers.forEach(function(wrapper) {
+        // 3秒后自动淡出并移除
+        setTimeout(function() {
+            wrapper.style.transition = 'opacity 0.5s ease-out';
+            wrapper.style.opacity = '0';
+            
+            setTimeout(function() {
+                wrapper.remove();
+            }, 500);
+        }, 3000);
+        
+        // 点击关闭按钮
+        const closeBtn = wrapper.querySelector('.close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                wrapper.style.transition = 'opacity 0.3s ease-out';
+                wrapper.style.opacity = '0';
+                
+                setTimeout(function() {
+                    wrapper.remove();
+                }, 300);
+            });
+        }
+    });
+});
+</script>
+<nav class="tech-navbar">
+    <div class="tech-navbar-container">
+        <div class="tech-navbar-content">
+            <div class="tech-competition-title-wrapper">
+                <div class="tech-competition-title">
+                    <span class="tech-title-decoration left"></span>
+                    <i class="fa fa-trophy"></i> {{ competition.title }}
+                    <span class="tech-title-decoration right"></span>
+                </div>
+            </div>
+
+            <!-- 用户导航 -->
+            <div class="tech-user-nav">
+                <!-- 返回题目列表按钮 -->
+                <a href="{% url 'competition:CompetitionView' %}" class="tech-nav-link" title="返回题目列表">
+                    <i class="fa fa-list"></i> 比赛列表
+                </a>
+                {% if user.is_authenticated %}
+                    {% get_notifications_count user 'false' as msgnum %}
+                    <div class="tech-user-dropdown">
+                        <div onclick="toggleTechDropdown(this)">
+                            {% if user.avatar %}
+                                <img src="{{ user.avatar.url }}" class="tech-user-avatar" alt="{{ user.username }}" title="{{ user.username }}，欢迎回来！">
+                            {% else %}
+                                <div class="tech-user-avatar-placeholder" title="{{ user.username }}，欢迎回来！">
+                                    <i class="fa fa-user"></i>
+                                </div>
+                            {% endif %}
+                            {% if msgnum > 0 %}
+                                <span class="tech-notification-badge">{{ msgnum }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="tech-dropdown-menu">
+                            <a class="tech-dropdown-item" href="{% url 'public:profileViews' user.uuid %}">
+                                <i class="fa fa-user"></i>
+                                <span>个人信息</span>
+                            </a>
+                            {% if user.is_staff %}
+                                <a class="tech-dropdown-item" href="{% url 'admin:index' %}">
+                                    <i class="fa fa-key"></i>
+                                    <span>后台管理</span>
+                                </a>
+                                {% if competition.author == request.user or request.user.is_staff%}
+                                <a class="tech-dropdown-item" href="{% url 'competition:competition_manage' competition.slug %}" title="点击进入管理面板">
+                                    <i class="fa fa-gear"></i>
+                                    比赛管理面板
+                                </a>
+                                {% endif %}
+
+                               
+                               
+                            {% endif %}
+                            {% url 'comment:notification_no_read' as no_read_url %}
+                            {% url 'comment:notification' as read_url %}
+                            <a class="tech-dropdown-item" href="{% if msgnum > 0 %}{{ no_read_url }}{% else %}{{ read_url }}{% endif %}">
+                                <i class="fa fa-bell"></i>
+                                <span>消息</span>
+                                {% if msgnum > 0 %}
+                                    <span class="tech-dropdown-badge">{{ msgnum }}</span>
+                                {% endif %}
+                            </a>
+                            <a class="tech-dropdown-item" href="{% url 'account_logout' %}">
+                                <i class="fa fa-sign-out"></i>
+                                <span>退出</span>
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{% url 'account_login' %}?next={{ request.path }}" class="tech-nav-link">
+                        <i class="fa fa-sign-in"></i> 登录
+                    </a>
+                    <a href="{% url 'account_signup' %}?next={{ request.path }}" class="tech-nav-link">
+                        <i class="fa fa-user-plus"></i> 注册
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</nav>
+
+
+
+
+<script>
+    // 下拉菜单控制
+    function toggleTechDropdown(element) {
+        const dropdown = element.nextElementSibling;
+        const allDropdowns = document.querySelectorAll('.tech-dropdown-menu');
+        
+        // 关闭其他所有下拉菜单
+        allDropdowns.forEach(d => {
+            if (d !== dropdown) {
+                d.classList.remove('show');
+            }
+        });
+        
+        // 切换当前下拉菜单
+        dropdown.classList.toggle('show');
+    }
+
+    // 点击页面其他地方关闭下拉菜单
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.tech-user-dropdown')) {
+            document.querySelectorAll('.tech-dropdown-menu').forEach(dropdown => {
+                dropdown.classList.remove('show');
+            });
+        }
+    });
+</script>

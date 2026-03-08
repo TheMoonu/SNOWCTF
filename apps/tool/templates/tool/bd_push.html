@@ -1,0 +1,155 @@
+{% extends "tool/base_tool.html" %}
+{% load static %}
+
+{% block head_title %}百度主动推送工具在线使用，实时主动提交网站链接，加快网站内容抓取_站长工具{% endblock %}
+{% block metas %}
+    <meta name="description" content="百度主动推送工具，是一个在线实时推送链接的站长工具，这个工具调用百度站长平台提供的主动提交API接口，自动批量向百度推送网站链接，使网页更快的被百度收录，加快抓取速度和提升效率。">
+    <meta name="keywords" content="百度主动推送工具,自动提交,站长工具,百度收录,实时提交,在线工具">
+{% endblock %}
+
+{% block tool_name %}百度主动推送工具{% endblock %}
+{% block left_content %}
+<div class="card-body p-0">
+    <h3 class="card-title pl-2 title-info">工具说明：</h3>
+    <ul>
+        <li>本工具使用的百度站长平台官方提供的推送接口</li>
+        <li>工具的作用是批量提交网站链接，主动推送给百度收录，具体作用请查看
+            <a class="text-info" href="https://ziyuan.baidu.com/linksubmit/index" target="_blank">官方说明</a>
+        </li>
+        <li>首先将百度站长提供的“接口调用地址”复制到下面表单中，然后按示例输入自己网站要提交的链接，点击提交按钮即可看到返回的信息</li>
+        <li>本工具适合网站大部分链接已经被百度收录的老站使用，新站建议使用
+            <a class="text-info" href="{% url 'tool:baidu_push_site' %}">Sitemap主动推送</a> 可以直接批量提交整站链接
+        </li>
+    </ul>
+</div>
+<div class="mb-3">
+    <div class="form-group">
+        <label>接口调用地址：</label>
+        <input type="url" class="form-control" id="form-url"
+               placeholder="例：http://data.zz.baidu.com/urls?site=www.example.com&token=NpU0****tTQAlBV"
+               required>
+        <small class="form-text text-muted">注：请填写百度站长平台提供给您的接口调用地址</small>
+    </div>
+    <div class="form-group">
+        <label>网址链接：</label>
+        <textarea class="form-control" id="form-urls" rows="5" required
+                  placeholder="示例如下：&#10;http://www.example.com/mip/&#10;http://www.example.com/mip/1.html&#10;http://www.example.com/mip/2.php"></textarea>
+        <small class="form-text text-muted">注：提交的链接的域名必须与接口中site保持一直才能推送成功</small>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm" id="start-push">开始推送</button>
+</div>
+<div class="card mb-3">
+    <div class="card-header text-center text-info font-weight-bold py-2">推送结果</div>
+    <div class="card-body table-responsive push-result text-center py-3">结果显示区</div>
+</div>
+<h3 class="mb-3 pl-2 title-info">推送结果参数解读：</h3>
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home"
+           aria-selected="true">推送成功</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile"
+           aria-selected="false">推送失败</a>
+    </li>
+</ul>
+<div class="tab-content" id="myTabContent">
+    <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+        <p class="my-1 text-muted">状态码为200，可能返回以下字段：</p>
+        <table class="table">
+            <thead class="thead-light">
+            <tr>
+                <th scope="col">字段</th>
+                <th scope="col">是否必传</th>
+                <th scope="col">参数类型</th>
+                <th scope="col">说明</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <th scope="row">remain</th>
+                <td>是</td>
+                <td>int</td>
+                <td>当天剩余的可推送url条数</td>
+            </tr>
+            <tr>
+                <th scope="row">success</th>
+                <td>是</td>
+                <td>int</td>
+                <td>成功推送的url条数</td>
+            </tr>
+            <tr>
+                <th scope="row">not_same_site</th>
+                <td>否</td>
+                <td>array</td>
+                <td>由于不是本站url而未处理的url列表</td>
+            </tr>
+            <tr>
+                <th scope="row">not_valid</th>
+                <td>否</td>
+                <td>array</td>
+                <td>不合法的url列表</td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="my-1 text-muted">成功返回示例：</p>
+        <div class="codehilite">
+            <pre>
+{
+    &quot;remain&quot;:4999998,
+    &quot;success&quot;:2,
+    &quot;not_same_site&quot;:[],
+    &quot;not_valid&quot;:[]
+}
+            </pre>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+        <p class="my-1 text-muted">状态码为4xx，返回字段有：</p>
+        <table class="table">
+            <thead class="thead-light">
+            <tr>
+                <th scope="col">字段</th>
+                <th scope="col">是否必传</th>
+                <th scope="col">参数类型</th>
+                <th scope="col">说明</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <th scope="row">error</th>
+                <td>是</td>
+                <td>int</td>
+                <td>错误码，与状态码相同</td>
+            </tr>
+            <tr>
+                <th scope="row">message</th>
+                <td>是</td>
+                <td>string</td>
+                <td>错误描述</td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="my-1 text-muted">失败返回示例：</p>
+        <div class="codehilite">
+            <pre>
+{
+    &quot;error&quot;:401,
+    &quot;message&quot;:&quot;token is not valid&quot;
+}
+            </pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_f %}
+<script>
+$('#start-push').click(function() {
+	push_spider("{{ csrf_token }}", "{% url 'tool:baidu_push' %}");
+	//禁用按钮
+    disableButton($('#start-push'),2000);
+})
+
+</script>
+{% endblock %}

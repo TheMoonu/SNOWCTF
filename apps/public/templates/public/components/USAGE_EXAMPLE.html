@@ -1,0 +1,262 @@
+{# ========== 自定义下拉框使用示例 ========== #}
+
+{# 示例1: 简单使用 - 只需要准备选项数据 #}
+<div class="example-1">
+    <h3>示例1: 基本使用</h3>
+    {% with simple_options=simple_options|default:default_simple_options %}
+        {% include 'public/components/custom_select.html' with 
+            select_name='category' 
+            options=simple_options 
+            default_value='tech'
+        %}
+    {% endwith %}
+</div>
+
+{% comment %}
+在 Python 中准备数据:
+simple_options = [
+    {'value': 'tech', 'label': '技术'},
+    {'value': 'design', 'label': '设计'},
+    {'value': 'product', 'label': '产品'},
+]
+{% endcomment %}
+
+
+{# 示例2: 带图标的下拉框 #}
+<div class="example-2">
+    <h3>示例2: 带图标</h3>
+    {% with icon_options=icon_options|default:default_icon_options %}
+        {% include 'public/components/custom_select.html' with 
+            select_name='difficulty' 
+            options=icon_options 
+            default_value='medium'
+            placeholder='选择难度'
+        %}
+    {% endwith %}
+</div>
+
+{% comment %}
+icon_options = [
+    {'value': 'easy', 'label': '简单', 'icon': 'fa fa-smile-o'},
+    {'value': 'medium', 'label': '中等', 'icon': 'fa fa-meh-o'},
+    {'value': 'hard', 'label': '困难', 'icon': 'fa fa-frown-o'},
+]
+{% endcomment %}
+
+
+{# 示例3: 在筛选表单中使用（紧凑模式） #}
+<div class="example-3">
+    <h3>示例3: 筛选表单</h3>
+    <form method="get" class="filter-form">
+        <div class="form-row">
+            <div class="col-md-3">
+                <label>岗位类型：</label>
+                {% include 'public/components/custom_select.html' with 
+                    select_name='job_type' 
+                    options=job_type_options 
+                    default_value=request.GET.job_type
+                    class='custom-select-compact'
+                %}
+            </div>
+            <div class="col-md-3">
+                <label>工作地点：</label>
+                {% include 'public/components/custom_select.html' with 
+                    select_name='city' 
+                    options=city_options 
+                    default_value=request.GET.city
+                    class='custom-select-compact'
+                %}
+            </div>
+            <div class="col-md-3">
+                <label>经验要求：</label>
+                {% include 'public/components/custom_select.html' with 
+                    select_name='experience' 
+                    options=experience_options 
+                    default_value=request.GET.experience
+                    class='custom-select-compact'
+                %}
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary mt-4">筛选</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+
+{# 示例4: 在模态框中使用 #}
+<div class="example-4">
+    <h3>示例4: 模态框中的下拉框</h3>
+    <button class="btn btn-secondary" data-toggle="modal" data-target="#myModal">
+        打开模态框
+    </button>
+    
+    <div class="modal fade" id="myModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">选择选项</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="form-group">
+                            <label>请选择类别：</label>
+                            {% include 'public/components/custom_select.html' with 
+                                select_name='modal_category' 
+                                select_id='modal-category-select'
+                                options=modal_options 
+                            %}
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{# 示例5: 动态监听值变化 #}
+<div class="example-5">
+    <h3>示例5: 监听值变化</h3>
+    {% include 'public/components/custom_select.html' with 
+        select_name='watch_demo' 
+        select_id='watch-demo-select'
+        options=demo_options 
+        placeholder='选择查看效果'
+    %}
+    <p class="mt-2">当前选中: <strong id="selected-value">未选择</strong></p>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const select = document.getElementById('watch-demo-select');
+        if (select) {
+            select.addEventListener('change', function(e) {
+                document.getElementById('selected-value').textContent = e.target.value;
+            });
+        }
+    });
+    </script>
+</div>
+
+
+{# 示例6: 内联样式（无边框） #}
+<div class="example-6">
+    <h3>示例6: 内联样式</h3>
+    <p>
+        排序方式：
+        {% include 'public/components/custom_select.html' with 
+            select_name='sort' 
+            options=sort_options 
+            default_value='latest'
+            class='custom-select-inline'
+        %}
+    </p>
+</div>
+
+
+{% comment %}
+========== 对应的 Python 代码示例 ==========
+
+# views.py
+from django.views.generic import TemplateView
+
+class ExampleView(TemplateView):
+    template_name = 'public/components/USAGE_EXAMPLE.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # 示例1
+        context['simple_options'] = [
+            {'value': 'tech', 'label': '技术'},
+            {'value': 'design', 'label': '设计'},
+            {'value': 'product', 'label': '产品'},
+        ]
+        
+        # 示例2
+        context['icon_options'] = [
+            {'value': 'easy', 'label': '简单', 'icon': 'fa fa-smile-o'},
+            {'value': 'medium', 'label': '中等', 'icon': 'fa fa-meh-o'},
+            {'value': 'hard', 'label': '困难', 'icon': 'fa fa-frown-o'},
+        ]
+        
+        # 示例3
+        context['job_type_options'] = [
+            {'value': '', 'label': '全部类型'},
+            {'value': 'fulltime', 'label': '全职'},
+            {'value': 'parttime', 'label': '兼职'},
+            {'value': 'intern', 'label': '实习'},
+        ]
+        
+        context['city_options'] = [
+            {'value': '', 'label': '全部城市'},
+            {'value': 'beijing', 'label': '北京'},
+            {'value': 'shanghai', 'label': '上海'},
+            {'value': 'shenzhen', 'label': '深圳'},
+        ]
+        
+        context['experience_options'] = [
+            {'value': '', 'label': '不限'},
+            {'value': '0-1', 'label': '应届生'},
+            {'value': '1-3', 'label': '1-3年'},
+            {'value': '3-5', 'label': '3-5年'},
+            {'value': '5+', 'label': '5年以上'},
+        ]
+        
+        # 示例4 & 5
+        context['modal_options'] = [
+            {'value': 'option1', 'label': '选项1'},
+            {'value': 'option2', 'label': '选项2'},
+            {'value': 'option3', 'label': '选项3'},
+        ]
+        
+        context['demo_options'] = [
+            {'value': 'value1', 'label': '值1'},
+            {'value': 'value2', 'label': '值2'},
+            {'value': 'value3', 'label': '值3'},
+        ]
+        
+        # 示例6
+        context['sort_options'] = [
+            {'value': 'latest', 'label': '最新'},
+            {'value': 'popular', 'label': '最热'},
+            {'value': 'views', 'label': '浏览量'},
+        ]
+        
+        return context
+{% endcomment %}
+
+
+<style>
+/* 示例页面样式 */
+.example-1, .example-2, .example-3, .example-4, .example-5, .example-6 {
+    margin-bottom: 40px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.example-3 .filter-form {
+    background: white;
+    padding: 20px;
+    border-radius: 6px;
+}
+
+.example-5 #selected-value {
+    color: #007bff;
+}
+
+.example-6 p {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+</style>
+

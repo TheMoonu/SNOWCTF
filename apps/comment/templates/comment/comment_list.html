@@ -1,0 +1,98 @@
+{% load comment_tags oauth_tags %}
+{% load humanize %}
+
+<div class="card-body p-2 p-md-3 f-17" id="comment-list">
+    <ul class="list-unstyled">
+        <div class="mb-3">
+            <strong>{% get_comment_user_count article %}&nbsp;人参与&nbsp;|&nbsp;{% get_comment_count article %}&nbsp;条评论</strong>
+        </div>
+        {% for comment in comment_list %}
+        <div class="comment-parent pt-2" id="com-{{ comment.id }}">
+            <li class="media">
+                {% get_user_avatar_tag comment.author %}
+                <div class="media-body ml-2">
+                    <a class="float-right small mr-2 rep-btn" href="#editor-block"
+                       data-repid="{{ comment.id }}" data-repuser="{{ comment.author.username }}" data-no-loading>回复</a>
+                    <p class="mt-0 mb-1">
+                        {% get_user_link comment.author as user_link_info %}
+                        {% if comment.author.uuid %}
+                        <strong >
+                            <a href="{% url 'public:profileViews' comment.author.uuid %}"
+                               title="前往 {{ comment.author }} 的个人主页"
+                               target="_blank">{{ comment.author }}
+                            </a>
+                        </strong>
+                        {% else %}
+                        <strong title="该用户未认证">{{ comment.author }}</strong>
+                        {% endif %}
+                        {% if user_link_info.is_verified %}
+                            {% if user_link_info.provider == 'GitHub' %}
+                            <i class="fa fa-github" title="Github 绑定用户"></i>
+                            {% elif user_link_info.provider == 'Weibo' %}
+                            <i class="fa fa-weibo" title="Weibo 绑定用户"></i>
+                            {% else %}
+                            <i class="fa fa-envelope-o" title="邮箱认证用户"></i>
+                            {% endif %}
+                        {% endif %}
+                        {% if comment.author.is_superuser %}
+                        <small class="text-danger">[管理员]</small>
+                        {% elif comment.author == article.author %}
+                        <small class="text-info">[作者]</small>
+                        {% endif %}
+                    </p>
+                    <p class="small text-muted">{{ forloop.revcounter }}&nbsp;楼&nbsp;-&nbsp;{{ comment.create_date|naturaltime }}&nbsp;&nbsp;&nbsp;IP：{{comment.ip_address}}</p>
+                </div>
+            </li>
+            <div class="comment-body">{{ comment.content_to_markdown|safe }}</div>
+        </div>
+        {% get_child_comments comment as child_comments %}
+        {% if child_comments %}
+        <ul class="list-unstyled ml-4">
+            {% for each in child_comments %}
+            <div class="comment-child pt-2" id="com-{{ each.id }}">
+                <li class="media">
+                    {% get_user_avatar_tag each.author %}
+                    <div class="media-body ml-2">
+                        <a class="float-right small mr-2 rep-btn" href="#editor-block"
+                           data-repid="{{ each.id }}" data-repuser="{{ each.author.username }}" data-no-loading>回复</a>
+                        <p class="mt-0 mb-1">
+                            {% get_user_link each.author as each_user_link_info %}
+                            
+                            <strong >
+                                <a href="{% url 'public:profileViews' each.author.uuid %}"
+                                   title="前往 {{ each.author }} 的个人网站"
+                                   target="_blank">{{ each.author }}
+                                </a>
+                            </strong>
+                            
+                            {% if each_user_link_info.is_verified %}
+                                {% if each_user_link_info.provider == 'GitHub' %}
+                                <i class="fa fa-github" title="Github 绑定用户"></i>
+                                {% elif each_user_link_info.provider == 'Weibo' %}
+                                <i class="fa fa-weibo" title="Weibo 绑定用户"></i>
+                                {% else %}
+                                <i class="fa fa-envelope-o" title="邮箱认证用户"></i>
+                                {% endif %}
+                            {% endif %}
+                            {% if each.author.is_superuser %}
+                            <small class="text-danger">[管理员]</small>
+                            {% endif %}
+                            <i class="fa fa-share"></i>
+                            @<a href="{% url 'public:profileViews' each.rep_to.author.uuid %}"
+                               title="前往 {{ each.rep_to.author }} 的个人主页"
+                               target="_blank">{{ each.rep_to.author }}
+                            </a>
+                        </p>
+                        <p class="small text-muted">{{ each.create_date|naturaltime }}&nbsp;&nbsp;&nbsp;IP：{{each.ip_address}}</p>
+                    </div>
+                </li>
+                <div class="comment-body">{{ each.content_to_markdown|safe }}</div>
+            </div>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% empty %}
+        暂时没有评论，欢迎来讨论！
+        {% endfor %}
+    </ul>
+</div>

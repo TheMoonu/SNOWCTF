@@ -1,0 +1,106 @@
+{% extends "public/base.html" %}
+{% load static %}
+
+{% block head_title %}首页{% endblock %}
+
+<meta name="description" content="{{ site_description }}">
+<meta name="keywords" content="{{ site_keywords }}">
+
+
+{% block base_content %}
+
+<section class="slice py-7">
+    <div class="container">
+        <div class="row row-grid align-items-center">
+            <div class="col-12 col-md-5 col-lg-6 order-md-2 text-centers">
+                <!-- Image -->
+                <figure class="w-100">
+                    {% if homepage_content and homepage_content.main_image_url %}
+                        <img alt="{{ homepage_content.main_title }}" src="{{ homepage_content.main_image_url }}" class="img-fluid mw-md-120">
+                    {% else %}
+                        <img alt="Image placeholder" src="{% static 'public/img/svg/illustration-3.svg' %}" class="img-fluid mw-md-120">
+                    {% endif %}
+                </figure>
+            </div>
+            <div class="col-12 col-md-7 col-lg-6 order-md-1 pr-md-5">
+                <!-- Heading -->
+                <h1 class="display-4 text-centers text-md-left mb-3">
+                    {% if homepage_content %}
+                        {{ homepage_content.main_title|safe }}
+                    {% endif %}
+                </h1>
+                <!-- Subtitle -->
+                {% if homepage_content and homepage_content.main_subtitle %}
+                <h1 class="text-centers text-md-left mb-3">
+                    <strong class="text-primary">{{ homepage_content.main_subtitle }}</strong>
+                </h1>
+                {% endif %}
+                <!-- Text -->
+                <p class="lead text-centers text-md-left text-muted">
+                    {% if homepage_content %}
+                        {{ homepage_content.main_description }}
+                    {% endif %}
+                </p>
+                <!-- Buttons -->
+               
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="slice slice-lg pt-lg-6 pb-0 pb-lg-6 bg-section-secondary">
+        <div class="container">
+            <!-- Title -->
+            <!-- Section title -->
+            <div class="row mb-5 justify-content-center text-center">
+                <div class="col-lg-6">
+                    <span class="badge badge-soft-success badge-pill badge-lg">
+                        {% if homepage_content and homepage_content.service_badge %}
+                            {{ homepage_content.service_badge }}
+                        {% endif %}
+                    </span>
+                    <h2 class=" mt-4">
+                        {% if homepage_content and homepage_content.service_title %}
+                            {{ homepage_content.service_title }}
+                        {% endif %}
+                    </h2>
+                    <div class="mt-2">
+                        <p class="lead lh-180">
+                            {% if homepage_content and homepage_content.service_description %}
+                                {{ homepage_content.service_description }}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- Card -->
+            <div class="row mt-5">
+                {% if homepage_content and homepage_content.service_cards %}
+                    {% for card in homepage_content.service_cards %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card border-0 rounded-6">
+                            <div class="card-bodys pb-5">
+                                <div class="pt-4 pb-5">
+                                    {% if card.image_url %}
+                                        <img src="{{ card.image_url }}" class="img-fluid img-center" style="height: 150px;" alt="{{ card.title }}" />
+                                    {% else %}
+                                        <img src="{% static 'public/img/svg/illustration-6.svg' %}" class="img-fluid img-center" style="height: 150px;" alt="{{ card.title }}" />
+                                    {% endif %}
+
+                                </div>
+                                <h5 class="h4 lh-130 mb-3">{{ card.title }}</h5>
+                                <p class="text-muted mb-0">{{ card.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+
+
+
+
+{% endblock %}

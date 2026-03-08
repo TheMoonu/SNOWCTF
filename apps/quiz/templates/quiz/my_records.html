@@ -1,0 +1,215 @@
+{% extends "public/base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block head_title %}我的答题记录{% endblock %}
+
+{% block metas %}
+<meta name="description" content="查看我的知识竞赛答题记录">
+{% endblock %}
+
+{% block top-file %}
+<link href="{% static 'quiz/css/quiz.css' %}?v=20260123.01" rel="stylesheet">
+{% endblock %}
+
+{% block base_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white border-0 rounded-6 mb-2 py-2 f-15">
+                    <li class="breadcrumb-item">
+                        <i class="fa fa-home mr-1"></i><a href="{% url 'quiz:quiz_list' %}">知识竞赛</a>
+                    </li>
+                    <li class="breadcrumb-item active">我的答题记录</li>
+                </ol>
+            </nav>
+
+           
+
+            <!-- 记录列表 -->
+            {% if records %}
+            <div class="row">
+                {% for record in records %}
+                <div class="col-12 mb-3">
+                    <div class="card border-0 rounded-6 shadow-sm hover-shadow">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <!-- 竞赛信息 -->
+                                <div class="col-md-5">
+                                    <h5 class="mb-3">
+                                        <a href="{% url 'quiz:quiz_detail' record.quiz.slug %}" 
+                                           >
+                                            {{ record.quiz.title }}
+                                        </a>
+                                    </h5>
+                                    <div class="d-flex flex-wrap text-muted f-14">
+                                        <span class="mr-4 mb-2">
+                                            <i class="bi bi-clock text-primary mr-1"></i>
+                                            {{ record.start_time|date:"Y-m-d H:i" }}
+                                        </span>
+                                        {% if record.submit_time %}
+                                        <span class="mr-4 mb-2">
+                                            <i class="bi bi-check2-circle text-success mr-1"></i>
+                                            {{ record.submit_time|date:"Y-m-d H:i" }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- 得分状态 -->
+                                <div class="col-md-4 text-center my-3 my-md-0">
+                                    {% if record.status == 'completed' %}
+                                        
+                                        <div class="f-14 text-muted">
+                                            {% if record.quiz.enable_pass_score %}
+                                                {% if record.score >= record.quiz.pass_score %}
+                                                    <i class="bi bi-check-circle text-success"></i> 通过考试
+                                                {% else %}
+                                                    <i class="bi bi-x-circle text-danger"></i> 未通过
+                                                {% endif %}
+                                            {% else %}
+                                                <i class="bi bi-check-circle text-primary"></i> 已完成
+                                            {% endif %}
+                                        </div>
+                                        <!-- 违规记录提示 -->
+                                        {% if record.violation_count > 0 %}
+                                        <div class="mt-2">
+                                            <span class="badge {% if record.violation_count >= 5 %}badge-danger{% elif record.violation_count >= 3 %}badge-warning{% else %}badge-secondary{% endif %}">
+                                                <i class="bi bi-exclamation-triangle"></i> 违规 {{ record.violation_count }} 次
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    {% elif record.status == 'cheating' %}
+                                        <div class="text-danger">
+                                            <i class="bi bi-shield-x f-24"></i>
+                                            <div class="f-14 mt-1">违规强制提交</div>
+                                            <div class="mt-2">
+                                                <span class="state-label state-label-danger">
+                                                    违规 {{ record.violation_count }} 次
+                                                </span>
+                                            </div>
+                                        </div>
+                                    {% elif record.status == 'in_progress' %}
+                                        <div class="text-warning">
+                                            <i class="bi bi-hourglass-split f-24"></i>
+                                            <div class="f-14 mt-1">进行中</div>
+                                        </div>
+                                        {% if record.violation_count > 0 %}
+                                        <div class="mt-2">
+                                            <span class="state-label state-label-warning">
+                                                <i class="bi bi-exclamation-triangle"></i> 违规 {{ record.violation_count }} 次
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    {% elif record.status == 'timeout' %}
+                                        <div class="text-secondary">
+                                            <i class="bi bi-clock-history f-24"></i>
+                                            <div class="f-14 mt-1">已超时</div>
+                                        </div>
+                                        {% if record.violation_count > 0 %}
+                                        <div class="mt-2">
+                                            <span class="state-label state-label-secondary">
+                                                <i class="bi bi-exclamation-triangle"></i> 违规 {{ record.violation_count }} 次
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- 操作按钮 -->
+                                <div class="col-md-3 text-md-right text-center">
+                                    {% if record.status == 'in_progress' %}
+                                        <a href="{% url 'quiz:quiz_answer' record.uuid %}" 
+                                            class="btn quiz-btn-primary">
+                                            <i class="bi bi-play-circle mr-1"></i> 继续答题
+                                        </a>
+                                    {% elif record.status == 'completed' or record.status == 'timeout' or record.status == 'cheating' %}
+                                        <div>
+                                            <a href="{% url 'quiz:quiz_result' record.uuid %}" 
+                                                class="btn btn-primary btn-sm mb-2">
+                                                <i class="bi bi-file-text mr-1"></i> 查看成绩
+                                            </a>
+                                        </div>
+                                        <div>
+                                            <a href="{% url 'quiz:start_quiz' record.quiz.slug %}" 
+                                                class="btn btn-outline-secondary btn-sm">
+                                                <i class="bi bi-arrow-clockwise mr-1"></i> 再次挑战
+                                            </a>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- 分页 -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="答题记录分页" class="mt-3">
+                <ul class="pagination pagination-sm justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">上一页</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if num == 1 or num == page_obj.paginator.num_pages or num == page_obj.number or num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">下一页</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            
+            {% else %}
+            <!-- 空状态 -->
+            <div class="card border-0 rounded-6 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-inbox text-muted mb-3" style="font-size: 64px;"></i>
+                    <h5 class="text-muted mb-4">暂无答题记录</h5>
+                    <a href="{% url 'quiz:quiz_list' %}" class="btn quiz-btn-primary">
+                        <i class="bi bi-trophy mr-2"></i> 开始答题
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block end_file %}
+<script src="{% static 'quiz/js/quiz.js' %}?v=20260125.01"></script>
+{% endblock %}
+

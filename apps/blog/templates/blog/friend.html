@@ -1,0 +1,345 @@
+{% extends 'public/base.html' %}
+{% load static blog_tags %}
+
+{% block head_title %}合作伙伴{% endblock %}
+
+{% block metas %}
+    <meta name="description"
+          content="{{ site_description }}">
+    <meta name="keywords" content="{{ site_keywords }}">
+{% endblock %}
+
+{% block top-file %}
+{% endblock %}
+
+{% block base_content %}
+    <style>
+        .friends-page {
+            padding: 40px 0;
+            background-color: #f8f9fa;
+            min-height: calc(100vh - 200px);
+        }
+        
+        .friends-page-title {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .friends-page-title h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 12px;
+        }
+        
+        .friends-page-title p {
+            color: #999;
+            font-size: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .friends-apply-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #65b0fe 0%, #4a9fef 100%);
+            color: white;
+            padding: 10px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(101, 176, 254, 0.3);
+        }
+        
+        .friends-apply-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(101, 176, 254, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+        
+        .friends-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .friends-section-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 25px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #65b0fe;
+            display: flex;
+            align-items: center;
+        }
+        
+        .friends-section-title i {
+            margin-right: 10px;
+            color: #65b0fe;
+        }
+        
+        .friends-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .friend-card-modern {
+            background: white;
+            border: 2px solid #f0f0f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .friend-card-modern:hover {
+            border-color: #65b0fe;
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(101, 176, 254, 0.2);
+        }
+        
+        .friend-card-modern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #65b0fe, #4a9fef);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .friend-card-modern:hover::before {
+            opacity: 1;
+        }
+        
+        .friend-avatar-wrapper {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid #f0f0f0;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .friend-card-modern:hover .friend-avatar-wrapper {
+            border-color: #65b0fe;
+            transform: scale(1.1);
+        }
+        
+        .friend-avatar-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .friend-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            transition: color 0.3s ease;
+        }
+        
+        .friend-card-modern:hover .friend-name {
+            color: #65b0fe;
+        }
+        
+        .friend-desc {
+            font-size: 13px;
+            color: #999;
+            line-height: 1.5;
+            min-height: 40px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .friend-visit-icon {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            background: #f8f9fa;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            color: #65b0fe;
+        }
+        
+        .friend-card-modern:hover .friend-visit-icon {
+            opacity: 1;
+        }
+        
+        /* 失联友链样式 */
+        .friend-card-offline {
+            filter: grayscale(100%);
+            opacity: 0.6;
+        }
+        
+        .friend-card-offline .friend-avatar-wrapper {
+            border-color: #e0e0e0;
+        }
+        
+        .friend-card-offline:hover {
+            border-color: #999;
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .friend-card-offline .friend-name {
+            color: #999;
+        }
+        
+        .friend-offline-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #dc3545;
+            color: white;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        
+        .friends-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .friends-empty i {
+            font-size: 64px;
+            color: #e0e0e0;
+            margin-bottom: 20px;
+        }
+        
+        .friends-stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .friends-stat-item {
+            text-align: center;
+            padding: 15px 25px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .friends-stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: #65b0fe;
+            display: block;
+        }
+        
+        .friends-stat-label {
+            font-size: 13px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .friends-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+            
+            .friends-stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+
+    <div class="friends-page">
+        <div class="container">
+            <!-- 页面标题 -->
+            <div class="friends-page-title">
+                <h1>合作伙伴</h1>
+                <p>合作伙伴是本产品的重要组成部分，感谢合作伙伴的支持和帮助</p>
+            </div>
+
+
+
+            <div class="row justify-content-center">
+                <div class="col-lg-11">
+                    <!-- 活跃友链 -->
+                    <div class="friends-section">
+                        <div class="friends-section-title">
+                            <i class="fa fa-link"></i>
+                            <span>活跃合作伙伴</span>
+                        </div>
+                        
+                        {% if friend_list %}
+                            <div class="friends-grid">
+                                {% for friend in friend_list %}
+                                    <a href="{{ friend.get_home_url }}" target="_blank" style="text-decoration: none;">
+                                        <div class="friend-card-modern">
+                                            <span class="friend-visit-icon">
+                                                <i class="fa fa-external-link"></i>
+                                            </span>
+                                            <div class="friend-avatar-wrapper">
+                                                <img src="{{ friend.logo.url }}" alt="{{ friend.name }}">
+                                            </div>
+                                            <div class="friend-name">{{ friend.name }}</div>
+                                            <div class="friend-desc">{{ friend.description }}</div>
+                                        </div>
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="friends-empty">
+                                <i class="fa fa-frown-o"></i>
+                                <p>暂无合作伙伴</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- 失联友链 -->
+                    {% if not_show_friends %}
+                        <div class="friends-section">
+                            <div class="friends-section-title">
+                                <i class="fa fa-chain-broken"></i>
+                                <span>失联友链</span>
+                            </div>
+                            <div class="friends-grid">
+                                {% for friend in not_show_friends %}
+                                    <div class="friend-card-modern friend-card-offline">
+                                        <span class="friend-offline-badge">失联</span>
+                                        <div class="friend-avatar-wrapper">
+                                            <img src="{{ friend.logo.url }}" alt="{{ friend.name }}">
+                                        </div>
+                                        <div class="friend-name">{{ friend.name }}</div>
+                                        <div class="friend-desc">{{ friend.not_show_reason }}</div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

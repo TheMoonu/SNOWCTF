@@ -1,0 +1,55 @@
+{% extends "account/base.html" %}
+
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+{% block head_title %}{% trans "注册确认" %}{% endblock %}
+{% block user_title %}{% trans "完成注册" %}{% endblock %}
+
+{% block content %}
+
+
+<div class="alert alert-info">
+  <p class="mb-0">
+    {% blocktrans with provider_name=account.get_provider.name site_name=site.name %}
+    您正在使用 <strong>{{ provider_name }}</strong> 账号注册 <strong>{{ site_name }}</strong>。
+    {% endblocktrans %}
+  </p>
+</div>
+
+<form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}">
+  {% csrf_token %}
+  
+  <div class="user-info-preview mb-4">
+    <div class="d-flex align-items-center mb-3">
+      <div>
+        <p class="text-muted mb-0">
+          {{ user.email|default:"" }}
+        </p>
+      </div>
+    </div>
+  </div>
+  
+  {{ form|crispy }}
+  
+  {% if redirect_field_value %}
+  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+  {% endif %}
+  
+  <div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" id="terms_consent" name="terms_consent" required>
+    <label class="form-check-label" for="terms_consent">
+      {% trans "我已阅读并同意" %} <a href="{% url 'blog:privacy' %}" target="_blank">{% trans "用户协议和隐私政策" %}</a>
+    </label>
+  </div>
+  
+  <div class="d-flex justify-content-between mt-4">
+    <a href="{% url 'account_login' %}" class="btn btn-outline-secondary btn-sm">{% trans "取消" %}</a>
+    <button type="submit" class="btn btn-primary btn-sm">{% trans "确认注册" %}</button>
+  </div>
+</form>
+
+<div class="text-center mt-4 small text-muted">
+  <p>{% trans "完成注册后，您可以使用此社交账号直接登录，无需输入密码。" %}</p>
+</div>
+{% endblock %} 

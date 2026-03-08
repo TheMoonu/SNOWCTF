@@ -1,0 +1,396 @@
+{# templates/search/blog/search_result_list.html - 简约现代风格 #}
+{% load blog_tags highlight %}
+
+{% for result in search_list %}
+    {% if result.model_name == 'article' %}
+        {# 文章卡片 #}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <article class="search-card search-card-article">
+                {% if result.object.img_link %}
+                <a href="{{ result.object.get_absolute_url }}" class="search-card-image">
+                    <img src="{{ result.object.img_link.url }}" alt="{{ result.object.title }}">
+                </a>
+                {% endif %}
+                <div class="search-card-content">
+                    <h3 class="search-card-title">
+                        <a href="{{ result.object.get_absolute_url }}">
+                            {% my_highlight result.object.title query %}
+                        </a>
+                    </h3>
+                    <div class="search-card-desc">
+                        {% with result.object.body_to_markdown|striptags as body %}
+                            {% my_highlight body|truncatechars:100 query %}
+                        {% endwith %}
+                    </div>
+                    <div class="search-card-meta">
+                        <span><i class="fa fa-eye"></i> {{ result.object.views }}</span>
+                        <span><i class="fa fa-calendar"></i> {{ result.object.update_date|date:'Y-m-d' }}</span>
+                    </div>
+                </div>
+            </article>
+        </div>
+        
+    {% elif result.model_name == 'pc_challenge' %}
+        {# 靶场题目卡片 #}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <article class="search-card search-card-challenge">
+                
+                <div class="search-card-content">
+                    <div class="search-card-tags mb-2">
+                        <span class="search-tag search-tag-category">{{ result.object.get_category_display }}</span>
+                        <span class="search-tag search-tag-diff-{{ result.object.difficulty|lower }}">
+                            {{ result.object.get_difficulty_display }}
+                        </span>
+                    </div>
+                    <h3 class="search-card-title">
+                        <a href="{{ result.object.get_absolute_url }}">
+                            {% my_highlight result.object.title query %}
+                        </a>
+                    </h3>
+                    <p class="search-card-desc">
+                        {% my_highlight result.object.description|striptags|truncatechars:80 query %}
+                    </p>
+                    <div class="search-card-meta">
+                        <span><i class="fa fa-trophy"></i> {{ result.object.points }}分</span>
+                        <span><i class="fa fa-users"></i> {{ result.object.solves }}人</span>
+                    </div>
+                </div>
+            </article>
+        </div>
+        
+    {% elif result.model_name == 'job' %}
+        {# 安全岗位卡片 #}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <article class="search-card search-card-job">
+                
+                <div class="search-card-content">
+                    <h3 class="search-card-title">
+                        <a href="{{ result.object.get_absolute_url }}">
+                            {% my_highlight result.object.title query %}
+                        </a>
+                    </h3>
+                    {% if result.object.salary_desc %}
+                    <div class="search-salary">{{ result.object.salary_desc }}</div>
+                    {% endif %}
+                    <div class="search-card-tags mb-2">
+                        <span class="search-tag">{{ result.object.get_track_display }}</span>
+                        <span class="search-tag">{{ result.object.get_RecruitmentType_display }}</span>
+                    </div>
+                    <p class="search-card-desc">
+                        {% my_highlight result.object.description|striptags|truncatechars:80 query %}
+                    </p>
+                    <div class="search-card-meta">
+                        {% for city in result.object.cityname.all|slice:":2" %}
+                            <span><i class="fa fa-map-marker-alt"></i> {{ city.name }}</span>
+                        {% endfor %}
+                        {% for company in result.object.companyname.all|slice:":1" %}
+                            <span><i class="fa fa-building"></i> {{ company.company_name|truncatechars:12 }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </article>
+        </div>
+    {% endif %}
+{% empty %}
+    <div class="col-12">
+        <div class="search-empty-state">
+            <i class="fa fa-search"></i>
+            <p>没有找到相关结果，请尝试其他关键词</p>
+        </div>
+    </div>
+{% endfor %}
+
+<style>
+/* ========== 统一卡片风格 ========== */
+.search-card {
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.2s ease;
+    border: 1px solid #f0f0f0;
+    position: relative;
+}
+
+.search-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    border-color: #d9d9d9;
+}
+
+/* 图片容器 */
+.search-card-image {
+    display: block;
+    width: 100%;
+    height: 160px;
+    overflow: hidden;
+    background: #f5f5f5;
+}
+
+.search-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.search-card:hover .search-card-image img {
+    transform: scale(1.05);
+}
+
+/* 类型标签 */
+.search-card-type {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.95);
+    color: #1890ff;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.search-type-challenge {
+    color: #52c41a;
+}
+
+.search-type-job {
+    color: #fa8c16;
+}
+
+/* 内容区域 */
+.search-card-content {
+    padding: 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 标题 */
+.search-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin: 0 0 8px 0;
+    
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.search-card-title a {
+    color: #262626;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.search-card-title a:hover {
+    color: #1890ff;
+}
+
+/* 薪资（岗位专用） */
+.search-salary {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f5222d;
+    margin-bottom: 10px;
+}
+
+/* 描述 */
+.search-card-desc {
+    font-size: 13px;
+    color: #8c8c8c;
+    line-height: 1.5;
+    margin-bottom: 6px;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* 标签组 */
+.search-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.search-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    background: #f5f5f5;
+    color: #595959;
+    font-weight: 500;
+}
+
+.search-tag-category {
+    background: #e6f7ff;
+    color: #1890ff;
+}
+
+.search-tag-diff-easy {
+    background: #f6ffed;
+    color: #52c41a;
+}
+
+.search-tag-diff-medium {
+    background: #fff7e6;
+    color: #fa8c16;
+}
+
+.search-tag-diff-hard {
+    background: #fff1f0;
+    color: #f5222d;
+}
+
+/* 元信息 */
+.search-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: #8c8c8c;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.search-card-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.search-card-meta i {
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+/* 不同类型卡片的装饰色 */
+.search-card-article::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #1890ff, #69c0ff);
+}
+
+.search-card-challenge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #52c41a, #95de64);
+}
+
+.search-card-job::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #fa8c16, #ffc53d);
+}
+
+/* 高亮样式优化 */
+.search-card-title mark,
+.search-card-desc mark,
+mark {
+    background: #fff3cd;
+    color: #d4380d;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+/* 不同位置的高亮样式 */
+.search-card-title mark {
+    background: linear-gradient(120deg, #ffd666 0%, #fff566 100%);
+    color: #d46b08;
+}
+
+.search-card-desc mark {
+    background: #fff3cd;
+    color: #d4380d;
+}
+
+/* 空状态 */
+.search-empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: #8c8c8c;
+}
+
+.search-empty-state i {
+    font-size: 64px;
+    color: #d9d9d9;
+    margin-bottom: 20px;
+    display: block;
+}
+
+.search-empty-state p {
+    font-size: 16px;
+    margin: 0;
+    color: #8c8c8c;
+}
+
+/* 响应式优化 */
+@media (max-width: 1200px) {
+    .search-card-image {
+        height: 140px;
+    }
+}
+
+@media (max-width: 768px) {
+    .search-card-content {
+        padding: 14px;
+    }
+    
+    .search-card-title {
+        font-size: 14px;
+        min-height: 38px;
+        margin-bottom: 8px;
+    }
+    
+    .search-card-desc {
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+    
+    .search-card-meta {
+        font-size: 11px;
+        gap: 10px;
+        padding-top: 8px;
+    }
+    
+    .search-card-image {
+        height: 160px;
+    }
+    
+    .search-empty-state {
+        padding: 60px 20px;
+    }
+    
+    .search-empty-state i {
+        font-size: 48px;
+    }
+}
+</style>
+
+

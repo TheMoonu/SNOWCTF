@@ -1,0 +1,92 @@
+{% load static tool_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="referrer" content="origin">
+    <!-- TDK and ICO -->
+    <title>Editor.md, Markdown在线编辑器_SECSNOW</title>
+    <meta name="description" content="markdown 在线编辑器，基于开源项目 editor.md">
+    <meta name="keywords" content="Editor.md,Markdown,Markdown编辑器,Markdown在线编辑器,在线编辑器,开源Markdown编辑器">
+    <link rel="shortcut icon" href="{% static 'editor/images/logos/editormd-favicon-16x16.ico' %}" type="image/x-icon"/>
+    <link rel="stylesheet" href="{% static 'editor/css/editormd.min.css' %}"/>
+    <style>
+        body {
+            color: rgb(102, 102, 102);
+        }
+
+        #layout > header, .btns {
+            padding: 5px 0;
+            width: 90%;
+            margin: 0 auto;
+        }
+
+        #layout > header {
+            margin-bottom: 1rem;
+        }
+
+        #layout > header > div > a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        #layout > header > div > a:hover {
+            color: #ea6f5a;
+        }
+
+    </style>
+    {% load_github_corners "right" "#eb7571" "https://github.com/pandao/editor.md" %}
+</head>
+<body>
+
+<div id="layout">
+    <header>
+        <div>
+            <a href="{% url 'blog:index' %}">首页</a>
+            <span>&ensp;&gt;&ensp;</span>
+            <a href="{% url 'tool:total' %}">在线工具</a>
+            <span>&ensp;&gt;&ensp;</span>
+            <span>Markdown 在线编辑器</span>
+        </div>
+    </header>
+    <div id="test-editormd">
+            <textarea style="display:none;">
+### Disabled options
+
+- TeX (Based on KaTeX);
+- Emoji;
+- Task lists;
+
+### Code
+
+```python
+from yaml import safe_load
+
+with open(filename, 'r') as f:
+    vars_string = f.read()
+base_vars = safe_load(vars_string)
+```
+
+### Images
+
+![snow]({% static 'blog/img/favicon.ico' %} "snow")</textarea>
+    </div>
+</div>
+<script src="{% static 'blog/js/jq/3.7.1/jquery.min.js' %}"></script>
+<script src="{% static 'editor/js/editormd.min.js' %}"></script>
+<script type="text/javascript">
+    let testEditor;
+
+    $(function () {
+        testEditor = editormd("test-editormd", {
+            width: "90%",
+            height: 720,
+            syncScrolling: "single",
+            path: "{% static 'editor/lib/' %}"
+        });
+    });
+</script>
+</body>
+</html>

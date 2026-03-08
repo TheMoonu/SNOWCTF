@@ -1,0 +1,27 @@
+{% load ctf_tags %}
+{% load humanize %}
+{% load blog_tags static %}
+{% load dashboard %}
+{% load ctf_tags %}
+{% load humanize %}
+
+{% get_challenge_solve_records challenge limit=5 as recent_solves %}
+<div class="card border-0 rounded-6 px-3 mb-2 mb-md-3" id="article-view-card">
+    <div class="card-header bg-none px-0">
+        <strong><i class="fa fa-fire mr-2 f-17"></i>最近解题</strong>
+    </div>
+    <ul class="article-view-list list-group list-group-flush f-14">
+        {% for record in recent_solves %}
+        <li class="py-2">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ record.user.user }}</span>
+                <span>{{ record.solved_at|naturaltime }}解出</span>
+            </div>
+        </li>
+        {% empty %}
+        <li class="py-2">
+            <div style="text-align: center;">暂无解题记录</div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>

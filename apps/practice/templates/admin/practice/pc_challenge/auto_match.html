@@ -1,0 +1,541 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}智能匹配镜像创建题目{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .auto-match-page {
+        padding: 20px;
+    }
+    
+    .page-title {
+        font-size: 24px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    
+    .form-section {
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+        max-width: 800px;
+    }
+    
+    .section-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+        margin: 0 0 15px 0;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    
+    .form-input,
+    .form-select {
+        width: 100%;
+        padding: 10px 15px;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #606266;
+        transition: all 0.3s;
+        box-sizing: border-box;
+        height: 40px;
+    }
+    
+    .form-input:focus,
+    .form-select:focus {
+        border-color: #409eff;
+        outline: none;
+    }
+    
+    .form-select[multiple] {
+        height: auto;
+        min-height: 120px;
+        padding: 8px;
+    }
+    
+    .form-select[multiple] option {
+        padding: 6px 10px;
+        border-radius: 3px;
+        margin-bottom: 2px;
+    }
+    
+    .form-select[multiple] option:hover {
+        background: #f5f7fa;
+    }
+    
+    .form-select[multiple] option:checked {
+        background: #409eff;
+        color: white;
+    }
+    
+    .form-hint {
+        font-size: 12px;
+        color: #909399;
+        margin-top: 5px;
+    }
+    
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+    
+    .checkbox-group label {
+        font-size: 14px;
+        color: #606266;
+        cursor: pointer;
+        margin: 0;
+    }
+    
+    .images-section {
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        padding: 20px;
+        max-width: 800px;
+    }
+    
+    .images-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+        margin: 0 0 20px 0;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    
+    .category-group {
+        margin-bottom: 20px;
+    }
+    
+    .category-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background: #fafafa;
+        border: 1px solid #e5e5e5;
+        border-radius: 3px;
+        margin-bottom: 8px;
+    }
+    
+    .category-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .category-count {
+        font-size: 12px;
+        color: #909399;
+        margin-left: 6px;
+    }
+    
+    .select-all-btn {
+        padding: 5px 12px;
+        border: 1px solid #dcdfe6;
+        background: white;
+        border-radius: 3px;
+        font-size: 13px;
+        color: #606266;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .select-all-btn:hover {
+        border-color: #409eff;
+        color: #409eff;
+    }
+    
+    .image-list {
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        background: #fff;
+    }
+    
+    .image-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        border-bottom: 1px solid #e5e5e5;
+        transition: background 0.2s;
+        cursor: pointer;
+    }
+    
+    .image-item:last-child {
+        border-bottom: none;
+    }
+    
+    .image-item:hover {
+        background: #f5f7fa;
+    }
+    
+    .image-item.selected {
+        background: #ecf5ff;
+    }
+    
+    .image-checkbox {
+        margin-right: 12px;
+    }
+    
+    .image-checkbox input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+    
+    .image-info {
+        flex: 1;
+    }
+    
+    .image-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 4px;
+    }
+    
+    .image-meta {
+        font-size: 12px;
+        color: #909399;
+    }
+    
+    .image-meta span {
+        margin-right: 15px;
+    }
+    
+    .action-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding-top: 20px;
+        margin-top: 20px;
+        border-top: 1px solid #e5e5e5;
+        max-width: 800px;
+    }
+    
+    .action-btn {
+        padding: 9px 15px;
+        border: none;
+        border-radius: 3px;
+        font-size: 13px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.3s;
+        display: inline-block;
+        background: #fff;
+        color: #606266;
+        border: 1px solid #dcdfe6;
+    }
+    
+    .action-btn.primary {
+        background: #409eff;
+        color: white;
+        border-color: #409eff;
+    }
+    
+    .action-btn.primary:hover {
+        background: #66b1ff;
+        border-color: #66b1ff;
+    }
+    
+    .action-btn.primary:disabled {
+        background: #a0cfff;
+        cursor: not-allowed;
+    }
+    
+    .action-btn:hover {
+        color: #409eff;
+        border-color: #c6e2ff;
+        background: #ecf5ff;
+    }
+    
+    .selected-info {
+        margin-left: auto;
+        font-size: 14px;
+        color: #606266;
+    }
+    
+    .selected-info strong {
+        color: #409eff;
+        margin: 0 3px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        max-width: 800px;
+    }
+    
+    .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+        color: #909399;
+    }
+    
+    .empty-state h3 {
+        font-size: 16px;
+        color: #606266;
+        margin: 0 0 8px 0;
+    }
+    
+    .empty-state p {
+        font-size: 14px;
+        color: #909399;
+        margin: 0 0 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">主页</a>
+    &rsaquo; <a href="{% url 'admin:practice_pc_challenge_changelist' %}">题目管理</a>
+    &rsaquo; 智能匹配镜像
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="auto-match-page">
+    <h1 class="page-title">智能匹配镜像创建题目</h1>
+    
+    {% if total_count > 0 %}
+    <form method="post" id="matchForm">
+        {% csrf_token %}
+        
+        <div class="form-section">
+            <h3 class="section-title">默认配置</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">难度等级</label>
+                    <select name="default_difficulty" class="form-select">
+                        <option value="Easy">简单</option>
+                        <option value="Medium" selected>中等</option>
+                        <option value="Hard">困难</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">分数</label>
+                    <input type="number" name="default_points" value="100" min="1" class="form-input">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">金币</label>
+                    <input type="number" name="default_coins" value="10" min="0" class="form-input">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Flag类型</label>
+                    <select name="default_flag_type" class="form-select">
+                        <option value="DYNAMIC" selected>动态Flag</option>
+                        <option value="STATIC">静态Flag</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" name="auto_generate_name" id="autoName" checked>
+                <label for="autoName">自动生成题目名称（web1, pwn1等）</label>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" name="is_active" id="isActive">
+                <label for="isActive">创建后立即启用</label>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">学习岛标签（可选）</label>
+                    <select name="tags" class="form-select" multiple size="5">
+                        {% for tag in tags %}
+                        <option value="{{ tag.id }}">{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-hint">按住 Ctrl/Cmd 可多选标签</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="images-section">
+            <div class="images-title">选择镜像 · 共 {{ total_count }} 个未使用的镜像</div>
+            
+            {% for category, images in images_by_category.items %}
+            <div class="category-group">
+                <div class="category-header">
+                    <div>
+                        <span class="category-name">{{ category }}</span>
+                        <span class="category-count">({{ images|length }})</span>
+                    </div>
+                    <button type="button" class="select-all-btn" data-category="{{ category }}">
+                        全选
+                    </button>
+                </div>
+                
+                <div class="image-list">
+                    {% for image in images %}
+                    <div class="image-item" data-category="{{ category }}" onclick="toggleImageItem(this)">
+                        <div class="image-checkbox">
+                            <input type="checkbox" name="selected_images" value="{{ image.id }}" onclick="event.stopPropagation()">
+                        </div>
+                        <div class="image-info">
+                            <div class="image-name">{{ image.name }}:{{ image.tag }}</div>
+                            <div class="image-meta">
+                                <span>仓库: {{ image.registry }}</span>
+                                <span>Flag注入: {{ image.get_flag_inject_method_display }}</span>
+                                {% if image.description %}
+                                <span>{{ image.description|truncatewords:10 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="action-bar">
+            <a href="{% url 'admin:practice_pc_challenge_changelist' %}" class="action-btn">返回</a>
+            <button type="submit" class="action-btn primary" id="btnSubmit" disabled>开始创建</button>
+            <div class="selected-info">
+                已选择 <strong id="selectedCount">0</strong> 个镜像
+            </div>
+        </div>
+    </form>
+    {% else %}
+    <div class="empty-state">
+        <h3>所有镜像都已被使用</h3>
+        <p>当前没有未被题目引用的镜像，所有镜像都已配置完成！</p>
+        <a href="{% url 'admin:practice_pc_challenge_changelist' %}" class="primary">返回题目列表</a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// 切换选项选中状态
+function toggleImageItem(item) {
+    const checkbox = item.querySelector('input[type="checkbox"]');
+    checkbox.checked = !checkbox.checked;
+    updateItemState(item);
+    updateSelectedCount();
+}
+
+// 更新选项状态
+function updateItemState(item) {
+    const checkbox = item.querySelector('input[type="checkbox"]');
+    if (checkbox.checked) {
+        item.classList.add('selected');
+    } else {
+        item.classList.remove('selected');
+    }
+}
+
+// 更新选中数量
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('input[name="selected_images"]');
+    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+    const count = checked.length;
+    
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('btnSubmit').disabled = count === 0;
+}
+
+// 分类全选
+document.querySelectorAll('.select-all-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const category = this.dataset.category;
+        const items = document.querySelectorAll(`.image-item[data-category="${category}"]`);
+        const checkboxes = Array.from(items).map(item => item.querySelector('input[type="checkbox"]'));
+        const allChecked = checkboxes.every(cb => cb.checked);
+        
+        checkboxes.forEach(cb => {
+            cb.checked = !allChecked;
+        });
+        
+        items.forEach(item => updateItemState(item));
+        updateSelectedCount();
+        
+        this.textContent = allChecked ? '全选' : '取消全选';
+    });
+});
+
+// 初始化
+document.querySelectorAll('input[name="selected_images"]').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        updateItemState(this.closest('.image-item'));
+        updateSelectedCount();
+    });
+});
+
+// 表单提交确认
+document.getElementById('matchForm')?.addEventListener('submit', function(e) {
+    const count = document.querySelectorAll('input[name="selected_images"]:checked').length;
+    const submitBtn = document.getElementById('btnSubmit');
+    
+    if (count === 0) {
+        e.preventDefault();
+        alert('请至少选择一个镜像');
+        return false;
+    }
+    
+    // 禁用按钮，防止重复点击
+    if (submitBtn.disabled) {
+        e.preventDefault();
+        return false;
+    }
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = '创建中...';
+    
+    // 直接提交
+    return true;
+});
+
+// 初始化状态
+updateSelectedCount();
+</script>
+{% endblock %}
+

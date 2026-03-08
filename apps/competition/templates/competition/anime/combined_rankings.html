@@ -1,0 +1,665 @@
+{% extends 'competition/anime/base.html' %}
+{% load static %}
+
+{% block title %}{{ competition.title }} - 综合排行榜{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Tab导航样式 - 浅色主题 */
+.tech-tabs-nav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    background: rgba(255, 255, 255, 0.5);
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(178, 185, 191, 0.3);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+}
+
+.tech-tab-btn {
+    flex: 1;
+    padding: 15px 20px;
+    background: #dbe4eb;
+    border: 1px solid rgba(178, 185, 191, 0.3);
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.tech-tab-btn:hover {
+    background: #cdd6df;
+    border-color: #b2b9bf;
+    color: #1e293b;
+}
+
+.tech-tab-btn.active {
+    background: #fff;
+    border-color: #b2b9bf;
+    color: #1e293b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.tech-tab-content {
+    display: none;
+}
+
+.tech-tab-content.active {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .tech-tabs-nav {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .tech-tab-btn {
+        font-size: 1rem;
+        padding: 12px 15px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <!-- 标题头部 -->
+    <div class="tech-combined-header">
+        <div class="tech-combined-title">
+            🏆 总榜单揭晓
+        </div>
+        <div class="tech-combined-subtitle">
+            {{ competition.title }} - 综合排名
+        </div>
+        <div style="margin-top: 15px;">
+            <button type="button" class="tech-calc-method-btn" data-bs-toggle="modal" data-bs-target="#calcMethodModal">
+                <i class="fa fa-calculator"></i> 查看计算方法
+            </button>
+        </div>
+    </div>
+
+    <!-- 当前用户/队伍成绩（动态加载） -->
+    <div id="myScoreContainer"></div>
+
+    <!-- Tab导航 -->
+    <div class="tech-tabs-nav">
+        <button class="tech-tab-btn active" data-tab="combined">
+            <i class="fa fa-trophy"></i>
+            <span>综合榜单</span>
+        </button>
+        <button class="tech-tab-btn" data-tab="ctf">
+            <i class="fa fa-flag"></i>
+            <span>CTF榜单</span>
+        </button>
+        <button class="tech-tab-btn" data-tab="quiz">
+            <i class="fa fa-book"></i>
+            <span>知识竞赛榜单</span>
+        </button>
+    </div>
+
+    <!-- 综合榜单 -->
+    <div class="tech-tab-content active" id="combinedTab">
+        <div class="tech-combined-main-card" id="combinedLeaderboard">
+            <div class="tech-combined-empty">
+                <div class="tech-loading-spinner" style="width: 50px; height: 50px; border-width: 3px;"></div>
+                <p style="margin-top: 20px; font-size: 1.1rem; color: #64748b;">正在加载综合榜单...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTF榜单 -->
+    <div class="tech-tab-content" id="ctfTab">
+        <div class="tech-combined-main-card" id="ctfLeaderboard">
+            <div class="tech-combined-empty">
+                <div class="tech-loading-spinner" style="width: 50px; height: 50px; border-width: 3px;"></div>
+                <p style="margin-top: 20px; font-size: 1.1rem; color: #64748b;">正在加载CTF榜单...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 知识竞赛榜单 -->
+    <div class="tech-tab-content" id="quizTab">
+        <div class="tech-combined-main-card" id="quizLeaderboard">
+            <div class="tech-combined-empty">
+                <div class="tech-loading-spinner" style="width: 50px; height: 50px; border-width: 3px;"></div>
+                <p style="margin-top: 20px; font-size: 1.1rem; color: #64748b;">正在加载知识竞赛榜单...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 计算方法模态框 -->
+<div class="modal fade" id="calcMethodModal" tabindex="-1" role="dialog" aria-labelledby="calcMethodModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content tech-modal-content">
+            <div class="modal-header tech-modal-header">
+                <h5 class="modal-title" id="calcMethodModalLabel">
+                    <i class="fa fa-calculator"></i> 综合分数计算方法
+                </h5>
+                <button type="button" class="tech-modal-close" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body tech-modal-body">
+                <div class="tech-calc-section">
+                    <h6 class="tech-calc-subtitle">
+                        <i class="fa fa-cog"></i> 管理员配置参数
+                    </h6>
+                    <div class="tech-calc-params">
+                        <div class="tech-calc-param-item">
+                            <span class="tech-calc-param-label">CTF权重：</span>
+                            <span class="tech-calc-param-value" id="ctfWeight"></span>
+                        </div>
+                        <div class="tech-calc-param-item">
+                            <span class="tech-calc-param-label">知识竞赛权重：</span>
+                            <span class="tech-calc-param-value" id="quizWeight"></span>
+                        </div>
+                        <div class="tech-calc-param-item">
+                            <span class="tech-calc-param-label">归一化基准：</span>
+                            <span class="tech-calc-param-value">前{{ competition.combined_score_top_percent|default:"20" }}%选手平均分</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tech-calc-section" style="margin-top: 20px;">
+                    <h6 class="tech-calc-subtitle">
+                        <i class="fa fa-line-chart"></i> 计算公式
+                    </h6>
+                    <div class="tech-calc-formula">
+                        <div class="tech-formula-step">
+                            <span class="tech-formula-number">①</span>
+                            <span class="tech-formula-text">CTF归一化分 = (你的CTF分数 ÷ CTF基准分) × 100</span>
+                        </div>
+                        <div class="tech-formula-step">
+                            <span class="tech-formula-number">②</span>
+                            <span class="tech-formula-text">知识竞赛归一化分 = (你的知识竞赛分数 ÷ 知识竞赛基准分) × 100</span>
+                        </div>
+                        <div class="tech-formula-step tech-formula-final">
+                            <span class="tech-formula-number">③</span>
+                            <span class="tech-formula-text">综合分数 = CTF归一化分 × <span id="ctfWeightFormula">50</span>% + 知识竞赛归一化分 × <span id="quizWeightFormula">50</span>%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tech-calc-note">
+                    <i class="fa fa-lightbulb-o"></i> 
+                    <strong>说明：</strong>基准分 = 前{{ competition.combined_score_top_percent|default:"20" }}%选手的平均分，归一化确保不同题目难度的公平性
+                </div>
+            </div>
+            <div class="modal-footer tech-modal-footer">
+                <button type="button" class="btn tech-modal-btn-close" data-bs-dismiss="modal">
+                    <i class="fa fa-times"></i> 关闭
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const competitionSlug = '{{ competition.slug }}';
+    const competitionType = '{{ competition.competition_type }}';
+    const isTeam = competitionType === 'team';
+    const quizSlug = '{{ competition.related_quiz.slug }}';
+    
+    let currentTab = 'combined';
+    let currentPages = {
+        combined: 1,
+        ctf: 1,
+        quiz: 1
+    };
+    
+    // 计算权重
+    const ctfWeight = Math.round({{ competition.combined_score_ctf_weight|default:"0.5" }} * 100);
+    const quizWeight = 100 - ctfWeight;
+    
+    // 设置权重显示
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('ctfWeight').textContent = ctfWeight + '%';
+        document.getElementById('quizWeight').textContent = quizWeight + '%';
+        document.getElementById('ctfWeightFormula').textContent = ctfWeight;
+        document.getElementById('quizWeightFormula').textContent = quizWeight;
+    });
+    
+    // CSRF Token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    
+    // Tab切换
+    document.querySelectorAll('.tech-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tab = this.getAttribute('data-tab');
+            switchTab(tab);
+        });
+    });
+    
+    function switchTab(tab) {
+        currentTab = tab;
+        
+        // 更新按钮状态
+        document.querySelectorAll('.tech-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+        });
+        
+        // 更新内容显示
+        document.querySelectorAll('.tech-tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(tab + 'Tab').classList.add('active');
+        
+        // 加载对应榜单
+        if (tab === 'combined') {
+            loadCombinedLeaderboard(currentPages.combined);
+        } else if (tab === 'ctf') {
+            loadCTFLeaderboard(currentPages.ctf);
+        } else if (tab === 'quiz') {
+            loadQuizLeaderboard(currentPages.quiz);
+        }
+    }
+    
+    // 加载综合榜单
+    function loadCombinedLeaderboard(page = 1) {
+        currentPages.combined = page;
+        const url = `/ctf/api/v1/competition/${competitionSlug}/combined-leaderboard/?page=${page}&page_size=50`;
+        
+        fetch(url, {
+            headers: { 'X-CSRFToken': csrftoken }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderCombinedLeaderboard(data);
+                if (data.my_rank) {
+                    renderMyScore(data.my_rank, 'combined');
+                }
+            } else {
+                showError('combinedLeaderboard', data.message || '加载失败');
+            }
+        })
+        .catch(error => {
+            console.error('加载失败:', error);
+            showError('combinedLeaderboard', '加载失败，请刷新页面重试');
+        });
+    }
+    
+    // 加载CTF榜单
+    function loadCTFLeaderboard(page = 1) {
+        currentPages.ctf = page;
+        const url = `/ctf/api/v1/competition/${competitionSlug}/ctf-rankings/?page=${page}`;
+        
+        fetch(url, {
+            headers: { 
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderCTFLeaderboard(data);
+            } else {
+                showError('ctfLeaderboard', data.message || '加载失败');
+            }
+        })
+        .catch(error => {
+            console.error('加载失败:', error);
+            showError('ctfLeaderboard', '加载失败，请刷新页面重试');
+        });
+    }
+    
+    // 加载知识竞赛榜单
+    function loadQuizLeaderboard(page = 1) {
+        currentPages.quiz = page;
+        const url = `/ctf/api/v1/competition/${competitionSlug}/quiz-rankings/?page=${page}`;
+        
+        fetch(url, {
+            headers: { 
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderQuizLeaderboard(data);
+            } else {
+                showError('quizLeaderboard', data.message || '加载失败');
+            }
+        })
+        .catch(error => {
+            console.error('加载失败:', error);
+            showError('quizLeaderboard', '加载失败，请刷新页面重试');
+        });
+    }
+    
+    // 渲染综合榜单
+    function renderCombinedLeaderboard(data) {
+        const leaderboard = data.leaderboard || [];
+        const pagination = data.pagination || {};
+        const container = document.getElementById('combinedLeaderboard');
+        
+        if (leaderboard.length === 0) {
+            container.innerHTML = '<div class="tech-combined-empty"><i class="fa fa-inbox fa-3x"></i><p style="margin-top: 20px;">暂无排名数据</p></div>';
+            return;
+        }
+        
+        const userNameHeader = isTeam ? '队伍名称' : '参赛者';
+        let html = `
+            <table class="tech-combined-table">
+                <thead>
+                    <tr>
+                        <th>排名</th>
+                        <th>${userNameHeader}</th>
+                        <th>CTF竞赛分数</th>
+                        <th>知识竞赛分数</th>
+                        <th>综合分数</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        leaderboard.forEach(item => {
+            let rankDisplay = item.rank;
+            let rankClass = '';
+            
+            if (item.rank === 1) {
+                rankDisplay = '🥇';
+                rankClass = 'top-1';
+            } else if (item.rank === 2) {
+                rankDisplay = '🥈';
+                rankClass = 'top-2';
+            } else if (item.rank === 3) {
+                rankDisplay = '🥉';
+                rankClass = 'top-3';
+            }
+            
+            const name = isTeam ? item.team_name : item.username;
+            const teamCodeHtml = (isTeam && item.team_code) ? 
+                `<div style="font-size: 11px; opacity: 0.6;">${escapeHtml(item.team_code)}</div>` : '';
+            
+            html += `
+                <tr>
+                    <td><div class="tech-combined-rank ${rankClass}">${rankDisplay}</div></td>
+                    <td>
+                        <div class="tech-combined-user-info">
+                            <div class="tech-combined-user-name">${escapeHtml(name)}</div>
+                            ${teamCodeHtml}
+                        </div>
+                    </td>
+                    <td><div class="tech-combined-score">${parseFloat(item.ctf_score).toFixed(2)}</div></td>
+                    <td><div class="tech-combined-score">${parseFloat(item.quiz_score).toFixed(2)}</div></td>
+                    <td><div class="tech-combined-score-final">${parseFloat(item.combined_score).toFixed(2)}</div></td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        
+        if (pagination.total_pages > 1) {
+            html += renderPagination(pagination, 'combined');
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    // 渲染CTF榜单
+    function renderCTFLeaderboard(data) {
+        const rankings = data.rankings || [];
+        const pagination = data.pagination || {};
+        const container = document.getElementById('ctfLeaderboard');
+        
+        if (rankings.length === 0) {
+            container.innerHTML = '<div class="tech-combined-empty"><i class="fa fa-inbox fa-3x"></i><p style="margin-top: 20px;">暂无排名数据</p></div>';
+            return;
+        }
+        
+        const userNameHeader = isTeam ? '队伍名称' : '参赛者';
+        let html = `
+            <table class="tech-combined-table">
+                <thead>
+                    <tr>
+                        <th>排名</th>
+                        <th>${userNameHeader}</th>
+                        <th>分数</th>
+                        <th>解题数</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        rankings.forEach(item => {
+            let rankDisplay = item.rank;
+            let rankClass = '';
+            
+            if (item.rank === 1) {
+                rankDisplay = '🥇';
+                rankClass = 'top-1';
+            } else if (item.rank === 2) {
+                rankDisplay = '🥈';
+                rankClass = 'top-2';
+            } else if (item.rank === 3) {
+                rankDisplay = '🥉';
+                rankClass = 'top-3';
+            }
+            
+            const name = isTeam ? item.team_name : item.username;
+            const teamCodeHtml = (isTeam && item.team_code) ? 
+                `<div style="font-size: 11px; opacity: 0.6;">${escapeHtml(item.team_code)}</div>` : '';
+            
+            html += `
+                <tr>
+                    <td><div class="tech-combined-rank ${rankClass}">${rankDisplay}</div></td>
+                    <td>
+                        <div class="tech-combined-user-info">
+                            <div class="tech-combined-user-name">${escapeHtml(name)}</div>
+                            ${teamCodeHtml}
+                        </div>
+                    </td>
+                    <td><div class="tech-combined-score-final">${parseFloat(item.score).toFixed(2)}</div></td>
+                    <td><div class="tech-combined-score">${item.solved_count}</div></td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        
+        if (pagination.total_pages > 1) {
+            html += renderPagination(pagination, 'ctf');
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    // 渲染知识竞赛榜单
+    function renderQuizLeaderboard(data) {
+        const rankings = data.rankings || [];
+        const pagination = data.pagination || {};
+        const container = document.getElementById('quizLeaderboard');
+        
+        if (rankings.length === 0) {
+            container.innerHTML = '<div class="tech-combined-empty"><i class="fa fa-inbox fa-3x"></i><p style="margin-top: 20px;">暂无排名数据</p></div>';
+            return;
+        }
+        
+        let html = `
+            <table class="tech-combined-table">
+                <thead>
+                    <tr>
+                        <th>排名</th>
+                        <th>参赛者</th>
+                        <th>分数</th>
+                        <th>用时</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        rankings.forEach(item => {
+            let rankDisplay = item.rank;
+            let rankClass = '';
+            
+            if (item.rank === 1) {
+                rankDisplay = '🥇';
+                rankClass = 'top-1';
+            } else if (item.rank === 2) {
+                rankDisplay = '🥈';
+                rankClass = 'top-2';
+            } else if (item.rank === 3) {
+                rankDisplay = '🥉';
+                rankClass = 'top-3';
+            }
+            
+            const name = item.username;
+            const duration = item.duration || '-';
+            
+            html += `
+                <tr>
+                    <td><div class="tech-combined-rank ${rankClass}">${rankDisplay}</div></td>
+                    <td>
+                        <div class="tech-combined-user-info">
+                            <div class="tech-combined-user-name">${escapeHtml(name)}</div>
+                        </div>
+                    </td>
+                    <td><div class="tech-combined-score-final">${parseFloat(item.score).toFixed(2)}</div></td>
+                    <td><div class="tech-combined-score">${duration}</div></td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        
+        if (pagination.total_pages > 1) {
+            html += renderPagination(pagination, 'quiz');
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    // 渲染分页
+    function renderPagination(pagination, type) {
+        const currentPage = pagination.page;
+        const totalPages = pagination.total_pages;
+        const totalCount = pagination.total_count;
+        
+        let html = `
+            <div class="tech-combined-pagination">
+                <div class="page-info">${currentPage}/${totalPages} · 共${totalCount}条</div>
+                <nav><ul class="pagination mb-0">
+        `;
+        
+        if (pagination.has_previous) {
+            html += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="loadPage('${type}', ${currentPage - 1})"><i class="fa fa-angle-left"></i></a></li>`;
+        }
+        
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, currentPage + 2);
+        
+        for (let i = startPage; i <= endPage; i++) {
+            const activeClass = i === currentPage ? 'active' : '';
+            html += `<li class="page-item ${activeClass}"><a class="page-link" href="javascript:void(0)" onclick="loadPage('${type}', ${i})">${i}</a></li>`;
+        }
+        
+        if (pagination.has_next) {
+            html += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="loadPage('${type}', ${currentPage + 1})"><i class="fa fa-angle-right"></i></a></li>`;
+        }
+        
+        html += '</ul></nav></div>';
+        return html;
+    }
+    
+    // 分页加载
+    window.loadPage = function(type, page) {
+        if (type === 'combined') {
+            loadCombinedLeaderboard(page);
+        } else if (type === 'ctf') {
+            loadCTFLeaderboard(page);
+        } else if (type === 'quiz') {
+            loadQuizLeaderboard(page);
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    
+    // 渲染我的成绩
+    function renderMyScore(data, type) {
+        const container = document.getElementById('myScoreContainer');
+        const name = isTeam ? (data.team_name || '我的队伍') : '我的成绩';
+        
+        let html = `
+            <div class="tech-combined-my-score">
+                <div class="tech-combined-my-score-title">
+                    <i class="fa fa-${isTeam ? 'users' : 'trophy'}" style="color: #3b82f6;"></i>
+                    <span>${escapeHtml(name)}</span>
+                </div>
+                <div class="tech-combined-score-grid">
+                    <div class="tech-combined-score-item">
+                        <div class="tech-combined-score-label">综合排名</div>
+                        <div class="tech-combined-score-value">#${data.rank}</div>
+                    </div>
+                    <div class="tech-combined-score-item">
+                        <div class="tech-combined-score-label">综合分数</div>
+                        <div class="tech-combined-score-value">${parseFloat(data.combined_score).toFixed(2)}</div>
+                    </div>
+                    <div class="tech-combined-score-item">
+                        <div class="tech-combined-score-label">CTF竞赛分数</div>
+                        <div class="tech-combined-score-value">${parseFloat(data.ctf_score).toFixed(2)}</div>
+                    </div>
+                    <div class="tech-combined-score-item">
+                        <div class="tech-combined-score-label">知识竞赛分数</div>
+                        <div class="tech-combined-score-value">${parseFloat(data.quiz_score).toFixed(2)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    // 显示错误
+    function showError(containerId, message) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `
+            <div class="tech-combined-empty">
+                <i class="fa fa-exclamation-triangle fa-3x" style="color: #dc2626;"></i>
+                <p style="margin-top: 20px; font-size: 1.1rem; color: #dc2626;">${escapeHtml(message)}</p>
+                <button onclick="location.reload()" style="margin-top: 15px; padding: 8px 20px; background: #dbe4eb; border: 1px solid rgba(178, 185, 191, 0.4); border-radius: 6px; color: #1e293b; cursor: pointer;">
+                    <i class="fa fa-refresh"></i> 刷新页面
+                </button>
+            </div>
+        `;
+    }
+    
+    // HTML转义
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // 初始化
+    loadCombinedLeaderboard(1);
+})();
+</script>
+
+{% endblock %}

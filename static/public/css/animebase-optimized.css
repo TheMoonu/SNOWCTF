@@ -1,0 +1,1716 @@
+
+.tech-bg::before,
+.tech-bg::after {
+    animation: none !important;
+}
+
+
+.edge-browser .tech-bg::before,
+.edge-browser .tech-bg::after {
+    display: none !important;
+}
+
+.edge-browser .tech-bg {
+    background: #eaf3fc !important;
+}
+
+
+.tech-navbar,
+.tech-sidebar-card,
+.tech-filter-panel,
+.tech-challenge-card,
+.tech-ranking-card,
+.tech-dynamic-card,
+.tech-empty-state,
+.tech-dropdown-menu,
+.tech-user-info-card,
+.tech-info-card,
+.ctf-nav-card,
+.ctf-detail-card,
+.ctf-info-card,
+.tech-modal-content {
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+}
+
+.tech-dynamic-title i,
+.tech-user-info-title i,
+.tech-blood-first,
+.tech-blood-second,
+.tech-blood-third,
+.tech-podium-trophy,
+.tech-status-dot {
+    animation: none !important;
+}
+
+
+.anime-decoration-left img,
+.anime-decoration-right img {
+    opacity: 0.5 !important;
+    filter: contrast(1.1) brightness(1.05) !important;
+}
+
+
+.tech-filter-panel[style*="--filter-bg-image"]::before {
+    opacity: 0.42 !important;
+    filter: contrast(1.2) brightness(1.1) !important;
+}
+
+.tech-navbar,
+.tech-sidebar-card,
+.tech-challenge-card,
+.tech-ranking-card,
+.tech-dynamic-card {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+
+
+.tech-sidebar-card:hover,
+.tech-challenge-card:hover,
+.tech-ranking-card:hover,
+.tech-dynamic-card:hover,
+.tech-filter-panel:hover,
+.ctf-detail-card:hover,
+.ctf-info-card:hover {
+    border-color: #b2b9bf !important;
+}
+
+.tech-competition-title,
+.tech-challenge-title,
+.tech-ranking-title {
+    text-shadow: none !important;
+}
+
+/* 简化过渡效果（但排除题目卡片）*/
+*:not(.tech-challenge-card) {
+    transition-duration: 0.2s !important;
+}
+
+/* 题目卡片使用柔和的过渡 */
+.tech-challenge-card {
+    transition: all 0.4s ease-out !important;
+}
+
+/* 禁用不必要的 transform */
+.tech-bg,
+.tech-navbar,
+.tech-dropdown-menu,
+.tech-sidebar {
+    will-change: auto !important;
+    backface-visibility: visible !important;
+    perspective: none !important;
+}
+
+/* 简化渐变效果 - 浅色主题 */
+.tech-ranking-header,
+.tech-dynamic-header,
+.tech-title-section {
+    background: rgba(248, 250, 252, 0.5) !important;
+}
+
+/* 移除复杂的伪元素效果 */
+.tech-navbar::before,
+.tech-challenge-card::before,
+.tech-competition-title::before,
+.tech-competition-title::after {
+    display: none !important;
+}
+
+/* 优化血榜徽章 */
+.tech-blood-first,
+.tech-blood-second,
+.tech-blood-third {
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+/* 禁用 Toast 入场动画 */
+.tech-toast {
+    transition: opacity 0.2s ease !important;
+    transform: translateX(0) !important;
+}
+
+/* 简化模态框效果 */
+.tech-modal-content {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 移除进度条动画 */
+.tech-progress-spinner {
+    animation-duration: 1.2s !important;
+}
+
+/* Edge 浏览器：题目卡片柔和悬停效果（简化性能）*/
+.edge-browser .tech-challenge-card {
+    transition: all 0.4s ease-out !important;
+}
+
+.edge-browser .tech-challenge-card:hover {
+    transform: translateY(-3px) !important;
+}
+
+/* 其他按钮保持无动画 */
+.edge-browser .tech-btn,
+.edge-browser .tech-nav-link,
+.edge-browser .tech-quick-link,
+.edge-browser .ctf-action-btn {
+    transform: none !important;
+}
+
+/* 倒计时数字使用等宽字体 */
+.tech-time-value {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+.tech-sidebar-card {
+    will-change: auto !important;
+}
+
+/* 排行榜项悬停简化 */
+.tech-rank-item:hover {
+    background: #c8d0d6 !important;
+}
+
+/* 统一悬停背景色 */
+.tech-quick-link:hover,
+.tech-nav-link:hover,
+.tech-filter-option:hover {
+    background: #c8d0d6 !important;
+}
+
+.tech-quick-link:hover,
+.tech-link:hover {
+    transform: none !important;
+}
+
+/* 模态框优化 */
+.tech-modal-scanline,
+.tech-modal-header-line {
+    display: none !important;
+}
+
+.tech-modal-btn::before {
+    display: none !important;
+}
+
+.tech-modal-btn:hover,
+.tech-modal-close:hover {
+    transform: none !important;
+}
+
+.tech-modal-overlay {
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.tech-modal-body .form-control {
+    transition: border-color 0.15s ease, background-color 0.15s ease !important;
+}
+
+#dropZone {
+    transition: border-color 0.15s ease, background-color 0.15s ease !important;
+}
+
+/* 降级方案 */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* 加载遮罩层 - 浅色版 */
+.tech-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(234, 243, 252, 0.95) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.tech-loading-content {
+    text-align: center;
+    color: #1e293b !important;
+}
+
+.tech-loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(0, 0, 0, 0.1) !important;
+    border-top-color: #1e293b !important;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+.tech-loading-text {
+    font-size: 15px;
+    margin-top: 10px;
+    color: #1e293b !important;
+}
+
+.tech-loading-progress {
+    width: 200px;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.1) !important;
+    border-radius: 2px;
+    margin: 15px auto;
+    overflow: hidden;
+}
+
+.tech-loading-progress-bar {
+    height: 100%;
+    background: #1e293b !important;
+    width: 0;
+    animation: progress 30s linear forwards;
+    box-shadow: none !important;
+}
+
+/* 刷新按钮 - 浅色版 */
+.tech-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    border-radius: 6px;
+    color: #1e293b !important;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease !important;
+    margin-left: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+.tech-refresh-btn:hover {
+    background: rgba(0, 0, 0, 0.08) !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+    transform: none !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+.tech-refresh-btn.refreshing {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.tech-refresh-btn.refreshing i {
+    animation: spin 1s linear infinite;
+}
+
+/* 禁用综合排行榜的transform动画 */
+.tech-combined-score-item:hover,
+.tech-calc-method-btn:hover,
+.tech-combined-pagination .page-link:hover {
+    transform: none !important;
+}
+
+/* 简化过渡 */
+.tech-combined-table tbody tr,
+.tech-combined-score-item,
+.tech-calc-method-btn {
+    transition: all 0.15s ease !important;
+}
+
+/* 优化表格渲染 */
+.tech-combined-table {
+    contain: layout style paint;
+    will-change: auto !important;
+}
+
+.tech-combined-table tbody tr {
+    contain: layout;
+}
+
+.tech-combined-pagination {
+    contain: layout style paint;
+}
+
+.tech-combined-pagination .page-link {
+    transition: all 0.15s ease !important;
+}
+
+/* 减少重绘 */
+.tech-combined-rank,
+.tech-combined-score-value,
+.tech-combined-score-final {
+    backface-visibility: hidden;
+}
+
+/* 隐藏滚动条 */
+.tech-ranking-list::-webkit-scrollbar,
+.ctf-solves-list::-webkit-scrollbar {
+    display: none !important;
+}
+
+.tech-ranking-list,
+.ctf-solves-list {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .tech-challenge-card:hover,
+    .tech-btn:hover,
+    .tech-quick-link:hover,
+    .tech-combined-score-item:hover,
+    .tech-calc-method-btn:hover {
+        transform: none !important;
+    }
+    
+    .tech-navbar,
+    .tech-sidebar-card,
+    .tech-challenge-card,
+    .tech-combined-header,
+    .tech-combined-my-score,
+    .tech-combined-main-card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+    }
+    
+    .tech-combined-table th,
+    .tech-combined-table td {
+        padding: 12px 8px !important;
+    }
+}
+
+/* ==================== Firefox 浏览器性能优化 ==================== */
+
+/* 禁用所有动画和过渡（排除加载动画和题目卡片）*/
+.firefox-browser *:not(#tech-loading-overlay):not(#tech-loading-overlay *):not(.tech-loading-overlay):not(.tech-loading-overlay *):not(.toast-container):not(.toast-container *):not(.tech-challenge-card) {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* 题目卡片保留柔和悬停效果 */
+.firefox-browser .tech-challenge-card {
+    transition: all 0.4s ease-out !important;
+}
+
+.firefox-browser .tech-challenge-card:hover {
+    transform: translateY(-3px) !important;
+}
+
+/* 彻底移除旋转光环 */
+.firefox-browser .track-glow-ring {
+    display: none !important;
+}
+
+/* 移除所有伪元素装饰 */
+.firefox-browser .track-card::before,
+.firefox-browser .track-card::after,
+.firefox-browser .dual-track-container::before,
+.firefox-browser .dual-track-container::after {
+    display: none !important;
+}
+
+/* 移除按钮光泽 */
+.firefox-browser .btn-shine {
+    display: none !important;
+}
+
+/* Firefox 最大性能瓶颈：完全禁用 backdrop-filter */
+.firefox-browser .track-card,
+.firefox-browser .combined-ranking-section,
+.firefox-browser .tech-navbar,
+.firefox-browser .tech-sidebar-card,
+.firefox-browser .tech-filter-panel,
+.firefox-browser .tech-challenge-card,
+.firefox-browser .tech-ranking-card,
+.firefox-browser .tech-dynamic-card,
+.firefox-browser .tech-modal-content,
+.firefox-browser .ctf-detail-card,
+.firefox-browser .ctf-info-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* 使用纯色背景代替半透明 + 模糊 */
+.firefox-browser .track-card {
+    background: rgba(248, 250, 252, 0.95) !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+.firefox-browser .combined-ranking-section {
+    background: rgba(248, 250, 252, 0.95) !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+/* 简化阴影效果 */
+.firefox-browser .track-card,
+.firefox-browser .combined-ranking-section,
+.firefox-browser .track-icon,
+.firefox-browser .ranking-icon-wrapper,
+.firefox-browser .tech-challenge-card {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 简化图标容器 */
+.firefox-browser .track-icon {
+    background: #fff !important;
+    border: 2px solid currentColor !important;
+}
+
+.firefox-browser .ranking-icon-wrapper {
+    background: #fff !important;
+    border: 2px solid currentColor !important;
+}
+
+/* 优化装饰图片性能 */
+.firefox-browser .anime-decoration-left,
+.firefox-browser .anime-decoration-right {
+    animation: none !important;
+    box-shadow: none !important;
+}
+
+.firefox-browser .anime-decoration-left img,
+.firefox-browser .anime-decoration-right img {
+    animation: none !important;
+    transform: none !important;
+    filter: blur(1px) !important;
+    opacity: 0.30 !important;
+}
+
+/* 移除所有渐变背景 */
+.firefox-browser .page-main-title {
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    -webkit-text-fill-color: initial !important;
+    color: #1e293b !important;
+}
+
+/* 简化按钮样式 */
+.firefox-browser .track-enter-btn,
+.firefox-browser .combined-ranking-btn {
+    background: #e2e8f0 !important;
+    border: 2px solid #94a3b8 !important;
+    color: #1e293b !important;
+}
+
+.firefox-browser .track-enter-btn:hover,
+.firefox-browser .combined-ranking-btn:hover {
+    background: #cbd5e1 !important;
+    border-color: #64748b !important;
+}
+
+/* 简化导航栏 */
+.firefox-browser .tech-navbar {
+    background: rgba(248, 250, 252, 0.95) !important;
+}
+
+/* 优化渲染 */
+.firefox-browser .track-card,
+.firefox-browser .combined-ranking-section {
+    contain: layout style paint !important;
+    will-change: auto !important;
+}
+
+/* 移除文字阴影 */
+.firefox-browser * {
+    text-shadow: none !important;
+}
+
+/* Firefox：优化加载动画 */
+.firefox-browser .tech-loading-overlay {
+    backdrop-filter: none !important;
+    background: linear-gradient(135deg, 
+        rgba(220, 232, 244, 0.97) 0%, 
+        rgba(226, 237, 247, 0.97) 50%,
+        rgba(220, 232, 244, 0.97) 100%) !important;
+}
+
+/* 保留两个旋转环 */
+.firefox-browser .tech-spinner-ring:nth-child(3) {
+    display: none !important;
+}
+
+.firefox-browser .tech-spinner-ring:nth-child(1) {
+    animation: techSpinnerRotate 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite !important;
+    border-width: 3px !important;
+    border-top-color: #1e293b !important;
+    border-right-color: rgba(30, 41, 59, 0.3) !important;
+    box-shadow: 0 0 8px rgba(30, 41, 59, 0.15) !important;
+}
+
+.firefox-browser .tech-spinner-ring:nth-child(2) {
+    display: block !important;
+    animation: techSpinnerRotate 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite reverse !important;
+    border-width: 2px !important;
+    border-top-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+.firefox-browser .tech-spinner-core {
+    animation: techCorePulseSimple 2s ease-in-out infinite !important;
+}
+
+.firefox-browser .tech-loading-dot {
+    animation: techDotBlinkSimple 1.2s infinite !important;
+}
+
+.firefox-browser .tech-loading-dot:nth-child(1) {
+    animation-delay: 0s !important;
+}
+
+.firefox-browser .tech-loading-dot:nth-child(2) {
+    animation-delay: 0.2s !important;
+}
+
+.firefox-browser .tech-loading-dot:nth-child(3) {
+    animation-delay: 0.4s !important;
+}
+
+.firefox-browser .tech-loading-message i {
+    animation: techIconBlinkSimple 1.5s infinite !important;
+}
+
+/* ==================== Edge 浏览器双赛道页面激进性能优化 ==================== */
+
+/* 完全禁用所有动画和过渡（排除加载动画和题目卡片）*/
+.edge-browser *:not(#tech-loading-overlay):not(#tech-loading-overlay *):not(.tech-loading-overlay):not(.tech-loading-overlay *):not(.toast-container):not(.toast-container *):not(.tech-challenge-card) {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* ==================== Edge 浏览器：优化高性能加载动画 ==================== */
+/* 移除模糊效果 - 使用半透明浅蓝灰背景 */
+.edge-browser .tech-loading-overlay {
+    backdrop-filter: none !important;
+    background: linear-gradient(135deg, 
+        rgba(220, 232, 244, 0.97) 0%, 
+        rgba(226, 237, 247, 0.97) 50%,
+        rgba(220, 232, 244, 0.97) 100%) !important;
+}
+
+/* 保留两个旋转环 - 平衡性能和美观 */
+.edge-browser .tech-spinner-ring:nth-child(3) {
+    display: none !important;
+}
+
+/* 外环 - 深色加粗 */
+.edge-browser .tech-spinner-ring:nth-child(1) {
+    animation: techSpinnerRotate 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite !important;
+    border-width: 3px !important;
+    border-top-color: #1e293b !important;
+    border-right-color: rgba(30, 41, 59, 0.3) !important;
+    box-shadow: 0 0 8px rgba(30, 41, 59, 0.15) !important;
+}
+
+/* 内环 - 浅色反向 */
+.edge-browser .tech-spinner-ring:nth-child(2) {
+    display: block !important;
+    animation: techSpinnerRotate 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite reverse !important;
+    border-width: 2px !important;
+    border-top-color: rgba(30, 41, 59, 0.6) !important;
+    border-right-color: rgba(30, 41, 59, 0.15) !important;
+    box-shadow: none !important;
+}
+
+/* 核心 - 添加轻微脉动 */
+.edge-browser .tech-spinner-core {
+    animation: techCorePulseSimple 2s ease-in-out infinite !important;
+}
+
+/* 简化的核心脉动动画 */
+@keyframes techCorePulseSimple {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+}
+
+/* 加载点 - 使用柔和的闪烁 */
+.edge-browser .tech-loading-dot {
+    animation: techDotBlinkSimple 1.2s infinite !important;
+}
+
+.edge-browser .tech-loading-dot:nth-child(1) {
+    animation-delay: 0s !important;
+}
+
+.edge-browser .tech-loading-dot:nth-child(2) {
+    animation-delay: 0.2s !important;
+}
+
+.edge-browser .tech-loading-dot:nth-child(3) {
+    animation-delay: 0.4s !important;
+}
+
+/* 终端图标轻微闪烁 */
+.edge-browser .tech-loading-message i {
+    animation: techIconBlinkSimple 1.5s infinite !important;
+}
+
+/* 简化的图标闪烁 */
+@keyframes techIconBlinkSimple {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* 简化的加载点动画 */
+@keyframes techDotBlinkSimple {
+    0%, 30% {
+        opacity: 0.2;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.2;
+    }
+}
+
+/* 彻底移除旋转光环 - 直接隐藏 */
+.edge-browser .track-glow-ring {
+    display: none !important;
+}
+
+/* 移除所有伪元素装饰 */
+.edge-browser .track-card::before,
+.edge-browser .track-card::after,
+.edge-browser .dual-track-container::before,
+.edge-browser .dual-track-container::after {
+    display: none !important;
+}
+
+/* 移除按钮光泽 */
+.edge-browser .btn-shine {
+    display: none !important;
+}
+
+/* Edge 最大性能瓶颈：完全禁用 backdrop-filter */
+.edge-browser .track-card,
+.edge-browser .combined-ranking-section,
+.edge-browser .tech-navbar,
+.edge-browser .tech-sidebar-card,
+.edge-browser .tech-filter-panel,
+.edge-browser .tech-challenge-card,
+.edge-browser .tech-ranking-card,
+.edge-browser .tech-dynamic-card,
+.edge-browser .tech-modal-content,
+.edge-browser .ctf-detail-card,
+.edge-browser .ctf-info-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* 使用纯色背景代替半透明 + 模糊 */
+.edge-browser .track-card {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+.edge-browser .combined-ranking-section {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+/* 移除所有阴影 */
+.edge-browser .track-card,
+.edge-browser .combined-ranking-section,
+.edge-browser .track-icon,
+.edge-browser .ranking-icon-wrapper {
+    box-shadow: none !important;
+}
+
+/* 简化图标容器 */
+.edge-browser .track-icon {
+    background: #fff !important;
+    border: 2px solid currentColor !important;
+}
+
+.edge-browser .ranking-icon-wrapper {
+    background: #fff !important;
+    border: 2px solid currentColor !important;
+}
+
+/* Edge 浏览器：优化装饰图片性能并降低清晰度 */
+.edge-browser .anime-decoration-left,
+.edge-browser .anime-decoration-right {
+    /* 移除动画和阴影效果，但保留显示 */
+    animation: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+}
+
+.edge-browser .anime-decoration-left img,
+.edge-browser .anime-decoration-right img {
+    animation: none !important;
+    transform: none !important;
+    /* 添加轻微模糊效果，降低清晰度 */
+    filter: blur(1.5px) !important;
+    opacity: 0.28 !important;
+}
+
+/* 移除所有渐变背景 */
+.edge-browser .page-main-title {
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    -webkit-text-fill-color: initial !important;
+    color: #1e293b !important;
+}
+
+/* 简化按钮样式 */
+.edge-browser .track-enter-btn,
+.edge-browser .combined-ranking-btn {
+    background: #e2e8f0 !important;
+    border: 2px solid #94a3b8 !important;
+    color: #1e293b !important;
+}
+
+.edge-browser .track-enter-btn:hover,
+.edge-browser .combined-ranking-btn:hover {
+    background: #cbd5e1 !important;
+    border-color: #64748b !important;
+}
+
+/* 简化特性标签 */
+.edge-browser .feature-item {
+    background: #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+.edge-browser .feature-item:hover {
+    background: #cbd5e1 !important;
+}
+
+/* 移除状态标签动画 */
+.edge-browser .track-status {
+    animation: none !important;
+}
+
+/* 简化统计项 */
+.edge-browser .stat-item {
+    background: #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+/* 禁用所有 transform */
+.edge-browser .track-card:hover,
+.edge-browser .track-icon:hover,
+.edge-browser .track-enter-btn:hover,
+.edge-browser .feature-item:hover {
+    transform: none !important;
+}
+
+/* 简化导航栏 */
+.edge-browser .tech-navbar {
+    background: rgba(248, 250, 252, 0.95) !important;
+}
+
+/* 优化渲染 */
+.edge-browser .track-card,
+.edge-browser .combined-ranking-section {
+    contain: layout style paint !important;
+    will-change: auto !important;
+}
+
+/* 移除文字阴影 */
+.edge-browser * {
+    text-shadow: none !important;
+}
+
+/* 简化倒计时样式 */
+.edge-browser .ranking-countdown {
+    background: #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+/* ==================== 超级性能模式（严重掉帧时自动启用）==================== */
+
+/* 完全禁用所有动画（排除加载动画和题目卡片）*/
+.ultra-performance-mode *:not(#tech-loading-overlay):not(#tech-loading-overlay *):not(.tech-loading-overlay):not(.tech-loading-overlay *):not(.tech-challenge-card) {
+    animation: none !important;
+    transition: none !important;
+}
+
+.ultra-performance-mode *::before,
+.ultra-performance-mode *::after {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* 超级性能模式：题目卡片保留柔和过渡 */
+.ultra-performance-mode .tech-challenge-card {
+    transition: all 0.4s ease-out !important;
+}
+
+/* 超级性能模式：优化加载动画 */
+.ultra-performance-mode .tech-loading-overlay {
+    backdrop-filter: none !important;
+    background: linear-gradient(135deg, 
+        rgba(220, 232, 244, 0.97) 0%, 
+        rgba(226, 237, 247, 0.97) 50%,
+        rgba(220, 232, 244, 0.97) 100%) !important;
+}
+
+/* 保留两个旋转环 */
+.ultra-performance-mode .tech-spinner-ring:nth-child(3) {
+    display: none !important;
+}
+
+.ultra-performance-mode .tech-spinner-ring:nth-child(1) {
+    animation: techSpinnerRotate 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite !important;
+    border-width: 3px !important;
+    border-top-color: #1e293b !important;
+    border-right-color: rgba(30, 41, 59, 0.3) !important;
+    box-shadow: 0 0 8px rgba(30, 41, 59, 0.15) !important;
+}
+
+.ultra-performance-mode .tech-spinner-ring:nth-child(2) {
+    display: block !important;
+    animation: techSpinnerRotate 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite reverse !important;
+    border-width: 2px !important;
+}
+
+/* 核心轻微脉动 */
+.ultra-performance-mode .tech-spinner-core {
+    animation: techCorePulseSimple 2s ease-in-out infinite !important;
+}
+
+/* 点闪烁 */
+.ultra-performance-mode .tech-loading-dot {
+    animation: techDotBlinkSimple 1.2s infinite !important;
+}
+
+.ultra-performance-mode .tech-loading-dot:nth-child(1) {
+    animation-delay: 0s !important;
+}
+
+.ultra-performance-mode .tech-loading-dot:nth-child(2) {
+    animation-delay: 0.2s !important;
+}
+
+.ultra-performance-mode .tech-loading-dot:nth-child(3) {
+    animation-delay: 0.4s !important;
+}
+
+.ultra-performance-mode .tech-loading-message i {
+    animation: techIconBlinkSimple 1.5s infinite !important;
+}
+
+/* 移除所有高斯模糊 */
+.ultra-performance-mode [class*="backdrop-filter"],
+.ultra-performance-mode .track-card,
+.ultra-performance-mode .combined-ranking-section {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* 简化卡片背景 */
+.ultra-performance-mode .track-card {
+    background: rgba(255, 255, 255, 0.85) !important;
+}
+
+.ultra-performance-mode .combined-ranking-section {
+    background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* 移除所有阴影 */
+.ultra-performance-mode * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+/* 移除渐变背景 */
+.ultra-performance-mode .track-card {
+    background: #f8fafc !important;
+}
+
+/* 移除伪元素装饰 */
+.ultra-performance-mode .track-card::before,
+.ultra-performance-mode .track-card::after,
+.ultra-performance-mode .dual-track-container::before,
+.ultra-performance-mode .dual-track-container::after,
+.ultra-performance-mode .anime-decoration-left::after,
+.ultra-performance-mode .anime-decoration-right::after {
+    display: none !important;
+}
+
+/* 简化图标 */
+.ultra-performance-mode .track-icon {
+    border: 2px solid #94a3b8 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+}
+
+/* 移除旋转光环 */
+.ultra-performance-mode .track-glow-ring {
+    display: none !important;
+}
+
+/* 简化按钮 */
+.ultra-performance-mode .track-enter-btn,
+.ultra-performance-mode .combined-ranking-btn {
+    background: #dbe4eb !important;
+    border: 1px solid #b2b9bf !important;
+}
+
+/* 移除所有装饰效果 */
+.ultra-performance-mode .btn-shine,
+.ultra-performance-mode .track-status {
+    display: none !important;
+}
+
+/* 强制使用硬件加速 */
+.ultra-performance-mode .track-card,
+.ultra-performance-mode .combined-ranking-section {
+    transform: translateZ(0) !important;
+    will-change: auto !important;
+}
+
+/* 隐藏装饰图片 */
+.ultra-performance-mode .anime-decoration-left,
+.ultra-performance-mode .anime-decoration-right {
+    display: none !important;
+}
+
+/* 简化标题样式 */
+.ultra-performance-mode .page-main-title,
+.ultra-performance-mode .track-name,
+.ultra-performance-mode .combined-ranking-title {
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    -webkit-text-fill-color: initial !important;
+    color: #1e293b !important;
+}
+
+/* 优化滚动性能 */
+.tech-solve-records,
+.tech-ranking-list,
+.tech-dynamic-body {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    contain: paint;
+}
+
+.tech-sidebar {
+    contain: layout style paint;
+}
+
+.tech-challenge-card {
+    contain: layout paint;
+}
+
+/* 优化图片渲染 */
+.tech-user-avatar,
+.tech-avatar,
+img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+
+.tech-navbar {
+    contain: layout;
+}
+
+/* 优化表格 */
+.tech-ranking-table,
+.tech-dynamic-table {
+    table-layout: fixed;
+    contain: layout;
+}
+
+/* 降低动画帧率 */
+.tech-blood-first,
+.tech-blood-second,
+.tech-blood-third {
+    animation-timing-function: steps(30);
+}
+
+@keyframes techFadeIn {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -10px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+/* 极简性能模式 */
+body.performance-mode .tech-bg::before {
+    animation: none !important;
+    background-image: none !important;
+}
+
+body.performance-mode [class*="backdrop-filter"] {
+    backdrop-filter: none !important;
+}
+
+body.performance-mode [class*="text-shadow"] {
+    text-shadow: none !important;
+}
+
+body.performance-mode [class*="box-shadow"] {
+    box-shadow: none !important;
+}
+
+/* ==================== 科技风格加载动画（强制保持动画效果）==================== */
+.tech-loading-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(234, 243, 252, 0.95) !important;
+    backdrop-filter: blur(10px) !important;
+    z-index: 99999 !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.tech-loading-overlay.active {
+    display: flex !important;
+}
+
+.tech-loading-content {
+    text-align: center !important;
+}
+
+.tech-loading-spinner {
+    position: relative !important;
+    width: 50px !important;
+    height: 50px !important;
+    margin: 0 auto 15px !important;
+}
+
+/* 强制保留加载动画的旋转效果 - 最高优先级 */
+.tech-spinner-ring {
+    position: absolute !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: 2px solid transparent !important;
+    border-top-color: #1e293b !important;
+    border-radius: 50% !important;
+    animation: techSpinnerRotate 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite !important;
+}
+
+.tech-spinner-ring:nth-child(1) {
+    width: 100% !important;
+    height: 100% !important;
+    border-width: 2px !important;
+    animation: techSpinnerRotate 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite !important;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+.tech-spinner-ring:nth-child(2) {
+    width: 70% !important;
+    height: 70% !important;
+    top: 15% !important;
+    left: 15% !important;
+    border-width: 1.5px !important;
+    border-top-color: rgba(0, 0, 0, 0.6) !important;
+    animation: techSpinnerRotate 2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite reverse !important;
+}
+
+.tech-spinner-ring:nth-child(3) {
+    width: 40% !important;
+    height: 40% !important;
+    top: 30% !important;
+    left: 30% !important;
+    border-width: 1.5px !important;
+    border-top-color: rgba(0, 0, 0, 0.4) !important;
+    animation: techSpinnerRotate 2.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite !important;
+}
+
+.tech-spinner-core {
+    position: absolute !important;
+    width: 20% !important;
+    height: 20% !important;
+    top: 40% !important;
+    left: 40% !important;
+    background: #1e293b !important;
+    border-radius: 50% !important;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.2) !important;
+    animation: techCorePulse 1.5s ease-in-out infinite !important;
+}
+
+@keyframes techSpinnerRotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes techCorePulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 0.6;
+    }
+}
+
+.tech-loading-text {
+    color: #1e293b;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* 强制保留加载点的闪烁动画 */
+.tech-loading-dot {
+    animation: techDotBlink 1.4s infinite !important;
+    opacity: 0;
+}
+
+.tech-loading-dot:nth-child(1) {
+    animation-delay: 0s !important;
+}
+
+.tech-loading-dot:nth-child(2) {
+    animation-delay: 0.2s !important;
+}
+
+.tech-loading-dot:nth-child(3) {
+    animation-delay: 0.4s !important;
+}
+
+@keyframes techDotBlink {
+    0%, 20% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* 加载消息文字 - 浅色主题 */
+.tech-loading-message {
+    color: #1e293b;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.tech-loading-message i {
+    font-size: 18px;
+    color: #4f46e5;
+    animation: techTerminalBlink 1s infinite;
+}
+
+@keyframes techTerminalBlink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0.3;
+    }
+}
+
+/* 加载进度条 - 浅色主题 */
+.tech-loading-progress {
+    width: 220px;
+    height: 4px;
+    background: rgba(79, 70, 229, 0.15);
+    border-radius: 2px;
+    margin: 15px auto 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.tech-loading-progress::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(79, 70, 229, 0.2), transparent);
+    animation: techProgressShine 1.5s infinite;
+}
+
+@keyframes techProgressShine {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.tech-progress-bar {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #4f46e5, #7c3aed);
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(79, 70, 229, 0.4);
+    transition: width 0.3s ease-out;
+}
+
+.tech-loading-spinner,
+.tech-spinner-ring,
+.tech-spinner-core {
+    will-change: transform;
+}
+
+body.tech-no-scroll {
+    overflow: hidden !important;
+    padding-right: var(--scrollbar-width, 0) !important;
+}
+
+
+
+/* 浅色主题模态框样式 */
+.tech-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+}
+
+.tech-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: techModalFadeIn 0.2s ease-out;
+}
+
+@keyframes techModalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.tech-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.tech-modal-container {
+    position: relative;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    animation: techModalSlideIn 0.25s ease-out;
+}
+
+@keyframes techModalSlideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.tech-modal-content {
+    position: relative;
+    background: #f8fafc;
+    border: 1px solid rgba(178, 185, 191, 0.4);
+    border-radius: 16px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.tech-modal-scanline {
+    display: none;
+}
+
+/* 模态框头部 */
+.tech-modal-header {
+    position: relative;
+    padding: 20px 24px;
+    background: #eaf3fc;
+    border-bottom: 1px solid rgba(178, 185, 191, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tech-modal-header-line {
+    display: none;
+}
+
+.tech-modal-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    letter-spacing: 0.5px;
+}
+
+.tech-modal-title i {
+    color: #64748b;
+}
+
+.tech-modal-close {
+    background: #dbe4eb;
+    border: 1px solid rgba(178, 185, 191, 0.4);
+    color: #64748b;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tech-modal-close:hover {
+    background: #cdd6df;
+    border-color: #b2b9bf;
+    color: #475569;
+}
+
+/* 模态框主体 */
+.tech-modal-body {
+    position: relative;
+    padding: 24px;
+    max-height: calc(90vh - 130px);
+    overflow-y: auto;
+    background: #f8fafc;
+}
+
+.tech-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tech-modal-body::-webkit-scrollbar-track {
+    background: #eaf3fc;
+    border-radius: 4px;
+}
+
+.tech-modal-body::-webkit-scrollbar-thumb {
+    background: #cdd6df;
+    border-radius: 4px;
+}
+
+.tech-modal-body::-webkit-scrollbar-thumb:hover {
+    background: #b2b9bf;
+}
+
+/* 表单样式 */
+.tech-modal-body .form-control {
+    background: #fff;
+    border: 1px solid rgba(178, 185, 191, 0.5);
+    color: #1e293b;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+    padding: 10px 14px;
+}
+
+.tech-modal-body .form-control:focus {
+    background: #fff;
+    border-color: #b2b9bf;
+    box-shadow: 0 0 0 3px rgba(219, 228, 235, 0.5);
+    outline: none;
+}
+
+.tech-modal-body .form-control::placeholder {
+    color: #94a3b8;
+}
+
+.tech-modal-body .form-group {
+    margin-bottom: 20px;
+}
+
+.tech-modal-body label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* 模态框底部 */
+.tech-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 18px 24px;
+    background: #eaf3fc;
+    border-top: 1px solid rgba(178, 185, 191, 0.3);
+    border-radius: 0 0 16px 16px;
+}
+
+.tech-modal-btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid;
+}
+
+.tech-modal-btn::before {
+    display: none;
+}
+
+.tech-modal-btn-cancel {
+    background: #fff;
+    color: #64748b;
+    border-color: rgba(178, 185, 191, 0.5);
+}
+
+.tech-modal-btn-cancel:hover {
+    background: #f8fafc;
+    border-color: #b2b9bf;
+    color: #475569;
+}
+
+.tech-modal-btn-submit {
+    background: #dbe4eb;
+    color: #1e293b;
+    border-color: rgba(178, 185, 191, 0.4);
+}
+
+.tech-modal-btn-submit:hover {
+    background: #cdd6df;
+    border-color: #b2b9bf;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.tech-modal-btn-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .tech-modal-container {
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    .tech-modal-title {
+        font-size: 14px;
+        letter-spacing: 1px;
+    }
+    
+    .tech-modal-body {
+        padding: 20px;
+    }
+    
+    .tech-modal-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .tech-modal-btn {
+        width: 100%;
+    }
+}
+
+
+/* ==================== 浅色主题侧边栏样式 ==================== */
+
+/* 排名序号样式 - 简约小圆形 */
+.tech-rank-number {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px;
+    min-height: 26px;
+    max-width: 26px;
+    max-height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(178, 185, 191, 0.4);
+    border-radius: 50% !important;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 12px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    flex-grow: 0;
+    box-sizing: border-box;
+}
+
+/* 前三名特殊样式 */
+.tech-rank-item:nth-child(1) .tech-rank-number {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 193, 7, 0.15) 100%);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #b45309;
+}
+
+.tech-rank-item:nth-child(2) .tech-rank-number {
+    background: linear-gradient(135deg, rgba(192, 192, 192, 0.25) 0%, rgba(148, 163, 184, 0.2) 100%);
+    border-color: rgba(148, 163, 184, 0.5);
+    color: #475569;
+}
+
+.tech-rank-item:nth-child(3) .tech-rank-number {
+    background: linear-gradient(135deg, rgba(205, 127, 50, 0.2) 0%, rgba(180, 83, 9, 0.15) 100%);
+    border-color: rgba(180, 83, 9, 0.4);
+    color: #92400e;
+}
+
+/* 操作容器 */
+.tech-action-container {
+    text-align: center;
+    padding: 20px 15px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    margin: 10px 0;
+}
+
+.tech-action-desc {
+    color: #475569;
+    font-size: 14px;
+    margin-bottom: 18px;
+    line-height: 1.6;
+}
+
+.tech-action-hint {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-top: 12px;
+}
+
+.tech-action-hint i {
+    margin-right: 4px;
+}
+
+/* 信息按钮 */
+.tech-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 28px;
+    background: #dbe4eb;
+    border: 1px solid rgba(178, 185, 191, 0.4);
+    border-radius: 10px;
+    color: #1e293b;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.tech-info-btn:hover {
+    background: #cdd6df;
+    border-color: #b2b9bf;
+    color: #0f172a;
+    text-decoration: none;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.tech-info-btn i {
+    font-size: 14px;
+}
+
+/* 状态信息 */
+.tech-status-info {
+    text-align: center;
+    padding: 28px 20px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    margin: 10px 0;
+}
+
+.tech-status-icon {
+    margin-bottom: 14px;
+}
+
+.tech-status-icon i {
+    font-size: 40px;
+    color: rgba(100, 116, 139, 0.35);
+}
+
+.tech-status-text {
+    color: #1e293b;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.tech-status-desc {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* 成功状态样式 */
+.tech-status-info.tech-status-success .tech-status-icon i {
+    color: #22c55e;
+}
+
+.tech-status-info.tech-status-success .tech-status-text {
+    color: #15803d;
+}
+
+.tech-status-info.tech-status-success .tech-status-desc {
+    color: #16a34a;
+}
+
+/* 侧边栏性能优化 */
+.tech-sidebar-card {
+    transition: border-color 0.2s ease;
+}
+
+.tech-rank-item {
+    transition: background 0.15s ease;
+}
+
+.tech-quick-link,
+.tech-link,
+.tech-nav-link {
+    transition: all 0.15s ease;
+}
+
+/* 移除不必要的transform动画 */
+.tech-quick-link:hover,
+.tech-link:hover,
+.tech-info-btn:hover {
+    transform: none;
+}
+
+/* 优化倒计时样式 */
+.tech-time-value {
+    will-change: contents;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}

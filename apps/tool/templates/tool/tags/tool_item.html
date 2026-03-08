@@ -1,0 +1,22 @@
+{% load blog_tags %}
+<div class="col-md-6 col-lg-4 col-xl-3 px-lg-2 mb-4">
+    <div class="card tool-card h-100 ">
+        <a href="{{ tool_item.url }}" {% if tool_item.target %}target="{{ tool_item.target }}"{% endif %} class="tool-card-link">
+            <div class="tool-header ">
+                <div class="tool-icon-wrapper">
+                    <i class="{{ tool_item.icon|default:'fa fa-link' }} tool-icon" aria-hidden="true"></i>
+                </div>
+                <div class="tool-info">
+                    <h3 class="tool-title">{{ tool_item.name }}</h3>
+                    <span class="state-label state-label-info mt-1">{{ tool_item.tag }}</span>
+                </div>
+            </div>
+            <div class="tool-body">
+                <p class="tool-desc">{{ tool_item.desc|default:"暂无描述" }}</p>
+                <div class="tool-action">
+                    <span class="tool-btn">开始使用 →</span>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
