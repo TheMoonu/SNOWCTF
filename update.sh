@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# SecSnow网络安全综合学习平台 更新脚本 (优化版)
-# 用途：更新 SecSnow Web 服务到新版本
+# 网络安全综合学习平台 更新脚本 
 # 支持：本地 tar 文件 / Docker Registry 拉取
 
 # 设置颜色输出
@@ -67,32 +66,19 @@ get_compose_command() {
 read_installation_info() {
     show_step "读取安装配置信息..."
     
-    # 检查安装标志文件
     if [ ! -f "${INSTALL_DIR}/.installed" ]; then
         show_warning "未找到安装标志文件 (.installed)，将使用默认配置"
-        export INSTALLED_PERFORMANCE_MODE="default"
-        export INSTALLED_STORAGE_ENABLED="False"
         return
     fi
     
-    # 读取安装信息
     INSTALL_TIME=$(grep "^安装时间:" "${INSTALL_DIR}/.installed" | cut -d':' -f2- | xargs 2>/dev/null || echo "未知")
     INSTALL_MODE=$(grep "^安装模式:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo "未知")
-    INSTALLED_PERFORMANCE_MODE=$(grep "^性能模式:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo "default")
-    INSTALLED_STORAGE_ENABLED=$(grep "^对象存储:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo "False")
     
-    # 显示当前配置
     echo ""
     echo -e "${BLUE}当前安装配置：${NC}"
     echo "  安装时间: ${INSTALL_TIME}"
     echo "  安装方式: ${INSTALL_MODE}"
-    echo "  性能模式: ${INSTALLED_PERFORMANCE_MODE}"
-    echo "  对象存储: ${INSTALLED_STORAGE_ENABLED}"
     echo ""
-    
-    # 导出变量供后续使用
-    export INSTALLED_PERFORMANCE_MODE
-    export INSTALLED_STORAGE_ENABLED
 }
 
 # 检查环境
@@ -237,47 +223,11 @@ stop_services() {
     
     COMPOSE_CMD=$(get_compose_command)
     
-    # 根据当前安装的性能模式停止服务
-    PROFILE_PARAMS=""
+    show_info "停止 Web 相关服务..."
+    $COMPOSE_CMD stop web celery-worker celery-beat 2>/dev/null || true
     
-    # 添加性能模式参数
-    if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
-        PROFILE_PARAMS="--profile high-performance"
-        show_info "检测到高性能模式，使用对应参数停止服务"
-    else
-        PROFILE_PARAMS="--profile default"
-        show_info "检测到默认模式，使用对应参数停止服务"
-    fi
-    
-    
-    # 停止服务
-    if [ -n "$PROFILE_PARAMS" ]; then
-        show_info "停止服务（使用参数: ${PROFILE_PARAMS}）..."
-        $COMPOSE_CMD $PROFILE_PARAMS stop web celery-worker celery-worker-container celery-worker-general celery-beat 2>/dev/null || true
-    else
-        show_info "停止 Web 服务..."
-        $COMPOSE_CMD stop web celery-worker celery-beat 2>/dev/null || true
-    fi
-    
-    # 检查是否需要停止 RustFS
-    if docker ps | grep -q secsnow-rustfs; then
-        show_info "停止 RustFS 服务..."
-        $COMPOSE_CMD stop rustfs rustfs-init 2>/dev/null || true
-    fi
-    
-    # 移除旧容器（保留数据卷）
     show_info "移除旧容器..."
-    if [ -n "$PROFILE_PARAMS" ]; then
-        $COMPOSE_CMD $PROFILE_PARAMS rm -f web celery-worker celery-worker-container celery-worker-general celery-beat 2>/dev/null || true
-    else
-        $COMPOSE_CMD rm -f web celery-worker celery-beat 2>/dev/null || true
-    fi
-    
-    # 移除 RustFS 容器（如果存在，将重新创建）
-    if docker ps -a | grep -q secsnow-rustfs; then
-        show_info "准备重启 RustFS 服务（必需服务）..."
-        $COMPOSE_CMD rm -f rustfs rustfs-init 2>/dev/null || true
-    fi
+    $COMPOSE_CMD rm -f web celery-worker celery-beat 2>/dev/null || true
     
     show_success "服务已停止"
 }
@@ -458,612 +408,25 @@ start_services() {
     
     cd "${INSTALL_DIR}" || show_error "无法进入安装目录"
     
-    # 确保必要的数据目录存在
     show_info "检查数据目录..."
-    mkdir -p db/postgres 2>/dev/null || true
-    mkdir -p redis/data 2>/dev/null || true
-    mkdir -p web/media 2>/dev/null || true
-    mkdir -p web/static 2>/dev/null || true
-    mkdir -p web/log 2>/dev/null || true
-    mkdir -p web/log/nginx 2>/dev/null || true
-    mkdir -p web/whoosh_index 2>/dev/null || true
-    mkdir -p nginx/ssl 2>/dev/null || true
-    
-    # 根据用户配置创建对象存储相关目录
-    if [ "$ENABLE_OBJECT_STORAGE" = "True" ]; then
-        show_info "创建 RustFS 数据目录..."
-        mkdir -p rustfs/data 2>/dev/null || true
-        mkdir -p rustfs/logs 2>/dev/null || true
-        chmod -R 755 rustfs 2>/dev/null || true
-    fi
+    mkdir -p db/postgres redis/data web/media web/static web/log web/log/nginx web/whoosh_index nginx/ssl 2>/dev/null || true
     
     COMPOSE_CMD=$(get_compose_command)
     
-    # 根据性能模式决定启动参数
-    PROFILE_PARAMS=""
-    
-    # 添加性能模式参数
-    if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
-        PROFILE_PARAMS="--profile high-performance"
-        show_info "使用高性能模式启动"
+    show_info "启动服务..."
+    if $COMPOSE_CMD up -d; then
+        show_success "服务启动成功"
     else
-        PROFILE_PARAMS="--profile default"
-        show_info "使用默认模式启动"
+        show_error "服务启动失败，请检查日志"
     fi
     
-    # 启动服务
-    if [ -n "$PROFILE_PARAMS" ]; then
-        show_info "启动服务（参数: ${PROFILE_PARAMS}）..."
-        if $COMPOSE_CMD $PROFILE_PARAMS up -d; then
-            show_success "服务启动成功"
-        else
-            show_error "服务启动失败，请检查日志"
-        fi
-    else
-        show_info "启动服务..."
-        if $COMPOSE_CMD  up -d; then
-            show_success "服务启动成功"
-        else
-            show_error "服务启动失败，请检查日志"
-        fi
-    fi
-    
-    # 等待服务就绪
     show_info "等待服务完全启动..."
     sleep 10
     
-    # 显示服务状态
     show_info "服务状态："
     $COMPOSE_CMD ps
 }
 
-# 验证 RustFS 密码配置
-verify_rustfs_password() {
-    # 如果对象存储未启用，跳过验证
-    if [ "$ENABLE_OBJECT_STORAGE" != "True" ]; then
-        return 0
-    fi
-    
-    show_step "验证 RustFS 密码配置..."
-    
-    # 检查 RustFS 是否在运行
-    if ! docker ps | grep -q secsnow-rustfs; then
-        show_warning "RustFS 服务未运行，请检查启动日志"
-        return 1
-    fi
-    
-    # 等待 RustFS 完全启动
-    show_info "等待 RustFS 服务就绪..."
-    sleep 5
-    
-    # 从 .env 读取密码
-    RUSTFS_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
-    RUSTFS_PASS=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2 2>/dev/null || echo "")
-    
-    if [ -z "$RUSTFS_PASS" ]; then
-        show_warning "无法从 .env 读取 RustFS 密码"
-        return 1
-    fi
-    
-    # 尝试使用密码连接 RustFS
-    show_info "验证 RustFS 密码是否正确..."
-    VERIFY_RESULT=$(docker run --rm \
-        --network=secsnow-network \
-        -e MC_USER="$RUSTFS_USER" \
-        -e MC_PASS="$RUSTFS_PASS" \
-        --entrypoint /bin/sh \
-        minio/mc:latest -c \
-        'mc alias set secsnow http://rustfs:9000 "$MC_USER" "$MC_PASS" 2>&1' 2>&1)
-    
-    if [ $? -eq 0 ]; then
-        show_success "✓ RustFS 密码验证成功"
-        return 0
-    else
-        show_error "✗ RustFS 密码验证失败"
-        echo "错误信息: $VERIFY_RESULT"
-        echo ""
-        echo -e "${YELLOW}可能的原因：${NC}"
-        echo "  1. RustFS 服务尚未完全启动，请等待几分钟后重试"
-        echo "  2. .env 中的密码与 RustFS 实际使用的密码不匹配"
-        echo "  3. 需要重置 RustFS 容器和数据目录"
-        echo ""
-        echo -e "${BLUE}解决方案：${NC}"
-        echo "  1. 查看 RustFS 日志: docker logs secsnow-rustfs"
-        echo "  2. 重置 RustFS:"
-        COMPOSE_CMD=$(get_compose_command)
-        echo "     cd ${INSTALL_DIR}"
-        echo "     $COMPOSE_CMD stop rustfs rustfs-init"
-        echo "     $COMPOSE_CMD rm -f rustfs rustfs-init"
-        echo "     rm -rf rustfs/data"
-        echo "     $COMPOSE_CMD up -d"
-        return 1
-    fi
-}
-
-# 检查存储配置选择记录
-check_storage_config_record() {
-    # 检查是否有配置记录文件
-    if [ -f "${INSTALL_DIR}/.storage_config" ]; then
-        # 读取配置
-        source "${INSTALL_DIR}/.storage_config"
-        
-        if [ "$ASKED_USER" = "true" ]; then
-            show_info "检测到已有存储配置记录"
-            show_info "存储类型: ${STORAGE_TYPE}"
-            return 0  # 已询问过用户
-        fi
-    fi
-    
-    return 1  # 未询问过用户
-}
-
-# 保存存储配置选择
-save_storage_config() {
-    local storage_type="$1"
-    local enabled="$2"
-    
-    cat > "${INSTALL_DIR}/.storage_config" << EOF
-# 对象存储配置选择
-# 由更新脚本自动生成
-STORAGE_TYPE=${storage_type}
-ENABLE_OBJECT_STORAGE=${enabled}
-CONFIG_DATE=$(date '+%Y-%m-%d %H:%M:%S')
-ASKED_USER=true
-EOF
-    
-    show_success "存储配置选择已保存"
-}
-
-# 检查并初始化对象存储（老用户适配 - 强制启用）
-check_and_init_object_storage() {
-    show_step "检查对象存储配置（必需服务）..."
-    
-    # 检查是否有旧的 MinIO 配置
-    if grep -q "SNOW_USE_MINIO=" .env 2>/dev/null; then
-        show_info "检测到旧的 MinIO 配置，迁移到新配置..."
-        
-        # 迁移配置
-        if ! grep -q "SNOW_USE_OBJECT_STORAGE=" .env; then
-            # 将 MinIO 配置迁移为通用对象存储配置
-            sed -i "s/^SNOW_USE_MINIO=/SNOW_USE_OBJECT_STORAGE=/" .env
-            show_success "已迁移为通用对象存储配置"
-        fi
-        
-        # 强制启用对象存储
-        sed -i 's/^SNOW_USE_OBJECT_STORAGE=.*/SNOW_USE_OBJECT_STORAGE=True/' .env
-        save_storage_config "rustfs" "True"
-    fi
-    
-    # 检查 .env 中是否有对象存储配置
-    if ! grep -q "SNOW_USE_OBJECT_STORAGE=" .env 2>/dev/null; then
-        show_info "检测到旧版本配置，添加对象存储配置（必需服务）..."
-        
-        echo ""
-        echo "========================================="
-        echo -e "${CYAN}对象存储升级（必需服务）${NC}"
-        echo "========================================="
-        echo ""
-        echo -e "${BLUE}新版本必须使用对象存储（RustFS）${NC}"
-        echo ""
-        echo -e "${GREEN}RustFS 对象存储优势：${NC}"
-        echo "  • 高性能：专为对象存储优化"
-        echo "  • 可扩展：支持大规模文件存储"
-        echo "  • 高可用：支持分布式部署"
-        echo "  • 兼容性：兼容 S3 API"
-        echo ""
-        show_success "正在启用 RustFS 对象存储（必需服务）..."
-        
-        # 强制启用对象存储
-        USE_STORAGE="True"
-        save_storage_config "rustfs" "True"
-        
-        # 生成随机密码（仅使用字母和数字）
-        RUSTFS_PASSWORD=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 20 2>/dev/null || echo "rustfsadmin123")
-        
-        # 添加对象存储配置到 .env
-        # 注意：此函数在容器启动前执行，配置添加后容器启动时会直接使用正确的密码
-        cat >> .env << EOF
-
-# ================================================
-# 📦 系统内置对象存储服务配置
-# ================================================
-SNOW_USE_OBJECT_STORAGE=${USE_STORAGE}
-
-# RustFS 容器配置
-#系统内置对象存储服务rustfs，如果需要使用其他对象存储服务，或者挂载到其他节点请停止内置对象存储服务并配置其他对象存储服务
-RUSTFS_ROOT_USER=rustfsadmin
-RUSTFS_ROOT_PASSWORD=${RUSTFS_PASSWORD}
-RUSTFS_BUCKET_NAME=secsnow
-RUSTFS_DATA_DIR=./rustfs/data
-RUSTFS_LOG_DIR=./rustfs/logs
-RUSTFS_API_PORT=7900
-RUSTFS_CONSOLE_PORT=7901
-# CORS 设置，控制台与 S3 API 都放开来源
-RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
-RUSTFS_CORS_ALLOWED_ORIGINS=*
-
-# RustFS 镜像配置
-RUSTFS_IMAGE=rustfs/rustfs:latest
-MINIO_MC_IMAGE=minio/mc:latest
-
-# ================================================
-# 📦对象存储配置节点配置
-# ================================================
-# 使用这些变量连接到 RustFS，这里支持其他节点挂载请
-# 存储访问凭证
-SNOW_STORAGE_ACCESS_KEY=rustfsadmin
-# 存储访问密钥
-SNOW_STORAGE_SECRET_KEY=${RUSTFS_PASSWORD}
-
-# 存储桶名称，如果您使用用本地存储节点，需要去nginx配置文件中添加桶名称代理的配置，因为本地存储节点不会暴露桶名称做了层代理。
-#默认桶的名称为secsnow，如果您换桶名，也需要将默认的存储文件上传至新桶。
-
-SNOW_STORAGE_BUCKET_NAME=secsnow
-
-# 存储节点地址，本地内部节点地址为 http://rustfs:9000
-SNOW_STORAGE_ENDPOINT_URL=http://rustfs:9000
-# 区域
-SNOW_STORAGE_REGION=us-east-1
-# 文件路径前缀
-# 如果设置为 'media'，文件会存储在 s3://secsnow/media/uploads/file.jpg
-# 当前留空，文件存储在 s3://secsnow/uploads/file.jpg
-SNOW_STORAGE_LOCATION=
-
-# SSL 配置
-SNOW_STORAGE_USE_SSL=False
-SNOW_STORAGE_VERIFY_SSL=False
-
-# 公开访问配置
-SNOW_STORAGE_PUBLIC_URL=
-EOF
-        show_success "对象存储配置已添加到 .env 文件（必需服务）"
-        show_info "生成的 RustFS 密码: ${RUSTFS_PASSWORD}"
-        show_info "容器启动时将自动使用此密码初始化 RustFS"
-        
-        show_info "对象存储已启用，将在服务重启后生效"
-        
-        # 拉取 RustFS 镜像
-        show_info "拉取 RustFS 相关镜像..."
-        docker pull rustfs/rustfs:latest 2>/dev/null || show_warning "RustFS 镜像拉取失败，将在启动时自动拉取"
-        docker pull minio/mc:latest 2>/dev/null || show_warning "MinIO Client 镜像拉取失败"
-        
-        # 提示需要重启服务
-        echo ""
-        echo -e "${YELLOW}重要提示：${NC}"
-        echo "  对象存储配置已添加，需要重启服务以启动 RustFS"
-        echo "  服务将在更新流程中自动重启"
-        echo ""
-        
-        # 检测本地文件（仅提示，不询问）
-        if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
-            LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
-            echo ""
-            show_info "检测到本地文件: $LOCAL_FILES 个文件在 web/media 目录"
-            if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-                show_success "已设置自动迁移参数，将在更新完成后迁移文件"
-            else
-                show_info "如需迁移文件到对象存储，请使用参数: --migrate-media"
-            fi
-            echo ""
-        fi
-    else
-        # 已有配置，检查用户设置
-        STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2)
-        
-        if [ "$STORAGE_ENABLED" = "True" ]; then
-            show_success "对象存储已启用"
-            ENABLE_OBJECT_STORAGE="True"
-            
-            # 检查 RustFS 服务是否在运行
-            if docker ps | grep -q secsnow-rustfs; then
-                show_success "RustFS 服务运行正常"
-            else
-                show_warning "RustFS 服务未运行，将在启动服务时自动启动"
-            fi
-        else
-            show_info "对象存储未启用（用户配置为 False）"
-            ENABLE_OBJECT_STORAGE="False"
-        fi
-    fi
-}
-
-# 检查是否需要迁移 media 文件到对象存储
-check_media_migration() {
-    show_info "检查 media 文件迁移状态..."
-    
-    # 检查对象存储中是否已有文件
-    STORAGE_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2)
-    STORAGE_PASSWORD=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2)
-    STORAGE_BUCKET=$(grep "^RUSTFS_BUCKET_NAME=" .env | cut -d'=' -f2)
-    
-    # 检查对象存储中的文件数量
-    STORAGE_FILE_COUNT=$(docker run --rm \
-        --network=secsnow-network \
-        -e MC_USER="$STORAGE_USER" \
-        -e MC_PASS="$STORAGE_PASSWORD" \
-        -e BUCKET="$STORAGE_BUCKET" \
-        --entrypoint /bin/sh \
-        minio/mc:latest -c '
-            mc alias set secsnow http://rustfs:9000 "$MC_USER" "$MC_PASS" >/dev/null 2>&1
-            mc ls --recursive secsnow/"$BUCKET"/ 2>/dev/null | wc -l
-        ' 2>/dev/null || echo "0")
-    
-    LOCAL_FILE_COUNT=$(find web/media -type f 2>/dev/null | wc -l)
-    
-    echo ""
-    echo -e "${YELLOW}文件迁移状态:${NC}"
-    echo "  本地文件数: $LOCAL_FILE_COUNT"
-    echo "  对象存储文件数: $STORAGE_FILE_COUNT"
-    
-    # 如果对象存储中文件明显少于本地，提示需要迁移
-    if [ "$STORAGE_FILE_COUNT" -lt "$((LOCAL_FILE_COUNT / 2))" ] && [ "$LOCAL_FILE_COUNT" -gt 0 ]; then
-        show_warning "对象存储中文件数量较少，可能需要迁移"
-        show_info "如需迁移文件，请使用参数: --migrate-media"
-    else
-        show_success "文件已同步到对象存储"
-    fi
-}
-
-# 启用对象存储（必需服务 - 确保启用）
-enable_object_storage() {
-    show_step "确保 RustFS 对象存储已启用（必需服务）..."
-    
-    # 强制修改 .env 配置
-    sed -i.bak 's/^SNOW_USE_OBJECT_STORAGE=.*/SNOW_USE_OBJECT_STORAGE=True/' .env
-    
-    # 生成随机密码（如果是默认密码）
-    CURRENT_PASSWORD=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
-    PASSWORD_CHANGED=false
-    NEW_PASSWORD=""
-    
-    if [ "$CURRENT_PASSWORD" = "rustfsadmin" ]; then
-        NEW_PASSWORD=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 20 2>/dev/null || echo "rustfsadmin123")
-        sed -i "s/^RUSTFS_ROOT_PASSWORD=.*/RUSTFS_ROOT_PASSWORD=${NEW_PASSWORD}/" .env
-        # 同时更新 Django 应用层密码
-        if grep -q "^SNOW_STORAGE_SECRET_KEY=" .env; then
-            sed -i "s/^SNOW_STORAGE_SECRET_KEY=.*/SNOW_STORAGE_SECRET_KEY=${NEW_PASSWORD}/" .env
-        fi
-        show_success "已生成随机 RustFS 密码: ${NEW_PASSWORD}"
-        PASSWORD_CHANGED=true
-    else
-        show_info "使用现有 RustFS 密码"
-    fi
-    
-    # 如果密码变更了，需要重置 RustFS 容器
-    if [ "$PASSWORD_CHANGED" = true ] && docker ps -a | grep -q secsnow-rustfs; then
-        show_warning "密码已更新，需要重置 RustFS 容器以应用新密码"
-        
-        # 停止并删除容器
-        COMPOSE_CMD=$(get_compose_command)
-        $COMPOSE_CMD stop rustfs rustfs-init 2>/dev/null || true
-        $COMPOSE_CMD rm -f rustfs rustfs-init 2>/dev/null || true
-        
-        # 删除数据目录（强制重新初始化）
-        if [ -d "rustfs/data" ]; then
-            show_info "删除 RustFS 旧数据目录以应用新密码..."
-            rm -rf rustfs/data
-        fi
-        
-        show_success "RustFS 容器已重置，将使用新密码重新初始化"
-    fi
-    
-    # 创建必要的目录
-    mkdir -p "${INSTALL_DIR}/rustfs/data" 2>/dev/null || true
-    mkdir -p "${INSTALL_DIR}/rustfs/logs" 2>/dev/null || true
-    chmod -R 755 "${INSTALL_DIR}/rustfs" 2>/dev/null || true
-    
-    # 拉取 RustFS 镜像
-    show_info "拉取 RustFS 相关镜像..."
-    docker pull rustfs/rustfs:latest 2>/dev/null || show_warning "RustFS 镜像拉取失败，将在启动时自动拉取"
-    docker pull minio/mc:latest 2>/dev/null || show_warning "MinIO Client 镜像拉取失败"
-    
-    show_success "RustFS 对象存储已确保启用（必需服务）"
-    show_info "RustFS 将在服务重启后自动运行"
-    
-    # 检测本地文件（仅提示，不询问）
-    if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
-        LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
-        echo ""
-        show_info "检测到本地文件: $LOCAL_FILES 个文件在 web/media 目录"
-        if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-            show_success "已设置自动迁移参数，将在更新完成后迁移文件"
-        else
-            show_info "如需迁移文件到对象存储，请使用参数: --migrate-media"
-        fi
-        echo ""
-    fi
-}
-
-# 迁移 media 文件到对象存储（必需操作）
-migrate_media_to_storage() {
-    show_step "迁移 media 文件到对象存储（必需服务）..."
-    
-    echo ""
-    echo "========================================="
-    echo -e "${CYAN}  RustFS 文件迁移工具${NC}"
-    echo "========================================="
-    echo ""
-    
-    # 检查目录
-    if [ ! -d "web/media" ]; then
-        show_error "web/media 目录不存在"
-        return 1
-    fi
-    
-    # 从 .env 读取配置
-    STORAGE_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
-    STORAGE_PASSWORD=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
-    STORAGE_BUCKET=$(grep "^RUSTFS_BUCKET_NAME=" .env | cut -d'=' -f2 2>/dev/null || echo "secsnow")
-    
-    show_info "配置信息："
-    echo "  用户: $STORAGE_USER"
-    echo "  Bucket: $STORAGE_BUCKET"
-    echo ""
-    
-    # 统计本地文件
-    LOCAL_FILE_COUNT=$(find web/media -type f 2>/dev/null | wc -l)
-    show_info "本地文件数: $LOCAL_FILE_COUNT"
-    
-    if [ "$LOCAL_FILE_COUNT" -eq 0 ]; then
-        show_warning "没有文件需要迁移"
-        return 0
-    fi
-    
-    # 确保 RustFS 服务运行
-    if ! docker ps | grep -q secsnow-rustfs; then
-        show_warning "RustFS 未运行，正在启动 RustFS 服务..."
-        
-        # 获取 compose 命令
-        COMPOSE_CMD=$(get_compose_command)
-        $COMPOSE_CMD up -d 2>/dev/null || true
-        
-        show_info "等待 RustFS 启动..."
-        sleep 20
-        
-        # 再次检查
-        if ! docker ps | grep -q secsnow-rustfs; then
-            show_error "RustFS 启动失败，请检查日志: docker logs secsnow-rustfs"
-            return 1
-        fi
-    fi
-    
-    show_success "RustFS 运行正常"
-    echo ""
-    
-    show_info "开始迁移 $LOCAL_FILE_COUNT 个文件..."
-    echo ""
-    
-    # 步骤 1/4: 配置 mc 客户端
-    show_info "步骤 1/4: 配置 mc 客户端..."
-    
-    # 先测试网络连接（RustFS 使用 /health 端点）
-    if ! docker run --rm \
-        --network=secsnow-network \
-        alpine/curl:latest -f -s \
-        "http://rustfs:9000/health" >/dev/null 2>&1; then
-        show_error "无法连接到 RustFS 服务，请确保 RustFS 容器正在运行"
-        show_info "提示: 运行 'docker ps | grep rustfs' 检查服务状态"
-        return 1
-    fi
-    
-    # 使用环境变量传递密码，避免特殊字符问题
-    MC_CONFIG_ERROR=$(docker run --rm \
-        --network=secsnow-network \
-        -e MC_USER="$STORAGE_USER" \
-        -e MC_PASS="$STORAGE_PASSWORD" \
-        --entrypoint /bin/sh \
-        minio/mc:latest -c \
-        'mc alias set secsnow http://rustfs:9000 "$MC_USER" "$MC_PASS"' 2>&1)
-    
-    if [ $? -ne 0 ]; then
-        show_error "mc 客户端配置失败"
-        echo "错误详情: $MC_CONFIG_ERROR"
-        show_info "请检查:"
-        echo "  1. RustFS 服务是否正常运行"
-        echo "  2. 用户名和密码是否正确"
-        echo "  3. 网络连接是否正常"
-        return 1
-    fi
-    show_success "✓ mc 客户端配置完成"
-    
-    # 步骤 2/4: 检查/创建 bucket
-    show_info "步骤 2/4: 检查/创建 bucket..."
-    BUCKET_ERROR=$(docker run --rm \
-        --network=secsnow-network \
-        -e MC_USER="$STORAGE_USER" \
-        -e MC_PASS="$STORAGE_PASSWORD" \
-        -e BUCKET="$STORAGE_BUCKET" \
-        --entrypoint /bin/sh \
-        minio/mc:latest -c \
-        'mc alias set secsnow http://rustfs:9000 "$MC_USER" "$MC_PASS" >/dev/null 2>&1 && \
-         mc mb secsnow/"$BUCKET" --ignore-existing 2>&1 && \
-         mc anonymous set public secsnow/"$BUCKET" 2>&1' 2>&1)
-    
-    if [ $? -ne 0 ]; then
-        show_error "Bucket 创建失败"
-        echo "错误详情: $BUCKET_ERROR"
-        return 1
-    fi
-    show_success "✓ Bucket 已就绪"
-    
-    # 步骤 3/4: 上传文件
-    show_info "步骤 3/4: 上传文件（可能需要几分钟）..."
-    echo ""
-    
-    docker run --rm \
-        -v "$(pwd)/web/media:/media" \
-        --network=secsnow-network \
-        -e MC_USER="$STORAGE_USER" \
-        -e MC_PASS="$STORAGE_PASSWORD" \
-        -e BUCKET="$STORAGE_BUCKET" \
-        --entrypoint /bin/sh \
-        minio/mc:latest -c \
-        'mc alias set secsnow http://rustfs:9000 "$MC_USER" "$MC_PASS" >/dev/null 2>&1 && \
-         mc cp --recursive /media/ secsnow/"$BUCKET"/' 2>&1
-    
-    UPLOAD_STATUS=$?
-    echo ""
-    
-    if [ $UPLOAD_STATUS -ne 0 ]; then
-        show_error "文件上传失败"
-        show_info "提示: 如果上传部分文件后失败，可以重新运行脚本继续上传"
-        return 1
-    fi
-    show_success "✓ 文件上传完成"
-    
-    # 步骤 4/4: 验证结果
-    show_info "步骤 4/4: 验证结果..."
-    STORAGE_FILE_COUNT=$(docker run --rm \
-        --network=secsnow-network \
-        -e MC_USER="$STORAGE_USER" \
-        -e MC_PASS="$STORAGE_PASSWORD" \
-        -e BUCKET="$STORAGE_BUCKET" \
-        --entrypoint /bin/sh \
-        minio/mc:latest -c \
-        'mc alias set secsnow http://rustfs:9000 "$MC_USER" "$MC_PASS" >/dev/null 2>&1 && \
-         mc ls --recursive secsnow/"$BUCKET"/ 2>/dev/null | wc -l' 2>/dev/null || echo "0")
-    
-    # 确保是纯数字
-    STORAGE_FILE_COUNT=$(echo "$STORAGE_FILE_COUNT" | grep -o '[0-9]*' | tail -1)
-    
-    echo ""
-    echo "========================================="
-    echo -e "${CYAN}  迁移结果${NC}"
-    echo "========================================="
-    echo "  本地文件: $LOCAL_FILE_COUNT"
-    echo "  RustFS 文件: $STORAGE_FILE_COUNT"
-    echo "========================================="
-    echo ""
-    
-    if [ "$STORAGE_FILE_COUNT" -ge "$LOCAL_FILE_COUNT" ]; then
-        show_success "迁移成功！"
-        echo ""
-        
-        # 自动备份本地文件
-        if [ -d "web/media.backup" ]; then
-            show_warning "web/media.backup 已存在，将覆盖"
-            rm -rf web/media.backup
-        fi
-        mv web/media web/media.backup
-        mkdir -p web/media
-        show_success "本地目录已重命名为 media.backup"
-        echo ""
-        show_info "后续步骤："
-        echo "  1. 测试文件访问: http://你的域名/media/文件路径"
-        echo "  2. 确认无误后可删除备份: rm -rf web/media.backup"
-        echo "  3. 访问 RustFS 控制台: http://你的IP:7901/"
-    else
-        show_error "文件数量不匹配"
-        echo ""
-        echo "排查步骤："
-        echo "  1. 查看 RustFS 日志: docker logs secsnow-rustfs"
-        echo "  2. 检查网络: docker network inspect secsnow-network"
-        echo "  3. 手动验证: docker run --rm --network=secsnow-network alpine/curl curl http://rustfs:9000/health"
-        return 1
-    fi
-    
-    echo ""
-}
 
 # 清理废弃的简历表
 clean_resume_tables() {
@@ -1235,7 +598,7 @@ cleanup_old_images() {
 show_completion() {
     echo ""
     echo "========================================="
-    echo -e "${GREEN}🎉 更新完成！${NC}"
+    echo -e "${GREEN}更新完成！${NC}"
     echo "========================================="
     echo ""
     echo -e "${BLUE}更新信息:${NC}"
@@ -1249,44 +612,22 @@ show_completion() {
     fi
     echo "  新镜像: ${NEW_IMAGE_NAME:-未知}"
     
-    # 显示版本号
     CURRENT_VERSION=$(grep "^SECSNOW_VERSION=" .env | cut -d'=' -f2 2>/dev/null || echo "未知")
     echo "  当前版本: ${CURRENT_VERSION}"
-    
-    # 显示性能模式
-    echo "  性能模式: ${INSTALLED_PERFORMANCE_MODE}"
-    
     echo "  备份目录: ${CURRENT_BACKUP_DIR:-未备份}"
     echo ""
     
     COMPOSE_CMD=$(get_compose_command)
     
-    # 检查对象存储配置
-    STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "False")
-    
-    # 构建 profile 参数（根据性能模式）
-    PROFILE_PARAMS=""
-    if [ "${INSTALLED_PERFORMANCE_MODE}" = "high-performance" ]; then
-        PROFILE_PARAMS="--profile high-performance"
-    else
-        PROFILE_PARAMS="--profile default"
-    fi
-    
     echo -e "${BLUE}常用命令:${NC}"
     echo "  查看服务状态:"
-    if [ -n "$PROFILE_PARAMS" ]; then
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} ps"
-    else
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ps"
-    fi
+    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ps"
     echo ""
     echo "  查看 Web 日志:"
     echo "    docker logs -f secsnow-web"
     echo ""
     echo "  查看所有服务日志:"
-    if [ -n "$PROFILE_PARAMS" ]; then
-        echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} logs -f"
-    fi
+    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD logs -f"
     echo ""
     
     if [ "$UPDATE_MODE" = "local" ]; then
@@ -1295,45 +636,23 @@ show_completion() {
         echo "    2. 运行更新脚本: bash $0 -y"
     else
         echo "  下次更新（从仓库拉取）:"
-        # 提取镜像名称（不含tag）
         local image_base=$(echo "$REGISTRY_IMAGE" | cut -d':' -f1)
         echo "    bash $0 -r ${image_base}:<新版本号> -y"
     fi
     echo ""
     
     echo -e "${BLUE}回滚步骤（如果需要）:${NC}"
-    if [ -n "$PROFILE_PARAMS" ]; then
-        echo "  1. 停止服务: cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} down"
-    else
-        echo "  1. 停止服务: cd ${INSTALL_DIR} && $COMPOSE_CMD down"
-    fi
+    echo "  1. 停止服务: cd ${INSTALL_DIR} && $COMPOSE_CMD down"
     echo "  2. 恢复配置: cp ${CURRENT_BACKUP_DIR}/.env.backup .env"
     if [ "$UPDATE_MODE" = "registry" ]; then
         local image_base=$(echo "$REGISTRY_IMAGE" | cut -d':' -f1)
         echo "  3. 拉取旧版本: docker pull ${image_base}:<旧版本号>"
         echo "  4. 更新 .env 文件中的 SECSNOW_IMAGE"
-        echo "  5. 启动服务: $COMPOSE_CMD ${PROFILE_PARAMS} up -d"
+        echo "  5. 启动服务: $COMPOSE_CMD up -d"
     else
         echo "  3. 重新加载旧镜像"
-        echo "  4. 启动服务: $COMPOSE_CMD ${PROFILE_PARAMS} up -d"
+        echo "  4. 启动服务: $COMPOSE_CMD up -d"
     fi
-    echo ""
-    
-    # 获取对象存储状态（必需服务）
-    STORAGE_ENABLED=$(grep "^SNOW_USE_OBJECT_STORAGE=" .env | cut -d'=' -f2 2>/dev/null || echo "True")
-    
-    # 显示对象存储信息（必需服务）
-    echo -e "${BLUE}对象存储 (RustFS - 必需服务):${NC}"
-    echo "  状态: 已启用（必需服务）"
-    echo "  控制台: http://服务器IP:7901/"
-    
-    # 从 .env 读取并显示密码
-    RUSTFS_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2 2>/dev/null || echo "rustfsadmin")
-    RUSTFS_PASS=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2 2>/dev/null || echo "未找到")
-    echo "  用户名: ${RUSTFS_USER}"
-    echo "  密码: ${RUSTFS_PASS}"
-    
-    echo "  文件访问: http://服务器IP/media/（Nginx 自动代理）"
     echo ""
     
     echo -e "${YELLOW}提示:${NC}"
@@ -1341,28 +660,13 @@ show_completion() {
     echo "  2. 备份文件保存在: ${BACKUP_DIR}"
     echo "  3. 建议测试主要功能是否正常"
     echo "  4. 数据库数据已保留，无需担心数据丢失"
-    echo "  5. RustFS 对象存储是必需服务，所有上传文件将保存到对象存储"
-    if [ -d "web/media.backup" ]; then
-        echo "  6. 旧 media 文件已备份到 web/media.backup"
-        echo "  7. 确认无误后可删除备份: rm -rf web/media.backup"
-    fi
-    # 检查是否还有本地文件未迁移
-    if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
-        LOCAL_FILES=$(find web/media -type f 2>/dev/null | wc -l)
-        if [ "$LOCAL_FILES" -gt 10 ]; then
-            echo ""
-            echo -e "${YELLOW}⚠️  注意: web/media 中还有 $LOCAL_FILES 个文件未迁移${NC}"
-            echo "  建议迁移到 RustFS 以获得更好的性能和可扩展性"
-        fi
-    fi
     echo ""
     echo "========================================="
     echo -e "${CYAN}访问地址:${NC}"
     
-    # 读取 .env 文件获取端口信息
     if [ -f "${INSTALL_DIR}/.env" ]; then
-        HTTP_PORT=$(grep "^HTTP_PORT=" "${INSTALL_DIR}/.env" | cut -d'=' -f2 || echo "80")
-        HTTPS_PORT=$(grep "^HTTPS_PORT=" "${INSTALL_DIR}/.env" | cut -d'=' -f2 || echo "443")
+        HTTP_PORT=$(grep "^NGINX_HTTP_PORT=" "${INSTALL_DIR}/.env" | cut -d'=' -f2 || echo "80")
+        HTTPS_PORT=$(grep "^NGINX_HTTPS_PORT=" "${INSTALL_DIR}/.env" | cut -d'=' -f2 || echo "443")
         
         echo "  HTTP:  http://服务器IP:${HTTP_PORT}"
         if [ -n "$HTTPS_PORT" ]; then
@@ -1387,7 +691,6 @@ show_help() {
     echo "  --no-backup                       跳过备份步骤"
     echo "  --no-migrate                      跳过数据库迁移"
     echo "  --cleanup                         更新后自动清理旧镜像"
-    echo "  --migrate-media                   自动迁移 media 文件到对象存储（不询问）"
     echo ""
     echo "注意:"
     echo "  • 废弃的简历表会自动清理（无需参数）"
@@ -1407,10 +710,7 @@ show_help() {
     echo "  # 从本地文件更新"
     echo "  $0 -y --cleanup"
     echo ""
-    echo "  # 老用户首次更新（自动迁移本地文件到对象存储）"
-    echo "  $0 -y --migrate-media"
-    echo ""
-    echo "  # 交互式更新（会检查用户对象存储配置）"
+    echo "  # 交互式更新"
     echo "  $0"
     echo ""
     echo "  # 从 Docker Hub 拉取"
@@ -1438,14 +738,10 @@ show_help() {
 
 # 主函数
 main() {
-    # 解析参数
     SKIP_CONFIRM=false
     SKIP_BACKUP=false
     SKIP_MIGRATE=false
     AUTO_CLEANUP=false
-    AUTO_CLEAN_RESUME=false
-    AUTO_ENABLE_STORAGE=false
-    AUTO_MIGRATE_MEDIA=false
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -1477,17 +773,7 @@ main() {
                 shift
                 ;;
             --clean-resume)
-                # 参数已废弃：简历表现在自动清理
                 show_warning "参数 --clean-resume 已废弃，简历表会自动清理"
-                shift
-                ;;
-            --enable-storage)
-                # 参数已废弃：对象存储现在是必需服务
-                show_warning "参数 --enable-storage 已废弃，对象存储是必需服务（自动启用）"
-                shift
-                ;;
-            --migrate-media)
-                AUTO_MIGRATE_MEDIA=true
                 shift
                 ;;
             *)
@@ -1504,14 +790,12 @@ main() {
     echo "========================================="
     echo ""
     
-    # 显示配置信息
     echo -e "${BLUE}更新配置:${NC}"
     echo "  安装目录: ${INSTALL_DIR}"
     echo "  镜像目录: ${BASE_DIR}"
     echo "  备份目录: ${BACKUP_DIR}"
     echo ""
     
-    # 确认继续
     if [ "$SKIP_CONFIRM" = false ]; then
         read -p "是否继续更新? (y/n): " -n 1 -r
         echo
@@ -1523,25 +807,18 @@ main() {
     
     echo ""
     
-    # 显示更新模式信息
     if [ -n "$REGISTRY_IMAGE" ]; then
         echo -e "${CYAN}更新模式: Docker Registry${NC}"
         echo -e "${BLUE}目标镜像: ${REGISTRY_IMAGE}${NC}"
         echo ""
     fi
     
-    # 执行更新步骤
     check_environment
-    
-    # 读取安装配置信息（性能模式等）
     read_installation_info
-    
-    # 自动选择更新模式
     auto_select_update_mode
     
     echo ""
     
-    # 根据模式准备镜像
     if [ "$UPDATE_MODE" = "local" ]; then
         check_local_image
     elif [ "$UPDATE_MODE" = "registry" ]; then
@@ -1550,7 +827,6 @@ main() {
     
     echo ""
     
-    # 确认更新信息
     if [ "$SKIP_CONFIRM" = false ]; then
         echo -e "${YELLOW}更新信息确认:${NC}"
         echo "  更新模式: $UPDATE_MODE"
@@ -1570,75 +846,39 @@ main() {
     
     echo ""
     
-    # 备份数据
     if [ "$SKIP_BACKUP" = false ]; then
         backup_data
     else
         show_info "跳过备份步骤"
     fi
     
-    # 停止服务
     stop_services
-    
-    # 加载或拉取新镜像
     load_new_image
-    
-    # 更新配置
     update_config
     
     echo ""
     
-    # 检查并初始化对象存储（老用户适配）
-    # 重要：在启动服务前添加配置，这样容器启动时就能使用正确的密码
-    check_and_init_object_storage
-    
-    echo ""
-    
-    # 启动服务
     start_services
     
     echo ""
     
-    # 验证 RustFS 密码配置
-    verify_rustfs_password
-    
-    echo ""
-    
-    # 数据库迁移
     if [ "$SKIP_MIGRATE" = false ]; then
         run_migrations
     else
         show_info "跳过数据库迁移"
     fi
     
-    # 验证更新
     verify_update
     
     echo ""
     
-    # 文件迁移到对象存储（如果设置了参数）
-    if [ "$AUTO_MIGRATE_MEDIA" = true ]; then
-        # 检查是否有本地文件
-        if [ -d "web/media" ] && [ "$(find web/media -type f 2>/dev/null | wc -l)" -gt 0 ]; then
-            show_step "执行文件迁移到对象存储（必需服务）..."
-            sleep 3
-            migrate_media_to_storage
-        else
-            show_info "web/media 目录为空，无需迁移"
-        fi
-        echo ""
-    fi
-    
-    # 清理旧镜像
     if [ "$AUTO_CLEANUP" = true ]; then
-        # 自动清理，不询问
         show_info "自动清理旧镜像..."
         docker image prune -f 2>/dev/null || true
     else
         cleanup_old_images
     fi
     
-    # 显示完成信息
     show_completion
 }
 

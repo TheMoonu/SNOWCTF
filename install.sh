@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SecSnow网络安全综合学习平台 首次安装脚本
+# 网络安全综合学习平台 首次安装脚本
 # 用途：从 base 目录加载镜像并初始化服务
 
 # 设置颜色输出
@@ -93,7 +93,6 @@ check_required_ports() {
     # 默认端口配置
     DEFAULT_HTTP_PORT=80
     DEFAULT_HTTPS_PORT=443
-    DEFAULT_STORAGE_CONSOLE_PORT=7901
     
     # 检查结果标志
     PORTS_OK=true
@@ -116,16 +115,6 @@ check_required_ports() {
         PORTS_OK=false
     else
         show_success "端口 ${DEFAULT_HTTPS_PORT} (HTTPS) 可用"
-    fi
-    
-    # 检查对象存储控制台端口 (7901)
-    if check_port ${DEFAULT_STORAGE_CONSOLE_PORT}; then
-        show_warning "端口 ${DEFAULT_STORAGE_CONSOLE_PORT} (对象存储控制台) 已被占用"
-        PROCESS_INFO=$(get_port_process ${DEFAULT_STORAGE_CONSOLE_PORT})
-        show_info "占用进程: ${PROCESS_INFO}"
-        PORTS_OK=false
-    else
-        show_success "端口 ${DEFAULT_STORAGE_CONSOLE_PORT} (对象存储控制台) 可用"
     fi
     
     # 如果有端口被占用，询问用户
@@ -167,10 +156,8 @@ check_required_ports() {
         esac
     else
         show_success "所有端口检查通过"
-        # 使用默认端口
         export CUSTOM_HTTP_PORT=${DEFAULT_HTTP_PORT}
         export CUSTOM_HTTPS_PORT=${DEFAULT_HTTPS_PORT}
-        export CUSTOM_STORAGE_CONSOLE_PORT=${DEFAULT_STORAGE_CONSOLE_PORT}
     fi
     
     echo ""
@@ -224,43 +211,16 @@ configure_custom_ports() {
         break
     done
     
-    # 对象存储控制台端口
-    while true; do
-        read -p "请输入对象存储控制台端口 [默认 7901, 推荐 9901]: " STORAGE_PORT
-        STORAGE_PORT=${STORAGE_PORT:-9901}
-        
-        if ! [[ "$STORAGE_PORT" =~ ^[0-9]+$ ]] || [ "$STORAGE_PORT" -lt 1 ] || [ "$STORAGE_PORT" -gt 65535 ]; then
-            show_error "无效的端口号，请输入 1-65535 之间的数字"
-            continue
-        fi
-        
-        if [ "$STORAGE_PORT" -eq "$HTTP_PORT" ] || [ "$STORAGE_PORT" -eq "$HTTPS_PORT" ]; then
-            show_warning "对象存储端口不能与 HTTP/HTTPS 端口相同"
-            continue
-        fi
-        
-        if check_port ${STORAGE_PORT}; then
-            show_warning "端口 ${STORAGE_PORT} 已被占用，请选择其他端口"
-            continue
-        fi
-        
-        show_success "对象存储控制台端口设置为: ${STORAGE_PORT}"
-        break
-    done
-    
     echo ""
     show_success "端口配置完成"
     echo ""
     echo -e "${BLUE}端口配置摘要：${NC}"
-    echo "  HTTP 端口:              ${HTTP_PORT}"
-    echo "  HTTPS 端口:             ${HTTPS_PORT}"
-    echo "  对象存储控制台端口:      ${STORAGE_PORT}"
+    echo "  HTTP 端口:  ${HTTP_PORT}"
+    echo "  HTTPS 端口: ${HTTPS_PORT}"
     echo ""
     
-    # 导出变量供后续使用
     export CUSTOM_HTTP_PORT=${HTTP_PORT}
     export CUSTOM_HTTPS_PORT=${HTTPS_PORT}
-    export CUSTOM_STORAGE_CONSOLE_PORT=${STORAGE_PORT}
 }
 
 # 检测操作系统类型
@@ -476,90 +436,6 @@ generate_redis_password() {
     cat /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 24
 }
 
-# 设置对象存储（必须启用）
-set_object_storage() {
-    
-    # 强制启用对象存储（必需服务）
-    ENABLE_OBJECT_STORAGE="True"
-    show_success "RustFS 对象存储已启用（必需服务）"
-    
-    # 保存配置记录
-    mkdir -p "${INSTALL_DIR}"
-    cat > "${INSTALL_DIR}/.storage_config" << EOF
-# 对象存储配置
-# 由安装脚本自动生成
-STORAGE_TYPE=rustfs
-ENABLE_OBJECT_STORAGE=True
-CONFIG_DATE=$(date '+%Y-%m-%d %H:%M:%S')
-REQUIRED=true
-EOF
-    
-    export ENABLE_OBJECT_STORAGE
-}
-
-# 选择性能模式
-select_performance_mode() {
-    show_step "选择性能模式..."
-    echo ""
-    
-    # 检测系统资源
-    CPU_CORES=$(nproc 2>/dev/null || echo "unknown")
-    TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}')
-    TOTAL_MEM_GB=$(echo "scale=1; $TOTAL_MEM_KB/1024/1024" | bc 2>/dev/null || echo "unknown")
-    
-    echo -e "${BLUE}系统资源信息：${NC}"
-    echo "  CPU 核心数: ${CPU_CORES}"
-    echo "  内存大小:   ${TOTAL_MEM_GB} GB"
-    echo ""
-    
-    echo -e "${BLUE}性能模式说明：${NC}"
-    echo ""
-    echo -e "${GREEN}1. 默认模式（推荐用于中低性能服务器）${NC}"
-    echo "   - 适用于: 2-4核CPU，4-7G内存"
-    echo "   - 资源占用: 较低"
-    echo "   - 适合场景: 小规模比赛平台，用户数<100"
-    echo ""
-    echo -e "${YELLOW}2. 高性能模式（推荐用于高性能服务器）${NC}"
-    echo "   - 适用于: 4核+CPU，8G+内存"
-    echo "   - 资源占用: 较高"
-    echo "   - 适合场景: 大规模比赛，高性能并发，用户数>100"
-    echo ""
-    
-    # 根据系统资源给出建议
-    if [ "$CPU_CORES" != "unknown" ] && [ "$TOTAL_MEM_GB" != "unknown" ]; then
-        if [ "$CPU_CORES" -ge 4 ] && [ "$(echo "$TOTAL_MEM_GB >= 7" | bc)" -eq 1 ]; then
-            echo -e "${GREEN}建议：您的服务器配置较高，推荐使用【高性能模式】${NC}"
-        else
-            echo -e "${BLUE}建议：您的服务器配置适中，推荐使用【默认模式】${NC}"
-        fi
-        echo ""
-    fi
-    
-    # 用户选择
-    while true; do
-        read -p "请选择性能模式 [1=默认模式, 2=高性能模式] (默认: 1): " PERF_MODE
-        PERF_MODE=${PERF_MODE:-1}
-        
-        case $PERF_MODE in
-            1)
-                PERFORMANCE_MODE="default"
-                show_success "已选择：默认模式（单Worker，适合中低性能服务器）"
-                break
-                ;;
-            2)
-                PERFORMANCE_MODE="high-performance"
-                show_success "已选择：高性能模式（双Worker优化，适合高性能服务器）"
-                break
-                ;;
-            *)
-                show_warning "无效选择，请输入 1 或 2"
-                ;;
-        esac
-    done
-    
-    echo ""
-    export PERFORMANCE_MODE
-}
 
 # 显示Docker安装指引
 show_docker_install_guide() {
@@ -831,38 +707,6 @@ load_images() {
         PGBOUNCER_IMAGE_NAME="edoburu/pgbouncer:latest"
     fi
     
-    # 加载 RustFS 镜像并获取镜像名
-    show_info "加载 RustFS 镜像..."
-    if [ -f "rustfs.tar" ]; then
-        RUSTFS_LOADED=$(docker load -i rustfs.tar 2>&1)
-        if [ $? -eq 0 ]; then
-            RUSTFS_IMAGE_NAME=$(echo "$RUSTFS_LOADED" | grep -oP 'Loaded image: \K.*' | head -n 1 || echo "rustfs/rustfs:latest")
-            show_success "RustFS 镜像加载成功: $RUSTFS_IMAGE_NAME"
-        else
-            show_warning "RustFS 镜像加载失败，将使用默认镜像"
-            RUSTFS_IMAGE_NAME="rustfs/rustfs:latest"
-        fi
-    else
-        show_warning "未找到 rustfs.tar 文件，将使用默认镜像"
-        RUSTFS_IMAGE_NAME="rustfs/rustfs:latest"
-    fi
-    
-    # 加载 MinIO Client 镜像并获取镜像名
-    show_info "加载 MinIO Client 镜像..."
-    if [ -f "minio-mc.tar" ]; then
-        MINIO_MC_LOADED=$(docker load -i minio-mc.tar 2>&1)
-        if [ $? -eq 0 ]; then
-            MINIO_MC_IMAGE_NAME=$(echo "$MINIO_MC_LOADED" | grep -oP 'Loaded image: \K.*' | head -n 1 || echo "minio/mc:latest")
-            show_success "MinIO Client 镜像加载成功: $MINIO_MC_IMAGE_NAME"
-        else
-            show_warning "MinIO Client 镜像加载失败，将使用默认镜像"
-            MINIO_MC_IMAGE_NAME="minio/mc:latest"
-        fi
-    else
-        show_warning "未找到 minio-mc.tar 文件，将使用默认镜像"
-        MINIO_MC_IMAGE_NAME="minio/mc:latest"
-    fi
-    
     # 加载Nginx镜像并获取镜像名
     show_info "加载 Nginx 镜像..."
     NGINX_LOADED=$(docker load -i nginx.tar 2>&1)
@@ -877,10 +721,7 @@ load_images() {
     show_info "加载 SecSnow Web 镜像: ${SECSNOW_TAR_FILE}..."
     SECSNOW_LOADED=$(docker load -i "${SECSNOW_TAR_FILE}" 2>&1)
     if [ $? -eq 0 ]; then
-        # 使用 head -n 1 只取第一个镜像名（tar文件可能包含多个标签）
         SECSNOW_IMAGE_NAME=$(echo "$SECSNOW_LOADED" | grep -oP 'Loaded image: \K.*' | head -n 1 || echo "secsnow:secure")
-        
-        # 如果加载了多个标签，显示提示信息
         SECSNOW_IMAGE_COUNT=$(echo "$SECSNOW_LOADED" | grep -c 'Loaded image:' || echo "1")
         if [ "$SECSNOW_IMAGE_COUNT" -gt 1 ]; then
             show_success "SecSnow Web 镜像加载成功: $SECSNOW_IMAGE_NAME (检测到 $SECSNOW_IMAGE_COUNT 个标签，使用第一个)"
@@ -894,17 +735,13 @@ load_images() {
     echo ""
     show_success "所有镜像加载完成"
     
-    # 显示已加载的镜像
     show_info "已加载的镜像列表："
-    docker images | grep -E "postgres|pgbouncer|redis|rustfs|minio|nginx|secsnow" || true
+    docker images | grep -E "postgres|pgbouncer|redis|nginx|secsnow" || true
     echo ""
     
-    # 导出镜像名称供后续使用
     export LOADED_POSTGRES_IMAGE="$POSTGRES_IMAGE_NAME"
     export LOADED_PGBOUNCER_IMAGE="$PGBOUNCER_IMAGE_NAME"
     export LOADED_REDIS_IMAGE="$REDIS_IMAGE_NAME"
-    export LOADED_RUSTFS_IMAGE="$RUSTFS_IMAGE_NAME"
-    export LOADED_MINIO_MC_IMAGE="$MINIO_MC_IMAGE_NAME"
     export LOADED_NGINX_IMAGE="$NGINX_IMAGE_NAME"
     export LOADED_SECSNOW_IMAGE="$SECSNOW_IMAGE_NAME"
 }
@@ -913,15 +750,11 @@ load_images() {
 pull_images_from_registry() {
     show_step "从 Docker 仓库拉取镜像..."
     
-    # 设置默认镜像（如果用户未指定）
     REGISTRY_POSTGRES_IMAGE="${REGISTRY_POSTGRES_IMAGE:-postgres:17-bookworm}"
     REGISTRY_PGBOUNCER_IMAGE="${REGISTRY_PGBOUNCER_IMAGE:-edoburu/pgbouncer:latest}"
     REGISTRY_REDIS_IMAGE="${REGISTRY_REDIS_IMAGE:-redis:8.4.0}"
-    REGISTRY_RUSTFS_IMAGE="${REGISTRY_RUSTFS_IMAGE:-rustfs/rustfs:latest}"
-    REGISTRY_MINIO_MC_IMAGE="${REGISTRY_MINIO_MC_IMAGE:-minio/mc:latest}"
     REGISTRY_NGINX_IMAGE="${REGISTRY_NGINX_IMAGE:-nginx:alpine}"
     
-    # SecSnow 镜像必须由用户指定
     if [ -z "$REGISTRY_SECSNOW_IMAGE" ]; then
         show_error "使用 --pull 模式时，必须使用 --secsnow-image 参数指定 SecSnow 镜像
         
@@ -930,94 +763,40 @@ pull_images_from_registry() {
     fi
     
     show_info "将拉取以下镜像："
-    echo "  PostgreSQL:   ${REGISTRY_POSTGRES_IMAGE}"
-    echo "  PgBouncer:    ${REGISTRY_PGBOUNCER_IMAGE}"
-    echo "  Redis:        ${REGISTRY_REDIS_IMAGE}"
-    echo "  RustFS:       ${REGISTRY_RUSTFS_IMAGE}"
-    echo "  MinIO Client: ${REGISTRY_MINIO_MC_IMAGE}"
-    echo "  Nginx:        ${REGISTRY_NGINX_IMAGE}"
-    echo "  SecSnow:      ${REGISTRY_SECSNOW_IMAGE}"
+    echo "  PostgreSQL: ${REGISTRY_POSTGRES_IMAGE}"
+    echo "  PgBouncer:  ${REGISTRY_PGBOUNCER_IMAGE}"
+    echo "  Redis:      ${REGISTRY_REDIS_IMAGE}"
+    echo "  Nginx:      ${REGISTRY_NGINX_IMAGE}"
+    echo "  SecSnow:    ${REGISTRY_SECSNOW_IMAGE}"
     echo ""
     
-    # 拉取 PostgreSQL 镜像
-    show_info "拉取 PostgreSQL 镜像: ${REGISTRY_POSTGRES_IMAGE}..."
-    if docker pull "${REGISTRY_POSTGRES_IMAGE}"; then
-        show_success "PostgreSQL 镜像拉取成功"
-        POSTGRES_IMAGE_NAME="${REGISTRY_POSTGRES_IMAGE}"
-    else
-        show_error "PostgreSQL 镜像拉取失败，请检查镜像名称和网络连接"
-    fi
-    
-    # 拉取 PgBouncer 镜像
-    show_info "拉取 PgBouncer 镜像: ${REGISTRY_PGBOUNCER_IMAGE}..."
-    if docker pull "${REGISTRY_PGBOUNCER_IMAGE}"; then
-        show_success "PgBouncer 镜像拉取成功"
-        PGBOUNCER_IMAGE_NAME="${REGISTRY_PGBOUNCER_IMAGE}"
-    else
-        show_error "PgBouncer 镜像拉取失败，请检查镜像名称和网络连接"
-    fi
-    
-    # 拉取 Redis 镜像
-    show_info "拉取 Redis 镜像: ${REGISTRY_REDIS_IMAGE}..."
-    if docker pull "${REGISTRY_REDIS_IMAGE}"; then
-        show_success "Redis 镜像拉取成功"
-        REDIS_IMAGE_NAME="${REGISTRY_REDIS_IMAGE}"
-    else
-        show_error "Redis 镜像拉取失败，请检查镜像名称和网络连接"
-    fi
-    
-    # 拉取 RustFS 镜像
-    show_info "拉取 RustFS 镜像: ${REGISTRY_RUSTFS_IMAGE}..."
-    if docker pull "${REGISTRY_RUSTFS_IMAGE}"; then
-        show_success "RustFS 镜像拉取成功"
-        RUSTFS_IMAGE_NAME="${REGISTRY_RUSTFS_IMAGE}"
-    else
-        show_error "RustFS 镜像拉取失败，请检查镜像名称和网络连接"
-    fi
-    
-    # 拉取 MinIO Client 镜像
-    show_info "拉取 MinIO Client 镜像: ${REGISTRY_MINIO_MC_IMAGE}..."
-    if docker pull "${REGISTRY_MINIO_MC_IMAGE}"; then
-        show_success "MinIO Client 镜像拉取成功"
-        MINIO_MC_IMAGE_NAME="${REGISTRY_MINIO_MC_IMAGE}"
-    else
-        show_error "MinIO Client 镜像拉取失败，请检查镜像名称和网络连接"
-    fi
-    
-    # 拉取 Nginx 镜像
-    show_info "拉取 Nginx 镜像: ${REGISTRY_NGINX_IMAGE}..."
-    if docker pull "${REGISTRY_NGINX_IMAGE}"; then
-        show_success "Nginx 镜像拉取成功"
-        NGINX_IMAGE_NAME="${REGISTRY_NGINX_IMAGE}"
-    else
-        show_error "Nginx 镜像拉取失败，请检查镜像名称和网络连接"
-    fi
-    
-    # 拉取 SecSnow Web 镜像
-    show_info "拉取 SecSnow Web 镜像: ${REGISTRY_SECSNOW_IMAGE}..."
-    if docker pull "${REGISTRY_SECSNOW_IMAGE}"; then
-        show_success "SecSnow Web 镜像拉取成功"
-        SECSNOW_IMAGE_NAME="${REGISTRY_SECSNOW_IMAGE}"
-    else
-        show_error "SecSnow Web 镜像拉取失败，请检查镜像名称和网络连接"
-    fi
+    for item in \
+        "PostgreSQL:${REGISTRY_POSTGRES_IMAGE}" \
+        "PgBouncer:${REGISTRY_PGBOUNCER_IMAGE}" \
+        "Redis:${REGISTRY_REDIS_IMAGE}" \
+        "Nginx:${REGISTRY_NGINX_IMAGE}" \
+        "SecSnow:${REGISTRY_SECSNOW_IMAGE}"; do
+        NAME="${item%%:*}"
+        IMAGE="${item#*:}"
+        show_info "拉取 ${NAME} 镜像: ${IMAGE}..."
+        if docker pull "${IMAGE}"; then
+            show_success "${NAME} 镜像拉取成功"
+        else
+            show_error "${NAME} 镜像拉取失败，请检查镜像名称和网络连接"
+        fi
+    done
     
     echo ""
     show_success "所有镜像拉取完成"
-    
-    # 显示已拉取的镜像
     show_info "已拉取的镜像列表："
-    docker images | grep -E "postgres|pgbouncer|redis|rustfs|minio|nginx|secsnow" || true
+    docker images | grep -E "postgres|pgbouncer|redis|nginx|secsnow" || true
     echo ""
     
-    # 导出镜像名称供后续使用
-    export LOADED_POSTGRES_IMAGE="$POSTGRES_IMAGE_NAME"
-    export LOADED_PGBOUNCER_IMAGE="$PGBOUNCER_IMAGE_NAME"
-    export LOADED_REDIS_IMAGE="$REDIS_IMAGE_NAME"
-    export LOADED_RUSTFS_IMAGE="$RUSTFS_IMAGE_NAME"
-    export LOADED_MINIO_MC_IMAGE="$MINIO_MC_IMAGE_NAME"
-    export LOADED_NGINX_IMAGE="$NGINX_IMAGE_NAME"
-    export LOADED_SECSNOW_IMAGE="$SECSNOW_IMAGE_NAME"
+    export LOADED_POSTGRES_IMAGE="$REGISTRY_POSTGRES_IMAGE"
+    export LOADED_PGBOUNCER_IMAGE="$REGISTRY_PGBOUNCER_IMAGE"
+    export LOADED_REDIS_IMAGE="$REGISTRY_REDIS_IMAGE"
+    export LOADED_NGINX_IMAGE="$REGISTRY_NGINX_IMAGE"
+    export LOADED_SECSNOW_IMAGE="$REGISTRY_SECSNOW_IMAGE"
 }
 
 
@@ -1029,58 +808,36 @@ generate_env() {
     
     # 生成随机密码
     DB_PASSWORD=$(generate_password)
-    REDIS_PASSWORD=$(generate_redis_password)  # Redis使用纯字母数字密码
+    REDIS_PASSWORD=$(generate_redis_password)
     SECRET_KEY=$(generate_password)$(generate_password)$(generate_password)
-    FLOWER_PASSWORD=$(generate_password)
-    RUSTFS_PASSWORD=$(generate_password)  # RustFS密码
     
-    # 获取当前时间戳
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
     
-    # 从镜像名称中提取版本号（tag）
     SECSNOW_VERSION=$(echo "${LOADED_SECSNOW_IMAGE}" | grep -oP ':[^:]+$' | sed 's/^://' || echo "unknown")
     if [ -z "$SECSNOW_VERSION" ] || [ "$SECSNOW_VERSION" = "unknown" ]; then
         SECSNOW_VERSION="v1.0.0"
     fi
     
-    # 创建完整的.env文件（直接使用变量替换，不使用占位符）
     cat > .env << ENV_EOF
 # ================================================
-# SecSnow平台配置文件
+# 平台配置文件
 # ================================================
 # 自动生成时间: ${TIMESTAMP}
 # 说明：
 # 1. 此文件由安装脚本自动生成
 # 2. 敏感信息（密码、密钥）已自动生成随机值
-# 3. 修改配置后需要重启服务: docker-compose restart
+# 3. 修改配置后需要重启服务: docker compose restart
 # ================================================
 
 # ================================================
 # Docker 镜像版本配置
 # ================================================
-# SecSnow 平台版本（从镜像 tag 提取）
 SECSNOW_VERSION=${SECSNOW_VERSION}
-
-# PostgreSQL 数据库镜像（从tar文件加载）
 POSTGRES_IMAGE=${LOADED_POSTGRES_IMAGE:-postgres:17-bookworm}
-
-# PgBouncer 连接池镜像（从tar文件加载）
 PGBOUNCER_IMAGE=${LOADED_PGBOUNCER_IMAGE:-edoburu/pgbouncer:latest}
-
-# Redis 缓存镜像（从tar文件加载）
 REDIS_IMAGE=${LOADED_REDIS_IMAGE:-redis:8.4.0}
-
-# RustFS 对象存储镜像（从tar文件加载）
-RUSTFS_IMAGE=${LOADED_RUSTFS_IMAGE:-rustfs/rustfs:latest}
-
-# MinIO Client 镜像（从tar文件加载，用于初始化 RustFS）
-MINIO_MC_IMAGE=${LOADED_MINIO_MC_IMAGE:-minio/mc:latest}
-
-# Nginx 反向代理镜像（从tar文件加载）
 NGINX_IMAGE=${LOADED_NGINX_IMAGE:-nginx:alpine}
-
-# SecSnow 应用镜像（从tar文件加载）
-SECSNOW_IMAGE=${LOADED_SECSNOW_IMAGE:-secsnow_cty_sy_sp1:1.0}
+SECSNOW_IMAGE=${LOADED_SECSNOW_IMAGE:-secsnow:secure}
 
 # ================================================
 # PostgreSQL 数据库配置
@@ -1097,221 +854,64 @@ REDIS_PASSWORD=${REDIS_PASSWORD}
 # ================================================
 # Django 应用配置
 # ================================================
-# Django Secret Key（生产环境务必修改为随机字符串）
 SNOW_SECRET_KEY=${SECRET_KEY}
-
-# 调试模式（生产环境设置为 False）
 SNOW_DEBUG=False
-
-# 允许访问的主机（多个用逗号分隔，* 表示允许所有）
 SNOW_ALLOWED_HOSTS=*
-
-# CSRF信任来源（多个用逗号分隔，这里需要配置为实际的域名或者IP，协议域名端口都需要配置）
-# 如你如果通过某个域名代理了SECSNOW平台服务，但是平台不会信任您的域名请求的流量就需要配置白名单规则
+# CSRF信任来源（如通过域名代理，需配置为实际域名，含协议+域名+端口）
 #SNOW_CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
-
-# 协议配置（http 或 https）
 SNOW_PROTOCOL_HTTPS=http
-
-# 邮箱验证方式（none/optional/mandator）
-# 注意：必须在后台启用邮箱功能，然后设置成mandatory才能真正发送邮件
+# 邮箱验证方式（none/optional/mandatory）
 SNOW_ACCOUNT_EMAIL_VERIFICATION=none
-
-# 数据加密密钥（用于加密敏感信息如手机号、真实姓名等）强烈建议修改为随机字符串
+# 数据加密密钥（用于加密敏感信息）强烈建议修改为随机字符串
 ENCRYPTION_KEY=SecSnowEncryptKey20251211
-
-
-#后台管理标题图标(部署完成后替换为一个可用的图片地址即可)
 #SNOW_SIMPLEUI_HOME_TITLE=SECSNOW
 #SNOW_SIMPLEUI_LOGO=https://www.secsnow.cn/static/blog/img/logo.svg
-
-
-# ================================================
-# Flower 监控配置（可选）
-# ================================================
-# Flower 访问用户名
-FLOWER_USER=admin
-
-# Flower 访问密码
-FLOWER_PASSWORD=${FLOWER_PASSWORD}
 
 # ================================================
 # 端口配置
 # ================================================
-# Nginx HTTP 端口
 NGINX_HTTP_PORT=${CUSTOM_HTTP_PORT:-80}
-
-# Nginx HTTPS 端口
 NGINX_HTTPS_PORT=${CUSTOM_HTTPS_PORT:-443}
-
-#对象存储端口配置
-MINIO_API_PORT=7900
-MINIO_CONSOLE_PORT=${CUSTOM_STORAGE_CONSOLE_PORT:-7901}
-
-# Flower 监控端口
-FLOWER_PORT=5555
 
 # ================================================
 # 数据持久化目录配置
 # ================================================
-# PostgreSQL 数据目录
 POSTGRES_DATA_DIR=./db/postgres
-
-# Redis 数据目录
 REDIS_DATA_DIR=./redis/data
-
-# 应用静态文件目录
 WEB_STATIC_DIR=./web/static
-
-# 应用媒体文件目录
 WEB_MEDIA_DIR=./web/media
-
-# 应用日志目录
 WEB_LOG_DIR=./web/log
-
-# 搜索索引目录
 WEB_WHOOSH_DIR=./web/whoosh_index
-
-# Nginx 配置目录
 NGINX_CONF_DIR=./nginx/conf.d
-
-# Nginx SSL 证书目录
 NGINX_SSL_DIR=./nginx/ssl
-
-# Nginx 日志目录
 NGINX_LOG_DIR=./web/log/nginx
-
-# ================================================
-# 性能模式配置
-# ================================================
-# 性能模式: default（默认）或 high-performance（高性能）
-PERFORMANCE_MODE=${PERFORMANCE_MODE:-default}
 
 # ================================================
 # Celery 配置
 # ================================================
-# 默认模式 Worker 并发数（单Worker处理所有任务）
 CELERY_WORKER_CONCURRENCY=50
 
-# 高性能模式 Worker 并发数
-CELERY_CONTAINER_WORKER_CONCURRENCY=150
-CELERY_GENERAL_WORKER_CONCURRENCY=6
+# ================================================
+# uWSGI 配置
+# ================================================
+UWSGI_WORKERS=4
+UWSGI_THREADS=4
+UWSGI_TIMEOUT=300
+UWSGI_MAX_REQUESTS=5000
 
 # ================================================
-# 时区配置
+# 高级配置
 # ================================================
-TZ=Asia/Shanghai
-
-# ================================================
-# Gunicorn 配置（根据性能模式自动调整）
-# ================================================
-# 公式: workers = 2 × CPU核数 + 1
-# 
-# 默认模式（2-4核服务器）:
-#   - Workers: 4（适合 2核服务器: 2×2-1=3，取整为4）
-#   - Connections: 300（每个 worker 处理 75 个连接）
-#
-# 高性能模式（4核+服务器）:
-#   - Workers: 9（适合 4核服务器: 2×4+1=9）
-#   - Connections: 500（每个 worker 处理 55 个连接）
-#
-$(if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-echo "GUNICORN_WORKERS=8"
-echo "GUNICORN_WORKER_CONNECTIONS=400"
-else
-echo "GUNICORN_WORKERS=4"
-echo "GUNICORN_WORKER_CONNECTIONS=250"
-fi)
-# Gunicorn 超时时间（秒）
-GUNICORN_TIMEOUT=300
-
-
-# ================================================
-# RustFS 对象存储配置
-# ================================================
-# 是否启用本地对象存储（True 启用，False 使用本地文件系统）
-SNOW_USE_OBJECT_STORAGE=${ENABLE_OBJECT_STORAGE:-True}
-
-# 本地文件系统存储RustFS 容器配置
-RUSTFS_ROOT_USER=rustfsadmin
-RUSTFS_ROOT_PASSWORD=${RUSTFS_PASSWORD}
-RUSTFS_BUCKET_NAME=secsnow
-RUSTFS_DATA_DIR=./rustfs/data
-RUSTFS_LOG_DIR=./rustfs/logs
-RUSTFS_API_PORT=7900
-RUSTFS_CONSOLE_PORT=${CUSTOM_STORAGE_CONSOLE_PORT:-7901}
-# CORS 设置，控制台与 S3 API 都放开来源
-RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
-RUSTFS_CORS_ALLOWED_ORIGINS=*
-
-# ================================================
-# 对象存储节点配置
-# ================================================
-# 本地文件系统存储使用这些变量连接到 RustFS
-# 可自定义其他类型存储节点，如阿里云OSS、腾讯云COS、或者本地其他节点存储等
-# 存储访问凭证
-SNOW_STORAGE_ACCESS_KEY=rustfsadmin
-# 存储访问密钥
-SNOW_STORAGE_SECRET_KEY=${RUSTFS_PASSWORD}
-
-# 存储桶名称，如果您使用用本地存储节点，需要去nginx配置文件中添加桶名称代理的配置，因为本地存储节点不会暴露桶名称做了层代理。
-# 默认桶的名称为secsnow，如果您换桶名，也需要将默认的存储文件上传至新桶。
-
-SNOW_STORAGE_BUCKET_NAME=secsnow
-# 存储节点地址，本地内部节点地址为 http://rustfs:9000
-SNOW_STORAGE_ENDPOINT_URL=http://rustfs:9000
-# 区域
-SNOW_STORAGE_REGION=us-east-1
-# 文件路径前缀
-SNOW_STORAGE_LOCATION=
-
-
-# SSL 配置
-SNOW_STORAGE_USE_SSL=False
-SNOW_STORAGE_VERIFY_SSL=False
-
-# 公开访问配置（浏览器访问文件的地址）
-# 留空则使用相对路径 /media/ （推荐，通过 Nginx 代理）
-# 或填写完整域名（如 http://your-ip:port 或 https://yourdomain.com）
-SNOW_STORAGE_PUBLIC_URL=
-
-# ================================================
-# 高级配置（一般不需要修改）
-# ================================================
-# Docker 网络名称（用于多实例部署时区分网络）
 NETWORK_NAME=secsnow-network
-
-# 容器名称前缀（统一修改所有容器名称）
 CONTAINER_PREFIX=secsnow
-
-#
-# ================================================
-# 对象存储说明
-# ================================================
-# 对象存储状态：$([ "${ENABLE_OBJECT_STORAGE}" = "True" ] && echo "已启用 RustFS" || echo "使用本地文件系统")
-# 
-# RustFS 管理控制台：http://服务器IP/:7901
-# 用户名：rustfsadmin
-# 密码：已自动生成随机密码（见上方 RUSTFS_ROOT_PASSWORD）
-#
-# 文件访问地址：http://服务器IP/media/文件路径
-# （与本地存储保持一致，Nginx 自动代理到 RustFS）
-#
-# 配置说明：
-# - SNOW_STORAGE_ENDPOINT_URL：Django 内部连接地址
-# - SNOW_STORAGE_PUBLIC_URL：留空即可（使用 /media/ 路径）
-# - 如使用 CDN，填写 CDN 域名（如 https://cdn.yourdomain.com）
-#
-# 如需禁用：将 SNOW_USE_OBJECT_STORAGE 改为 False
-# ================================================
+TZ=Asia/Shanghai
 ENV_EOF
 
-    show_success ".env 配置文件生成完成（包含131行完整配置）"
+    show_success ".env 配置文件生成完成"
     
-    # 保存密码信息到文件
     cat > .credentials << EOF
 # ================================================
-# SecSnow 安装凭证信息
+# 安装凭证信息
 # ================================================
 # 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
 # ================================================
@@ -1322,7 +922,7 @@ ENV_EOF
 Docker镜像:
   PostgreSQL: ${LOADED_POSTGRES_IMAGE:-postgres:17-bookworm}
   Redis:      ${LOADED_REDIS_IMAGE:-redis:8.4.0}
-  Nginx:      ${LOADED_NGINX_IMAGE:-nginx:stable}
+  Nginx:      ${LOADED_NGINX_IMAGE:-nginx:alpine}
   SecSnow:    ${LOADED_SECSNOW_IMAGE:-secsnow:secure}
 
 数据库配置:
@@ -1336,28 +936,9 @@ Redis配置:
 Django配置:
   SECRET_KEY: ${SECRET_KEY}
 
-Flower监控:
-  用户名:   admin
-  密码:     ${FLOWER_PASSWORD}
-  访问地址: http://YOUR_IP:5555
-
 端口配置:
-  HTTP端口:           ${CUSTOM_HTTP_PORT:-80}
-  HTTPS端口:          ${CUSTOM_HTTPS_PORT:-443}
-  对象存储控制台:      ${CUSTOM_STORAGE_CONSOLE_PORT:-7901}
-
-对象存储:
-  状态:     $([ "${ENABLE_OBJECT_STORAGE}" = "True" ] && echo "已启用 RustFS" || echo "使用本地存储")
-$(if [ "${ENABLE_OBJECT_STORAGE}" = "True" ]; then
-echo "  用户名:   rustfsadmin"
-echo "  密码:     ${RUSTFS_PASSWORD}"
-echo "  控制台:   http://YOUR_IP:${CUSTOM_STORAGE_CONSOLE_PORT:-7901}/"
-if [ "${CUSTOM_HTTP_PORT:-80}" = "80" ]; then
-  echo "  文件访问: http://YOUR_IP/media/"
-else
-  echo "  文件访问: http://YOUR_IP:${CUSTOM_HTTP_PORT}/media/"
-fi
-fi)
+  HTTP端口:  ${CUSTOM_HTTP_PORT:-80}
+  HTTPS端口: ${CUSTOM_HTTPS_PORT:-443}
 
 # ================================================
 # 重要提示
@@ -1427,56 +1008,26 @@ start_services() {
     
     cd "${INSTALL_DIR}" || show_error "无法进入安装目录"
     
-    # 创建必要的数据目录
     show_info "创建数据目录..."
-    mkdir -p db/postgres
-    mkdir -p redis/data
-    mkdir -p web/media
-    mkdir -p web/static
-    mkdir -p web/log
-    mkdir -p web/log/nginx
-    mkdir -p web/whoosh_index
-    mkdir -p nginx/ssl
-    
-    # 创建 RustFS 对象存储数据目录（必需服务）
-    show_info "创建 RustFS 数据目录（必需服务）..."
-    mkdir -p rustfs/data
-    mkdir -p rustfs/logs
-    chmod -R 755 rustfs 2>/dev/null || true
-    
+    mkdir -p db/postgres redis/data web/media web/static web/log web/log/nginx web/whoosh_index nginx/ssl
     show_success "数据目录创建完成"
     
-    # 获取可用的 compose 命令
     COMPOSE_CMD=$(get_compose_command)
     if [ -z "$COMPOSE_CMD" ]; then
         show_error "无法找到 Docker Compose 命令"
     fi
     
     show_info "使用命令: $COMPOSE_CMD"
-    
-    # 启动所有服务（包含必需的 RustFS 对象存储）
-    # 注意：标准模式和高性能模式使用不同的 Worker 配置，互斥运行
-    if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-        show_info "启动所有服务（高性能模式 - 2个专用Worker）..."
-        if $COMPOSE_CMD --profile high-performance up -d; then
-            show_success "服务启动成功（高性能模式：容器Worker + 通用Worker）"
-        else
-            show_error "服务启动失败，请检查日志"
-        fi
+    show_info "启动所有服务..."
+    if $COMPOSE_CMD up -d; then
+        show_success "服务启动成功"
     else
-        show_info "启动所有服务（默认模式 - 1个通用Worker）..."
-        if $COMPOSE_CMD --profile default up -d; then
-            show_success "服务启动成功（默认模式：单个通用Worker）"
-        else
-            show_error "服务启动失败，请检查日志"
-        fi
+        show_error "服务启动失败，请检查日志"
     fi
     
-    # 等待服务就绪
     show_step "等待服务完全启动..."
     sleep 10
     
-    # 检查服务状态
     show_info "服务状态："
     $COMPOSE_CMD ps
     echo ""
@@ -1555,48 +1106,11 @@ EOF
     fi
 }
 
-# 初始化对象存储默认文件
-initialize_object_storage_defaults() {
-    show_step "初始化对象存储默认文件..."
-    
-    # 等待 RustFS 完全启动
-    show_info "等待 RustFS 服务就绪..."
-    sleep 10
-    
-    # 检查是否有默认 media 文件
-    if [ -d "web/media" ] && [ "$(ls -A web/media 2>/dev/null)" ]; then
-        show_info "检测到默认 media 文件，正在同步到 RustFS..."
-        
-        # 从 .env 读取 RustFS 配置
-        RUSTFS_USER=$(grep "^RUSTFS_ROOT_USER=" .env | cut -d'=' -f2)
-        RUSTFS_PASSWORD=$(grep "^RUSTFS_ROOT_PASSWORD=" .env | cut -d'=' -f2)
-        RUSTFS_BUCKET=$(grep "^RUSTFS_BUCKET_NAME=" .env | cut -d'=' -f2)
-        
-        # 同步默认文件到 RustFS
-        docker run --rm \
-            -v "$(pwd)/web/media:/media" \
-            --network=secsnow-network \
-            --entrypoint /bin/sh \
-            minio/mc:latest -c "
-                mc alias set secsnow http://rustfs:9000 ${RUSTFS_USER} '${RUSTFS_PASSWORD}' >/dev/null 2>&1
-                mc cp --recursive --quiet /media/ secsnow/${RUSTFS_BUCKET}/ 2>/dev/null
-            " >/dev/null 2>&1
-        
-        if [ $? -eq 0 ]; then
-            show_success "默认文件已同步到 RustFS"
-        else
-            show_warning "默认文件同步失败（可能已存在）"
-        fi
-    else
-        show_info "未检测到默认 media 文件，跳过"
-    fi
-}
 
 # 显示安装完成信息
 show_completion() {
-    show_success " 安装完成！"
+    show_success "安装完成！"
     
-    # 获取可用的 compose 命令
     COMPOSE_CMD=$(get_compose_command)
     
     echo ""
@@ -1605,36 +1119,11 @@ show_completion() {
     echo "========================================="
     echo ""
     echo -e "${BLUE}服务访问:${NC}"
-    # 根据实际端口显示访问地址
     if [ "${CUSTOM_HTTP_PORT:-80}" = "80" ]; then
         echo "  Web服务: http://您的IP地址"
     else
         echo "  Web服务: http://您的IP地址:${CUSTOM_HTTP_PORT}"
     fi
-    
-    # 显示性能模式信息
-    echo ""
-    echo -e "${BLUE}性能模式:${NC}"
-    if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-        echo "  当前模式: 高性能模式"
-        echo "  Celery Worker: 2个专用Worker（容器Worker 150并发 + 通用Worker 6并发）"
-        echo "  Gunicorn Worker: 8个进程，最大400连接"
-        echo "  适用场景: 大规模比赛，高并发，用户数>100"
-    else
-        echo "  当前模式: 默认模式"
-        echo "  Celery Worker: 1个通用Worker（50并发，处理所有任务）"
-        echo "  Gunicorn Worker: 4个进程，最大250连接"
-        echo "  适用场景: 中小规模练习平台，用户数<100"
-    fi
-    
-    # 根据对象存储状态显示不同信息
-    echo ""
-    echo -e "${BLUE}对象存储（必需服务）:${NC}"
-    echo "  对象存储控制台: http://您的IP地址:${CUSTOM_STORAGE_CONSOLE_PORT:-7901}/"
-    echo "  媒体文件: http://您的IP地址/media/（自动代理到 RustFS）"
-    echo ""
-    echo -e "${YELLOW}注意：${NC}所有文件通过 /media/ 访问，Nginx 自动路由到 RustFS"
-    echo "       RustFS API 端口仅在容器网络内部通信，不对外暴露"
     echo ""
     echo -e "${BLUE}管理命令:${NC}"
     echo "  查看服务状态:"
@@ -1643,26 +1132,11 @@ show_completion() {
     echo "  查看Web日志:"
     echo "    docker logs -f secsnow-web"
     echo ""
-    
-    # 根据性能模式显示不同命令
-    if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-        PROFILE_PARAMS="--profile high-performance"
-    else
-        PROFILE_PARAMS="--profile default"
-    fi
-    
     echo "  重启服务:"
-    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD ${PROFILE_PARAMS} restart"
+    echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD restart"
     echo ""
     echo "  停止服务:"
     echo "    cd ${INSTALL_DIR} && $COMPOSE_CMD down"
-    echo ""
-    echo "  切换性能模式:"
-    if [ "${PERFORMANCE_MODE}" = "high-performance" ]; then
-        echo "    切换到标准模式: cd ${INSTALL_DIR} && $COMPOSE_CMD down && $COMPOSE_CMD --profile default up -d"
-    else
-        echo "    切换到高性能模式: cd ${INSTALL_DIR} && $COMPOSE_CMD down && $COMPOSE_CMD --profile high-performance up -d"
-    fi
     echo ""
     echo -e "${BLUE}重要文件:${NC}"
     echo "  配置文件: ${INSTALL_DIR}/.env"
@@ -1672,9 +1146,7 @@ show_completion() {
     echo "  1. 请妥善保存 .credentials 文件中的密码信息"
     echo "  2. 建议修改默认管理员密码"
     echo "  3. 生产环境请配置防火墙规则"
-    echo "  4. 首次安装需要登录系统获取机器码，然后提供给开发者获取授权！"
-    echo "  5. 网站首页内容，页脚内容，导航栏内容，请根据实际情况在后台管理对应模块进行修改！"
-    echo "  6. 请遵守许可协议，不得用于非法用途！无商业授权情况不得用于商业用途！未经授权不得对软件进行破解、逆向工程、篡改、二次开发等行为！"
+    echo "  4. 网站首页内容、页脚内容、导航栏内容，请根据实际情况在后台管理对应模块进行修改！"
     
     echo "========================================="
 }
@@ -1800,29 +1272,20 @@ show_help() {
     echo "                          默认: edoburu/pgbouncer:latest"
     echo "  --redis-image <镜像>     指定 Redis 镜像（配合 --pull 使用）"
     echo "                          默认: redis:8.4.0"
-    echo "  --rustfs-image <镜像>    指定 RustFS 镜像（配合 --pull 使用）"
-    echo "                          默认: rustfs/rustfs:latest"
-    echo "  --minio-mc-image <镜像>  指定 MinIO Client 镜像（配合 --pull 使用）"
-    echo "                          默认: minio/mc:latest"
     echo "  --nginx-image <镜像>     指定 Nginx 镜像（配合 --pull 使用）"
     echo "                          默认: nginx:alpine"
     echo "  --secsnow-image <镜像>   指定 SecSnow 镜像（配合 --pull 使用，必需）"
-    echo "  --performance <模式>     指定性能模式: default（默认）或 high-performance（高性能）"
     echo "  yes/no                  是否创建管理员账户（默认: yes）"
     echo ""
     echo "示例:"
     echo "  $0                      交互式安装（使用本地 tar 文件）"
     echo "  $0 no                   安装但不创建管理员账户"
-    echo "  $0 --performance high-performance"
-    echo "                          使用高性能模式安装（非交互）"
     echo "  $0 --pull --secsnow-image registry.example.com/secsnow:v1.0.0"
     echo "                          从仓库拉取镜像进行安装（使用默认依赖镜像）"
     echo "  $0 --pull --secsnow-image myregistry/secsnow:latest \\"
     echo "     --postgres-image postgres:16 \\"
-    echo "     --redis-image redis:7 \\"
-    echo "     --rustfs-image rustfs/rustfs:v2.0 \\"
-    echo "     --performance high-performance"
-    echo "                          从仓库拉取指定版本镜像并使用高性能模式"
+    echo "     --redis-image redis:7"
+    echo "                          从仓库拉取指定版本镜像"
     echo ""
     echo "安装模式:"
     echo "  1. 本地模式（默认）: 从 ${BASE_DIR} 目录加载 tar 文件"
@@ -1841,19 +1304,14 @@ check_existing_installation() {
     
     # 检查标志文件
     if [ -f "${INSTALL_DIR}/.installed" ]; then
-        # 读取安装信息
         INSTALL_TIME=$(grep "^安装时间:" "${INSTALL_DIR}/.installed" | cut -d':' -f2- | xargs 2>/dev/null || echo '未知')
         INSTALL_MODE=$(grep "^安装模式:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo '未知')
-        PERFORMANCE_MODE=$(grep "^性能模式:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo '未知')
-        STORAGE_STATUS=$(grep "^对象存储:" "${INSTALL_DIR}/.installed" | cut -d':' -f2 | xargs 2>/dev/null || echo '未知')
         
         show_error "检测到系统已经安装过！
 
 安装标志文件: ${INSTALL_DIR}/.installed
 安装时间: ${INSTALL_TIME}
 安装方式: ${INSTALL_MODE}
-性能模式: ${PERFORMANCE_MODE}
-对象存储: ${STORAGE_STATUS}
 
 ⚠️  重复安装可能导致数据丢失！
 
@@ -1908,17 +1366,13 @@ check_existing_installation() {
 
 # 主函数
 main() {
-    # 解析参数
     USE_REGISTRY=false
     REGISTRY_POSTGRES_IMAGE=""
     REGISTRY_PGBOUNCER_IMAGE=""
     REGISTRY_REDIS_IMAGE=""
-    REGISTRY_RUSTFS_IMAGE=""
-    REGISTRY_MINIO_MC_IMAGE=""
     REGISTRY_NGINX_IMAGE=""
     REGISTRY_SECSNOW_IMAGE=""
     CREATE_ADMIN=""
-    PERFORMANCE_MODE=""
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -1958,22 +1412,6 @@ main() {
                     show_error "--redis-image 参数需要指定镜像名称"
                 fi
                 ;;
-            --rustfs-image)
-                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
-                    REGISTRY_RUSTFS_IMAGE="$2"
-                    shift 2
-                else
-                    show_error "--rustfs-image 参数需要指定镜像名称"
-                fi
-                ;;
-            --minio-mc-image)
-                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
-                    REGISTRY_MINIO_MC_IMAGE="$2"
-                    shift 2
-                else
-                    show_error "--minio-mc-image 参数需要指定镜像名称"
-                fi
-                ;;
             --nginx-image)
                 if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
                     REGISTRY_NGINX_IMAGE="$2"
@@ -1990,18 +1428,6 @@ main() {
                     show_error "--secsnow-image 参数需要指定镜像名称"
                 fi
                 ;;
-            --performance)
-                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
-                    if [ "$2" = "default" ] || [ "$2" = "high-performance" ]; then
-                        PERFORMANCE_MODE="$2"
-                        shift 2
-                    else
-                        show_error "--performance 参数只能是 default 或 high-performance"
-                    fi
-                else
-                    show_error "--performance 参数需要指定模式（default 或 high-performance）"
-                fi
-                ;;
             yes|no)
                 CREATE_ADMIN="$1"
                 shift
@@ -2013,18 +1439,16 @@ main() {
         esac
     done
     
-    # 如果未指定 CREATE_ADMIN，设置默认值为 yes
     if [ -z "$CREATE_ADMIN" ]; then
         CREATE_ADMIN="yes"
     fi
     
-    # 导出变量供其他函数使用
     export USE_REGISTRY
     export REGISTRY_POSTGRES_IMAGE
+    export REGISTRY_PGBOUNCER_IMAGE
     export REGISTRY_REDIS_IMAGE
     export REGISTRY_NGINX_IMAGE
     export REGISTRY_SECSNOW_IMAGE
-    export PERFORMANCE_MODE
     
     echo ""
     echo "========================================="
@@ -2032,10 +1456,8 @@ main() {
     echo "========================================="
     echo ""
     
-    # ⚠️ 重要：先检查是否已安装，避免误删配置文件
     check_existing_installation
     
-    # 显示配置信息
     echo -e "${BLUE}安装配置:${NC}"
     echo "  安装目录: ${INSTALL_DIR}"
     if [ "$USE_REGISTRY" = true ]; then
@@ -2045,18 +1467,8 @@ main() {
         echo "  镜像目录: ${BASE_DIR}"
     fi
     echo "  创建管理员: ${CREATE_ADMIN}"
-    if [ -n "$PERFORMANCE_MODE" ]; then
-        if [ "$PERFORMANCE_MODE" = "high-performance" ]; then
-            echo "  性能模式: 高性能模式（命令行指定）"
-        else
-            echo "  性能模式: 默认模式（命令行指定）"
-        fi
-    else
-        echo "  性能模式: 将交互式选择"
-    fi
     echo ""
     
-    # 确认继续
     read -p "是否继续安装? (y/n): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -2066,7 +1478,6 @@ main() {
     
     echo ""
     
-    # 检查并清理旧的 .env 文件（仅在确认安装后执行）
     if [ -f "${INSTALL_DIR}/.env" ]; then
         show_warning "检测到已存在的 .env 配置文件"
         BACKUP_FILE=".env.backup.$(date +%Y%m%d_%H%M%S)"
@@ -2076,31 +1487,14 @@ main() {
         echo ""
     fi
     
-    # 执行安装步骤
     check_docker
-    
-    # 检查端口占用
     check_required_ports
     
-    # 根据模式选择镜像获取方式
     if [ "$USE_REGISTRY" = true ]; then
-        # 从 Docker 仓库拉取镜像
         pull_images_from_registry
     else
-        # 从本地 tar 文件加载镜像
         check_images
         load_images
-    fi
-    
-    # 设置对象存储（默认启用）
-    set_object_storage
-    
-    # 选择性能模式（如果命令行未指定）
-    if [ -z "$PERFORMANCE_MODE" ]; then
-        select_performance_mode
-    else
-        show_step "使用指定的性能模式: ${PERFORMANCE_MODE}"
-        export PERFORMANCE_MODE
     fi
     
     generate_env
@@ -2108,13 +1502,9 @@ main() {
     start_services
     run_migrations
     create_admin_user
-    initialize_object_storage_defaults
     
-    # 创建安装标志文件
     echo "安装时间: $(date '+%Y-%m-%d %H:%M:%S')" > "${INSTALL_DIR}/.installed"
     echo "安装模式: $([ "$USE_REGISTRY" = true ] && echo '仓库拉取' || echo '本地加载')" >> "${INSTALL_DIR}/.installed"
-    echo "性能模式: ${PERFORMANCE_MODE}" >> "${INSTALL_DIR}/.installed"
-    echo "对象存储: ${ENABLE_OBJECT_STORAGE}" >> "${INSTALL_DIR}/.installed"
     
     echo ""
     show_completion
