@@ -5,8 +5,8 @@
 
 {% block head_title %}搜索：{{ query }}{% endblock %}
 {% block metas %}
-    <meta name="description" content="搜索：{{ query }}，网站全文搜索功能，搜索文章、靶场题目和安全岗位">
-    <meta name="keywords" content="{{ query }},全文搜索,文章,靶场,安全岗位">
+    <meta name="description" content="搜索：{{ query }}，网站全文搜索功能，搜索{% if module_blog %}文章{% endif %}{% if module_blog and module_practice %}、{% endif %}{% if module_practice %}靶场题目{% endif %}{% if module_recruit and module_blog or module_recruit and module_practice %}、{% endif %}{% if module_recruit %}安全岗位{% endif %}">
+    <meta name="keywords" content="{{ query }},全文搜索{% if module_blog %},文章{% endif %}{% if module_practice %},靶场{% endif %}{% if module_recruit %},安全岗位{% endif %}">
 {% endblock %}
 
 {% block base_content %}
@@ -26,25 +26,29 @@
         {# 类型过滤标签 #}
         <div class="search-filter-tabs">
            
+            {% if module_blog %}
             <a href="?q={{ query }}&type=article" 
                class="search-tab search-tab-article {% if search_type == 'article' %}active{% endif %}">
                 文章
                 <span class="tab-count">{{ article_count }}</span>
             </a>
+            {% endif %}
            
-          
+            {% if module_practice %}
             <a href="?q={{ query }}&type=challenge" 
                class="search-tab search-tab-challenge {% if search_type == 'challenge' %}active{% endif %}">
                 靶场题目
                 <span class="tab-count">{{ challenge_count }}</span>
             </a>
+            {% endif %}
         
-          
+            {% if module_recruit %}
                 <a href="?q={{ query }}&type=job" 
                     class="search-tab search-tab-job {% if search_type == 'job' %}active{% endif %}">
                     安全岗位
                     <span class="tab-count">{{ job_count }}</span>
                 </a>
+            {% endif %}
           
         </div>
         <p class="search-stats">
@@ -52,7 +56,12 @@
         </p>
         {% else %}
         <p class="search-empty-tip">
-            <i class="fa fa-lightbulb mr-2"></i>输入关键词搜索文章、靶场题目或安全岗位
+            <i class="fa fa-lightbulb mr-2"></i>输入关键词搜索
+            {% if module_blog %}文章{% endif %}
+            {% if module_blog and module_practice %}、{% endif %}
+            {% if module_practice %}靶场题目{% endif %}
+            {% if module_recruit and module_blog or module_recruit and module_practice %}、{% endif %}
+            {% if module_recruit %}安全岗位{% endif %}
         </p>
         {% endif %}
     </div>

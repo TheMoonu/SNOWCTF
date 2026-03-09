@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.urls import path
 from .views import indexViews, profileViews, licenseViews, reward_list, exchange_reward, get_exchange_captcha
 

@@ -95,6 +95,14 @@ def settings_info(request):
             'version': getattr(settings, 'SECSNOW_VERSION', ''),
             'private_links': json.loads(getattr(settings, 'PRIVATE_LINKS', '[]')),
             'static_version': STATIC_VERSION,
+            # 模块开关
+            'module_competition': getattr(settings, 'MODULE_COMPETITION', True),
+            'module_practice':    getattr(settings, 'MODULE_PRACTICE',    True),
+            'module_quiz':        getattr(settings, 'MODULE_QUIZ',        True),
+            'module_blog':        getattr(settings, 'MODULE_BLOG',        True),
+            'module_tool':        getattr(settings, 'MODULE_TOOL',        True),
+            'module_recruit':     getattr(settings, 'MODULE_RECRUIT',     True),
+            'module_reward':      getattr(settings, 'MODULE_REWARD',      True),
         }
     except Exception as e:
         # 如果数据库读取失败，降级到settings配置
@@ -132,6 +140,14 @@ def settings_info(request):
             'anime_side_right_image': None,
             'anime_filter_right_image': None,
             'anime_challenge_start_bg': None,
+            # 模块开关（降级时全部启用，保持功能可用）
+            'module_competition': getattr(settings, 'MODULE_COMPETITION', True),
+            'module_practice':    getattr(settings, 'MODULE_PRACTICE',    True),
+            'module_quiz':        getattr(settings, 'MODULE_QUIZ',        True),
+            'module_blog':        getattr(settings, 'MODULE_BLOG',        True),
+            'module_tool':        getattr(settings, 'MODULE_TOOL',        True),
+            'module_recruit':     getattr(settings, 'MODULE_RECRUIT',     True),
+            'module_reward':      getattr(settings, 'MODULE_REWARD',      True),
         }
 
 # 自定义上下文管理器

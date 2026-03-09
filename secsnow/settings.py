@@ -261,6 +261,17 @@ HF_ENDPOINT = os.getenv('HF_ENDPOINT', 'https://hf-mirror.com')
 TOOL_FLAG = os.getenv('SNOW_TOOL_FLAG', 'True').upper() == 'TRUE'
 # 是否开启[API]应用
 API_FLAG = os.getenv('SNOW_API_FLAG', 'False').upper() == 'TRUE'
+
+# ── 模块功能开关 ──────────────────────────────────────────────────────────
+# 每个开关同时控制：导航栏入口显示 + 对应搜索类型选项
+# 在 .env 中配置，True=启用，False=隐藏
+MODULE_COMPETITION  = os.getenv('SNOW_MODULE_COMPETITION',  'True').upper() == 'TRUE'   # 竞赛中心
+MODULE_PRACTICE     = os.getenv('SNOW_MODULE_PRACTICE',     'True').upper() == 'TRUE'   # 漏洞靶场
+MODULE_QUIZ         = os.getenv('SNOW_MODULE_QUIZ',         'True').upper() == 'TRUE'   # 知识竞赛
+MODULE_BLOG         = os.getenv('SNOW_MODULE_BLOG',         'True').upper() == 'TRUE'   # WIKI空间
+MODULE_TOOL         = os.getenv('SNOW_MODULE_TOOL',         'True').upper() == 'TRUE'   # 在线工具（同步覆盖原 TOOL_FLAG）
+MODULE_RECRUIT      = os.getenv('SNOW_MODULE_RECRUIT',      'True').upper() == 'TRUE'   # 安全岗位
+MODULE_REWARD       = os.getenv('SNOW_MODULE_REWARD',       'True').upper() == 'TRUE'   # 兑奖中心
 #SITE_ID = int(os.getenv('SITE_ID', '1'))
 SITE_ID = int(os.getenv('SITE_ID', '5'))
 

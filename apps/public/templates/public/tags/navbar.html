@@ -81,6 +81,7 @@
            
             <li class="nav-item dropdown">
                 {% url 'competition:CompetitionView' as Competition_url %}
+                {% if module_competition %}
                 <a class="nav-link py-md-3 dropdown-toggle {% if request.path == Competition_url %}active{% endif %}" 
                    href="#" 
                    id="competitionDropdown" 
@@ -99,29 +100,36 @@
                         <i class="bi bi-folder-plus mr-2" style="color: #1890ff;"></i>创建比赛
                     </a>
                 </div>
+                {% endif %}
             </li>
           
            
             <li class="nav-item">
                 {% url 'practice:challenge_list' as ctf_url %}
+                {% if module_practice %}
                 <a class="nav-link py-md-3 {% if request.path == ctf_url %}active{% endif %}"
                    href="{{ ctf_url }}">漏洞靶场</a>
+                {% endif %}
             </li>
          
 
        
             <li class="nav-item">
                 {% url 'quiz:quiz_list' as quiz_url %}
+                {% if module_quiz %}
                 <a class="nav-link py-md-3 {% if request.path == quiz_url %}active{% endif %}"
                    href="{{ quiz_url }}">知识竞赛</a>
+                {% endif %}
             </li>
         
             
           
             <li class="nav-item">
                 {% url 'blog:index' as blog_url %}
+                {% if module_blog %}
                 <a class="nav-link py-md-3 {% if request.path == blog_url %}active{% endif %}"
                    href="{{ blog_url }}">WIKI空间</a>
+                {% endif %}
             </li>
         
 
@@ -133,42 +141,78 @@
        
                 <li class="nav-item">
                     {% url 'tool:total' as tool_url %}
+                    {% if module_tool %}
                     <a class="nav-link py-md-3 {% if request.resolver_match.namespace == 'tool' %}active{% endif %}"
                        href="{{ tool_url }}">在线工具</a>
+                    {% endif %}
                 </li>
        
        
             <li class="nav-item">
                 {% url 'recruit:job_list' as recuit_url %}
+                {% if module_recruit %}
                 <a class="nav-link py-md-3 {% if request.path == recuit_url %}active{% endif %}"
                    href="{{ recuit_url }}">安全岗位</a>
+                {% endif %}
             </li>
      
 
      
             <li class="nav-item">
                 {% url 'public:reward_list' as reward_url %}
+                {% if module_reward %}
                 <a class="nav-link py-md-3 {% if request.path == reward_url %}active{% endif %}"
                    href="{{ reward_url }}">兑奖中心</a>
+                {% endif %}
             </li>
        
 
           
+            {# 至少有一个可搜索的模块时才显示搜索框 #}
+            {% if module_blog or module_practice or module_recruit %}
             <form class="nav-item navbar-form py-md-2 mr-2" role="search" method="get" id="searchform"
                   action="{% url 'blog:search_view' %}" onsubmit="return validateSearch(this)">
                 <div class="navbar-search-group">
                     <div class="navbar-search-type-wrapper">
                         <div class="custom-select-wrapper navbar-custom-select" data-select-name="type">
-                            <div class="custom-select-display" tabindex="0">
-                                <span class="custom-select-value">文章</span>
-                                <span class="custom-select-arrow"></span>
-                            </div>
-                            <div class="custom-select-dropdown">
+                            {# 计算第一个启用的搜索类型作为默认值 #}
+                            {% if module_blog %}
+                                {% with default_search_type="article" default_search_label="文章" %}
+                                <div class="custom-select-display" tabindex="0">
+                                    <span class="custom-select-value">{{ default_search_label }}</span>
+                                    <span class="custom-select-arrow"></span>
+                                </div>
+                                <div class="custom-select-dropdown">
                                     <div class="custom-select-option selected" data-value="article" data-selected="true">文章</div>
-                                    <div class="custom-select-option" data-value="challenge">靶场</div>
-                                    <div class="custom-select-option" data-value="job">岗位</div>
-                            </div>
-                            <input type="hidden" name="type" value="article" id="navbar-search-type">
+                                    {% if module_practice %}<div class="custom-select-option" data-value="challenge">靶场</div>{% endif %}
+                                    {% if module_recruit %}<div class="custom-select-option" data-value="job">岗位</div>{% endif %}
+                                </div>
+                                <input type="hidden" name="type" value="{{ default_search_type }}" id="navbar-search-type">
+                                {% endwith %}
+                            {% elif module_practice %}
+                                {% with default_search_type="challenge" default_search_label="靶场" %}
+                                <div class="custom-select-display" tabindex="0">
+                                    <span class="custom-select-value">{{ default_search_label }}</span>
+                                    <span class="custom-select-arrow"></span>
+                                </div>
+                                <div class="custom-select-dropdown">
+                                    <div class="custom-select-option selected" data-value="challenge" data-selected="true">靶场</div>
+                                    {% if module_recruit %}<div class="custom-select-option" data-value="job">岗位</div>{% endif %}
+                                </div>
+                                <input type="hidden" name="type" value="{{ default_search_type }}" id="navbar-search-type">
+                                {% endwith %}
+                            {% elif module_recruit %}
+                                {% with default_search_type="job" default_search_label="岗位" %}
+                                <div class="custom-select-display" tabindex="0">
+                                    <span class="custom-select-value">{{ default_search_label }}</span>
+                                    <span class="custom-select-arrow"></span>
+                                </div>
+                                <div class="custom-select-dropdown">
+                                    <div class="custom-select-option selected" data-value="job" data-selected="true">岗位</div>
+                                </div>
+                                <input type="hidden" name="type" value="{{ default_search_type }}" id="navbar-search-type">
+                                {% endwith %}
+                            {% endif %}
                         </div>
                     </div>
                     <input type="search" name="q" class="navbar-search-input" placeholder="站内搜索" 
@@ -178,6 +222,7 @@
                     </button>
                 </div>
             </form>
+            {% endif %}
        
             <script>
             function validateSearch(form) {
