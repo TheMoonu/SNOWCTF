@@ -899,6 +899,18 @@ GUNICORN_WORKER_CONNECTIONS=500
 GUNICORN_TIMEOUT=200
 
 # ================================================
+# 模块功能开关
+# ================================================
+# True=启用（默认），False=隐藏该模块的导航入口并禁用对应路由
+SNOW_MODULE_COMPETITION=True   # 竞赛中心
+SNOW_MODULE_PRACTICE=True      # 漏洞靶场
+SNOW_MODULE_QUIZ=True          # 知识竞赛
+SNOW_MODULE_BLOG=True          # WIKI空间
+SNOW_MODULE_TOOL=True          # 在线工具
+SNOW_MODULE_RECRUIT=True       # 安全岗位
+SNOW_MODULE_REWARD=True        # 兑奖中心
+
+# ================================================
 # 高级配置
 # ================================================
 NETWORK_NAME=secsnow-network
