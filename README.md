@@ -1,6 +1,6 @@
 
 
-# 网络安全综合学习系统-个人版（SNOWCTF）（可简称：SCTF）
+# CTF平台-网络安全综合学习系统-个人版（SNOWCTF）（可简称：SCTF）
 
 <div align="center">
 
