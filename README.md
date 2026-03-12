@@ -1,4 +1,8 @@
+<div align="right">
 
+**🌐 文档语言 / Document:** [English](README_EN.md) | **简体中文**
+
+</div>
 
 # CTF平台-网络安全综合学习系统-个人版（SNOWCTF）（可简称：SCTF）
 
@@ -29,6 +33,11 @@
 - **知识竞赛系统**：理论知识竞答，与 CTF 系统联动，支持单选、多选、判断，自动化评分，知识竞赛报名模式支持，考试及格线模式支持，可控的答案查阅设置
 - **靶场练习系统**：支持会员制练习题目，会员用户可在前台创建题目，学习岛题目分类的练习模式可按照类型学习，全动态Markdown文档支持，评论与交流功能
 
+### 竞赛前端模板
+
+- **二次元版**：二次元版比赛页面
+- **科技版**：科技版比赛页面
+
 
 ## 个人版文档与支持
 
@@ -45,7 +54,7 @@
 | | 个人版 | 专业版 |
 |--|--------|--------|
 | **适用场景** | 个人学习、小型团队、普通校赛与训练 | 企业/高校、商业部署与推广、中大规模竞赛和培训 |
-| **性能** | 1x TPS | 4x TPS  |
+| **性能** | 1x TPS | 5x TPS  |
 | **核心功能** | CTF竞赛、漏洞靶场、知识竞赛 | CTF竞赛、漏洞靶场、知识竞赛、攻防竞赛（未正式上线）  |
 | **功能差异** | 可选的竞赛模板，非核心功能支持 | 竞赛多FLAG场景、动静态分数与flag、完善的后台管理系统、等级保护与合规、安全审计、访问控制、容器代理与访问限制、AWD\AWDP赛制支持（未上线）、完全融合的理论与实操的竞赛模式、加强版作弊监测和审计  |
 | **演示demo** | 无 | 客户端：[http://111.228.44.199:8282/](http://111.228.44.199:8282/) ，后台：[http://111.228.44.199:8787/](http://111.228.44.199:8787/) ，账号：ctfer，密码：ctf@5678 |
@@ -54,15 +63,34 @@
 > 专业版部署与合作联系 邮箱 ：**secsnowteam@gmail.com**
 
 
-## 个人版-界面预览
+## 个人版-二次元版界面预览
+
+
+
+#### 赛道选择
+
+![主页面](docs/images/图3.jpg)
+
+#### 比赛列表
+
+![比赛界面](docs/images/图4.jpg)
+
+#### 数据大屏
+![比赛界面](docs/images/图2.jpg)
+
+#### 题目界面
+![比赛界面](docs/images/图1.jpg)
+
+
+
+## 个人版-科技版界面预览
 
 #### 数据大屏
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/数据大屏.png)
 
-#### 比赛列表
 
-![主页面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/比赛列表.png)
-
+#### 解题动态
+![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/解题动态.png)
 
 #### 题目界面
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/比赛答题页面.png)
@@ -70,11 +98,15 @@
 #### 答题界面
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/容器下方打码.png)
 
+## 公共页面
+
+#### 比赛列表
+
+![主页面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/比赛列表.png)
+
 #### 自动化报名
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/报名系统.png)
 
-#### 解题动态
-![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/解题动态.png)
 
 #### 前台比赛管理
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/前台比赛管理.png)
@@ -85,11 +117,6 @@
 #### 创建题目
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/前台创建题目.png)
 
-#### 简约版比赛界面
-![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/简约版比赛界面.png)
-
-#### 简约版答题界面
-![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/简约版答题界面.png)
 
 #### 个人信息页面
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/个人信息页面.png)
