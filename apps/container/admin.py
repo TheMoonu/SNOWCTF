@@ -462,14 +462,17 @@ class DockerEngineAdmin(admin.ModelAdmin):
                     service = DockerService(url=docker_url, tls_config=tls_config)
                     
                     import docker
-                    with docker.DockerClient(
+                    client = docker.DockerClient(
                         base_url=docker_url,
                         tls=tls_config,
                         timeout=10
-                    ) as client:
+                    )
+                    try:
                         info = client.info()
                         version = info.get('ServerVersion', 'Unknown')
                         containers = info.get('Containers', 0)
+                    finally:
+                        client.close()
                     
                     self.message_user(
                         request,

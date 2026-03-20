@@ -1,7 +1,4 @@
-"""
-容器创建资源预占管理器（重构版）
-使用加权令牌桶算法，基于实际资源消耗的智能限流
-"""
+
 import time
 from django.core.cache import cache
 from django.conf import settings
@@ -11,100 +8,93 @@ logger = logging.getLogger(__name__)
 
 
 class ResourceReservationManager:
-    """
-    资源预占管理器 - 基于加权令牌桶的智能限流
     
-    核心优化：
-    1. 废弃全局资源预占 - 改用K8s原生调度检查（Dry Run）
-    2. 加权令牌桶 - 大容器消耗更多令牌，小容器快速通过
-    3. 短超时（30秒）- 快速释放失败请求的配额
-    4. 分级限流 - 按资源大小分档，避免大容器挤占小容器
-    """
+
+    TOKEN_BUCKET_KEY = 'container_token_bucket' 
+    TOKEN_LAST_REFILL_KEY = 'container_token_last_refill'  
+    RESERVATION_PREFIX = 'resource_reservation_'      
     
-    # Redis Keys
-    TOKEN_BUCKET_KEY = 'container_token_bucket'        # 令牌桶当前令牌数
-    TOKEN_LAST_REFILL_KEY = 'container_token_last_refill'  # 上次补充令牌时间
-    RESERVATION_PREFIX = 'resource_reservation_'       # 预占记录前缀（用于超时清理）
-    
-    # 令牌桶配置（支持环境变量）
     from container.models import ContainerEngineConfig
     config = ContainerEngineConfig.get_config()
-    MAX_TOKENS = config.token_bucket_max  # 最大令牌数（可支撑200个小容器或20个大容器）
-    REFILL_RATE = config.token_bucket_refill_rate  # 每秒补充20个令牌
+    MAX_TOKENS = config.token_bucket_max 
+    REFILL_RATE = config.token_bucket_refill_rate  
     
-    # 预占超时时间（秒）- 缩短到30秒，快速释放
     RESERVATION_TIMEOUT = config.k8s_node_reservation_timeout
     
     @classmethod
-    def try_reserve(cls, memory_mb, cpu_cores, max_memory_mb=None, max_cpu_cores=None, reserve_key=None):
+    def _refill_tokens(cls, cache_client):
         """
-        尝试获取令牌（基于加权令牌桶算法）
-        
-        核心改进：
-        1. 不再预占全局资源（避免与K8s调度脱节）
-        2. 使用加权令牌桶：大容器消耗更多令牌
-        3. 令牌自动补充：每秒补充10个令牌
-        
-        Args:
-            memory_mb: 需要的内存（MB）
-            cpu_cores: 需要的CPU核心数
-            max_memory_mb: 【废弃】保留参数以兼容旧代码
-            max_cpu_cores: 【废弃】保留参数以兼容旧代码
-            reserve_key: 预占标识（用于超时清理）
-            
+        用 Lua 脚本原子地完成"按时间补充令牌"操作，避免并发竞态。
+
+        Lua 脚本在 Redis 单线程内执行，整个 GET-计算-SET 过程不会被其他客户端打断。
+
         Returns:
-            tuple: (success: bool, reserve_key: str, error_msg: str)
+            float: 补充后的当前令牌数（已 clamp 到 MAX_TOKENS）
         """
+        lua_script = """
+        local token_key    = KEYS[1]
+        local refill_key   = KEYS[2]
+        local max_tokens   = tonumber(ARGV[1])
+        local refill_rate  = tonumber(ARGV[2])
+        local now          = tonumber(ARGV[3])
+
+        local current = tonumber(redis.call('GET', token_key))
+        local last    = tonumber(redis.call('GET', refill_key))
+
+        -- 初始化（键不存在）
+        if current == nil then
+            redis.call('SET', token_key,   max_tokens)
+            redis.call('SET', refill_key,  now)
+            return max_tokens
+        end
+
+        -- 异常修复：令牌数低于 -MAX_TOKENS 视为数据损坏
+        if current < -max_tokens then
+            redis.call('SET', token_key,  max_tokens)
+            redis.call('SET', refill_key, now)
+            return max_tokens
+        end
+
+        if last == nil then last = now end
+
+        local elapsed   = now - last
+        local to_add    = elapsed * refill_rate
+        if to_add > 0.01 then
+            local new_val = math.min(current + to_add, max_tokens)
+            redis.call('SET', token_key,  new_val)
+            redis.call('SET', refill_key, now)
+            return new_val
+        end
+
+        return current
+        """
+        current_time = time.time()
+        result = cache_client.eval(
+            lua_script, 2,
+            cls.TOKEN_BUCKET_KEY, cls.TOKEN_LAST_REFILL_KEY,
+            float(cls.MAX_TOKENS), float(cls.REFILL_RATE), current_time
+        )
+        return float(result)
+
+    @classmethod
+    def try_reserve(cls, memory_mb, cpu_cores, max_memory_mb=None, max_cpu_cores=None, reserve_key=None):
+
         if not reserve_key:
             reserve_key = f"{int(time.time() * 1000)}_{id(object())}"
         
         cache_client = cache.client.get_client()
         
         try:
-            # 0. 自动健康检查和修复
-            current_tokens = cache_client.get(cls.TOKEN_BUCKET_KEY)
-            
-            if current_tokens is None:
-                # 情况1：令牌桶不存在，自动初始化
-                cache_client.set(cls.TOKEN_BUCKET_KEY, float(cls.MAX_TOKENS))
-                cache_client.set(cls.TOKEN_LAST_REFILL_KEY, time.time())
-                logger.info(f" 令牌桶初始化: {cls.MAX_TOKENS}个令牌，补充速率={cls.REFILL_RATE}/秒")
-            else:
-                current_tokens = float(current_tokens)
-                # 情况2：令牌数为负数（异常），自动修复
-                if current_tokens < -10:
-                    cache_client.set(cls.TOKEN_BUCKET_KEY, float(cls.MAX_TOKENS))
-                    cache_client.set(cls.TOKEN_LAST_REFILL_KEY, time.time())
-                    logger.warning(f" 令牌桶异常修复: 从{current_tokens:.2f}重置为{cls.MAX_TOKENS}")
-            
-            # 1. 计算需要的令牌数（加权）
-            # 小容器（<512MB）= 1令牌，中容器（512MB-2GB）= 3令牌，大容器（>2GB）= 5令牌
             if memory_mb < 512 and cpu_cores < 1:
-                tokens_needed = 1  # 小容器
+                tokens_needed = 1 
             elif memory_mb < 2048 and cpu_cores < 2:
-                tokens_needed = 3  # 中容器
+                tokens_needed = 3 
             else:
-                tokens_needed = 5  # 大容器
+                tokens_needed = 5
             
-            # 2. 补充令牌（基于时间流逝，使用浮点数精确计算）
-            current_time = time.time()
-            last_refill_time = float(cache_client.get(cls.TOKEN_LAST_REFILL_KEY) or current_time)
-            time_elapsed = current_time - last_refill_time
+            after_refill = cls._refill_tokens(cache_client)
+            logger.debug(f"令牌补充后: {after_refill:.2f}/{cls.MAX_TOKENS}")
             
-            # 计算应补充的令牌数（使用浮点数，避免高并发时丢失小数部分）
-            tokens_to_add = time_elapsed * cls.REFILL_RATE
-            if tokens_to_add > 0.01:  # 至少补充0.01个令牌才更新（避免频繁写Redis）
-                current_tokens = float(cache_client.get(cls.TOKEN_BUCKET_KEY) or cls.MAX_TOKENS)
-                new_tokens = min(current_tokens + tokens_to_add, float(cls.MAX_TOKENS))
-                cache_client.set(cls.TOKEN_BUCKET_KEY, new_tokens)
-                cache_client.set(cls.TOKEN_LAST_REFILL_KEY, current_time)
-                
-                logger.debug(
-                    f"令牌补充: +{tokens_to_add:.2f} → {new_tokens:.2f}/{cls.MAX_TOKENS} "
-                    f"(间隔{time_elapsed:.3f}秒)"
-                )
-            
-            # 3. 尝试消耗令牌（原子操作）
             remaining_tokens = cache_client.incrbyfloat(cls.TOKEN_BUCKET_KEY, -tokens_needed)
             
             # 4. 检查是否成功
@@ -120,7 +110,8 @@ class ResourceReservationManager:
                     f"(令牌不足: 需要{tokens_needed}个，剩余{current_tokens:.0f}个)"
                 )
             
-            # 5. 成功，记录预占信息（用于超时清理）
+            
+            current_time = time.time()
             reservation_info = {
                 'tokens': tokens_needed,
                 'memory_mb': memory_mb,
@@ -168,12 +159,22 @@ class ResourceReservationManager:
         cache_client = cache.client.get_client()
         
         try:
-            # 归还令牌（但不超过最大值，使用浮点数）
-            current_tokens = float(cache_client.get(cls.TOKEN_BUCKET_KEY) or 0)
-            new_tokens = min(current_tokens + tokens, float(cls.MAX_TOKENS))
-            cache_client.set(cls.TOKEN_BUCKET_KEY, new_tokens)
+            lua_script = """
+            local token_key  = KEYS[1]
+            local max_tokens = tonumber(ARGV[1])
+            local to_add     = tonumber(ARGV[2])
+            local current = tonumber(redis.call('GET', token_key)) or 0
+            local new_val = math.min(current + to_add, max_tokens)
+            redis.call('SET', token_key, new_val)
+            return new_val
+            """
+            new_tokens = float(cache_client.eval(
+                lua_script, 1,
+                cls.TOKEN_BUCKET_KEY,
+                float(cls.MAX_TOKENS), float(tokens)
+            ))
             
-            # 删除预占记录
+            
             cache.delete(reservation_key)
             
             logger.debug(f"令牌归还成功: +{tokens}个令牌, 当前={new_tokens:.0f}/{cls.MAX_TOKENS}")

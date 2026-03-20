@@ -4255,18 +4255,18 @@ class SubmissionDynamicView(TemplateView):
             'created_at'
         ).order_by('created_at')
 
-        # 题目列表（横向表头）- 优化：使用 values_list 只获取需要的字段
+      
         challenges = list(competition.challenges.all().order_by('id'))
         context['challenges'] = challenges
 
-        # 优化：使用 defaultdict 和一次遍历完成所有计算
+       
         from collections import defaultdict
         
         # 初始化数据结构
         players_dict = {}  # {solver_key: {'name': ..., 'submissions': {...}}}
         first_solves = defaultdict(list)  # {challenge_id: [solver_key1, solver_key2, ...]}
         
-        #  根据比赛类型获取计分数据
+      
         if is_team_competition:
             # 团队赛：从 ScoreTeam 获取得分和排名
             score_records = ScoreTeam.objects.filter(
@@ -4298,19 +4298,17 @@ class SubmissionDynamicView(TemplateView):
                     'solved_count': score_record.solved_challenges.count()
                 }
         
-        #  一次遍历完成：1) 记录所有选手 2) 记录解题顺序（根据比赛类型）
         for s in submissions:
-            # 根据比赛类型确定 solver
             if is_team_competition:
-                # 团队赛：显示队伍名称
+               
                 if not s.team:
-                    continue  # 团队赛中没有队伍的提交跳过
+                    continue 
                 solver = s.team.name
                 solver_data = team_score_map.get(solver, {
                     'score': 0, 'rank': 0, 'team': s.team, 'solved_count': 0
                 })
             else:
-                # 个人赛：显示用户名
+            
                 solver = s.user.username
                 solver_data = user_score_map.get(solver, {
                     'score': 0, 'rank': 0, 'team': None, 'solved_count': 0
@@ -4318,7 +4316,6 @@ class SubmissionDynamicView(TemplateView):
             
             cid = s.challenge.id
             
-            # 初始化选手数据
             if solver not in players_dict:
                 players_dict[solver] = {
                     'name': solver,
@@ -4330,16 +4327,15 @@ class SubmissionDynamicView(TemplateView):
                     'solved_count': solver_data.get('solved_count', 0)
                 }
             
-            # 记录解题顺序（用于判断一二三血）
             if solver not in first_solves[cid]:
                 first_solves[cid].append(solver)
         
-        # 优化：只遍历一次 first_solves，直接分配状态
+      
         for cid, solvers in first_solves.items():
             for idx, solver in enumerate(solvers):
                 rank = idx + 1
                 
-                # 根据排名分配状态
+              
                 if rank == 1:
                     status = "一血"
                 elif rank == 2:
@@ -4349,29 +4345,26 @@ class SubmissionDynamicView(TemplateView):
                 else:
                     status = "已解决"
                 
-                # 直接分配，避免重复查找
+               
                 if solver in players_dict:
                     players_dict[solver]['submissions'][cid] = status
 
-        # 转换为列表并按得分排序（使用计分模型中的排名）
+        
         players_list = sorted(
             players_dict.values(), 
             key=lambda x: (x['rank'] if x['rank'] > 0 else 999999, -x['score'])  # 按排名升序，得分降序
         )
         
-        #  如果是团队赛，获取队伍成员信息
         if is_team_competition:
             for player in players_list:
                 if player['team']:
-                    # Team 模型的 members 是 ManyToManyField
+                    
                     members = player['team'].members.values_list('username', flat=True)
                     player['members'] = list(members)
                 else:
                     player['members'] = []
         
-        #  分页处理（每页显示15个队伍/选手）
 
-        
         paginator = Paginator(players_list, 15)  # 每页15条
         
         try:
@@ -4381,10 +4374,9 @@ class SubmissionDynamicView(TemplateView):
         except EmptyPage:
             players_page = paginator.page(paginator.num_pages)
         
-        # 分页后的数据
         players_list = list(players_page)
         
-        # 准备缓存数据（全局缓存，不包含用户信息）
+
         cache_data = {
             'challenges': challenges,
             'players': players_list,
@@ -4393,10 +4385,6 @@ class SubmissionDynamicView(TemplateView):
             'page_obj': players_page,
         }
         
-        # 调试信息（开发环境可以取消注释查看）
-        # print(f"[DEBUG] 总队伍数: {len(players_dict)}, 分页后显示: {len(players_list)}, 总页数: {paginator.num_pages}")
-        
-        # 缓存30秒（平衡实时性和性能，全局缓存）
         cache.set(cache_key, cache_data, 30)
         
         context.update(cache_data)
@@ -4411,19 +4399,19 @@ class SubmissionDynamicView(TemplateView):
         current_user_info = None
         
         if is_team_competition:
-            # 团队赛：获取用户的队伍得分信息
+          
             try:
-                # 查找用户所在的队伍（通过 members ManyToManyField）
+               
                 user_team = Team.objects.filter(
                     members=self.request.user,
                     competition=competition
                 ).first()
                 
                 if user_team:
-                    # 获取队伍所有成员
+                    
                     members = user_team.members.values_list('username', flat=True)
                     
-                    # 尝试获取得分记录
+                    
                     score_team = ScoreTeam.objects.filter(
                         team=user_team,
                         competition=competition
@@ -4450,25 +4438,25 @@ class SubmissionDynamicView(TemplateView):
                             'solved_count': 0
                         }
             except Exception as e:
-                pass  # 如果获取失败，保持 None
+                pass  
         else:
-            # 个人赛：获取用户个人得分信息
+           
             try:
-                # 检查用户是否报名参赛
+                
                 registration = Registration.objects.filter(
                     user=self.request.user,
                     competition=competition
                 ).first()
                 
                 if registration:
-                    # 尝试获取得分记录
+                   
                     score_user = ScoreUser.objects.filter(
                         user=self.request.user,
                         competition=competition
                     ).first()
                     
                     if score_user:
-                        # 有得分记录，显示实际数据
+                        
                         current_user_info = {
                             'user_name': self.request.user.username,
                             'team_name': None,
@@ -4584,14 +4572,7 @@ class SubmissionDynamicAPIView(generic.View):
 
 @method_decorator(cache_page(60 * 5), name='dispatch')  # 缓存5分钟
 class SubmissionDynamicDemoView(TemplateView):
-    """
-    解题动态演示视图 - 使用假数据展示效果，不操作数据库
     
-    性能优化：
-    1. 页面级缓存（5分钟）- 减少重复渲染
-    2. 简化数据结构 - 减少内存占用
-    3. 预计算血榜 - 避免重复遍历
-    """
     template_name = 'competition/tech/submission_dynamic.html'
 
     def get_context_data(self, **kwargs):
@@ -4669,10 +4650,10 @@ class SubmissionDynamicDemoView(TemplateView):
             "龙猫学院",
         ]
         
-        # 为每个队伍生成解题情况（性能优化版）
+        
         import random
         
-        # 预先初始化所有队伍数据
+       
         players_dict = {
             name: {
                 'name': name, 
@@ -4684,10 +4665,8 @@ class SubmissionDynamicDemoView(TemplateView):
             for name in team_names
         }
         
-        # 记录每道题的解题顺序（用于分配血榜）
-        first_bloods = {}  # {challenge_id: [team1, team2, team3, ...]}
+        first_bloods = {} 
         
-        # 模拟题目分值（100-500分）
         challenge_scores = {c.id: random.choice([100, 200, 300, 400, 500]) for c in challenges}
         
         # 一次性生成所有解题数据
@@ -4709,7 +4688,7 @@ class SubmissionDynamicDemoView(TemplateView):
                 players_dict[team_name]['score'] += challenge_scores.get(cid, 100)
                 players_dict[team_name]['solved_count'] += 1
         
-        # 优化：只遍历一次 first_bloods，直接分配状态
+        
         for cid, solvers in first_bloods.items():
             for idx, team_name in enumerate(solvers):
                 rank = idx + 1
@@ -4742,7 +4721,7 @@ class SubmissionDynamicDemoView(TemplateView):
                 else:
                     player['rank'] = idx + 1
         
-        #  分页处理（每页显示10个队伍/选手）
+      
 
         
         paginator = Paginator(players_list, 10)  # 每页10条
@@ -4806,18 +4785,18 @@ def combined_rankings_view(request, slug):
         messages.info(request, f'综合排行榜将在比赛结束后开放查看（比赛结束时间：{competition.end_time.strftime("%Y-%m-%d %H:%M")}）')
         return redirect('competition:competition_detail', slug=slug)
     
-    # 获取分页参数
+   
     page = request.GET.get('page', 1)
     page_size = int(request.GET.get('page_size', 20))
     page_size = min(page_size, 500)  # 最大500条
     force_refresh = request.GET.get('force_refresh') == '1'
     
-    # 检查是否允许强制刷新
+    
     if force_refresh and not can_force_refresh:
         messages.warning(request, '没有权限强制刷新排行榜')
         force_refresh = False
     
-    # 使用优化的计算器确保数据存在
+    
     from competition.models import CombinedLeaderboard, LeaderboardCalculationTask
     from competition.utils_optimized import CombinedLeaderboardCalculator
     from competition.distributed_lock import get_leaderboard_lock
@@ -4825,7 +4804,7 @@ def combined_rankings_view(request, slug):
     
     existing_count = CombinedLeaderboard.objects.filter(competition=competition).count()
     
-    # 决定是否需要重新计算（只在比赛结束后才能计算）
+    
     need_calculation = existing_count == 0 or (force_refresh and can_force_refresh)
     
     if need_calculation and timezone.now() > competition.end_time:
@@ -4836,7 +4815,7 @@ def combined_rankings_view(request, slug):
         ).first()
         
         if running_task:
-            # 有任务正在运行，等待一下
+            
             messages.info(request, '排行榜正在计算中，请稍等...')
             time.sleep(1)
             
@@ -4850,7 +4829,7 @@ def combined_rankings_view(request, slug):
                 else:
                     return redirect('competition:competition_detail', slug=slug)
         else:
-            # 没有运行的任务，触发计算
+           
             try:
                 if force_refresh:
                     CombinedLeaderboardCalculator.clear_cache(competition.id)
@@ -4864,14 +4843,7 @@ def combined_rankings_view(request, slug):
                     messages.error(request, result.get('message', '计算综合排行榜失败'))
                     return redirect('competition:competition_detail', slug=slug)
                 
-                
-                # 注意：数据库写入是异步的，不需要立即验证
-                # 优先从 Redis 缓存读取，给用户更快的响应
-                
                 messages.success(request, f'排行榜已更新为最新数据')
-                
-                # 说明：数据已写入 Redis 缓存，异步任务会写入数据库
-                # 如果需要从数据库读取，会自动降级
                 
             except Exception as e:
                 logger.error(f'[VIEW] 计算排行榜异常: {e}', exc_info=True)
@@ -4969,11 +4941,9 @@ def combined_rankings_view(request, slug):
         'leaderboard': leaderboard_page,
         'my_score': my_score,
         'total_count': total_count,
-        # 传递算法参数
         'ctf_weight': int(float(competition.combined_score_ctf_weight) * 100),
         'quiz_weight': int((1 - float(competition.combined_score_ctf_weight)) * 100),
         'top_percent': competition.combined_score_top_percent,
-        # 计算任务信息
         'latest_task': latest_task,
     }
     
@@ -4998,44 +4968,38 @@ def writeup_upload(request, slug):
     try:
         competition = get_object_or_404(Competition, slug=slug)
         
-        # 验证比赛是否结束
         if not competition.is_ended():
             return JsonResponse({'success': False, 'message': '比赛尚未结束，暂不能提交 Writeup'})
         
-        # 验证用户是否已报名
+        
         registration = competition.registrations.filter(user=request.user, audit=True).first()
         if not registration:
             return JsonResponse({'success': False, 'message': '您未报名此比赛，无法提交 Writeup'})
         
-        # 获取队伍信息（团队赛）
+       
         team = None
         if competition.competition_type == 'team':
             team = registration.team_name
             if not team:
                 return JsonResponse({'success': False, 'message': '未找到您的队伍信息'})
         
-        # 检查是否已提交过 Writeup（个人赛：按用户，团队赛：按队伍）
         if competition.competition_type == 'team':
-            # 团队赛：检查队伍是否已提交
             if Writeup.objects.filter(competition=competition, team=team).exists():
                 return JsonResponse({'success': False, 'message': '您的队伍已经提交过 Writeup，每个队伍只能提交一次'})
         else:
-            # 个人赛：检查用户是否已提交
             if Writeup.objects.filter(competition=competition, user=request.user).exists():
                 return JsonResponse({'success': False, 'message': '您已经提交过 Writeup，每人只能提交一次'})
         
-        # 验证验证码
         captcha_key = request.POST.get('captcha_key', '')
         captcha_input = request.POST.get('captcha', '').strip()
         if not verify_writeup_captcha(captcha_key, captcha_input):
             return JsonResponse({'success': False, 'message': '验证码错误'})
         
-        # 获取表单数据
         title = request.POST.get('title', '').strip()
         description = request.POST.get('description', '').strip()
         pdf_file = request.FILES.get('pdf_file')
         
-        # 验证必填项
+        
         if not title:
             return JsonResponse({'success': False, 'message': '请输入标题'})
         
@@ -5059,9 +5023,7 @@ def writeup_upload(request, slug):
         if pdf_file.size < 1024:  # 小于1KB可能是空文件
             return JsonResponse({'success': False, 'message': '文件内容异常，请检查文件'})
         
-        # 使用事务创建 Writeup 记录（防止并发提交）
         with transaction.atomic():
-            # 再次检查是否已提交（防止并发）
             if competition.competition_type == 'team':
                 if Writeup.objects.select_for_update().filter(competition=competition, team=team).exists():
                     return JsonResponse({'success': False, 'message': '您的队伍已经提交过 Writeup'})
@@ -5105,14 +5067,11 @@ def template_download(request, template_uuid):
     else:
         filename = f"{template.title}"
     
-    # 获取文件扩展名
     file_extension = template.template_file.name.split('.')[-1]
     filename = f"{filename}.{file_extension}"
     
-    # URL编码文件名（支持中文）
     encoded_filename = urllib.parse.quote(filename)
     
-    # 设置Content-Type
     content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' if file_extension == 'docx' else 'application/msword'
     
     # 返回文件
@@ -5264,19 +5223,16 @@ def dual_track_entrance(request, slug):
     """
     from django.db.models import Count
     
-    # 获取竞赛
     competition = get_object_or_404(Competition, slug=slug)
-    
-    # 如果没有关联知识竞赛，则跳转回普通的竞赛首页
+   
     if not competition.related_quiz:
         return redirect('competition:com_index', slug=slug)
     
-    # 检查访问权限 - 内部赛需要验证
     if competition.visibility_type == 'internal':
         if not request.user.is_authenticated:
             return redirect('account_login')
         
-        # 检查是否报名且审核通过
+        
         user_registered = Registration.objects.filter(
             user=request.user,
             competition=competition,
@@ -5288,10 +5244,8 @@ def dual_track_entrance(request, slug):
             messages.warning(request, '您暂时无权限访问该竞赛')
             return redirect('competition:CompetitionView')
     
-    # 获取CTF赛道统计数据
     ctf_challenge_count = competition.challenges.filter(is_active=True).count()
     
-    # 统计CTF参赛人数
     if competition.competition_type == 'team':
         ctf_participant_count = Team.objects.filter(competition=competition).count()
     else:
@@ -5300,11 +5254,9 @@ def dual_track_entrance(request, slug):
             audit=True
         ).count()
     
-    # 获取知识竞赛统计数据
     quiz = competition.related_quiz
     from quiz.models import QuizRecord
     
-    # 通过Quiz的questions关系获取题目数量
     quiz_question_count = quiz.questions.count()
     quiz_participant_count = QuizRecord.objects.filter(
         quiz=quiz,

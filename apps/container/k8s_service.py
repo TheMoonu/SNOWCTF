@@ -1,8 +1,3 @@
-"""
-Kubernetes 容器服务模块
-
-提供基于 k3s/K8s 的容器创建、管理和清理功能
-"""
 
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
@@ -23,10 +18,6 @@ from datetime import timezone as dt_timezone
 
 logger = logging.getLogger("apps.container")
 
-# ==================== 连接池配置 ====================
-# 配置 urllib3 连接池以复用 K8s API 连接
-# 这可以显著提高高并发场景下的性能
-# 从数据库配置动态加载
 def _get_connection_pool_config():
     """获取连接池配置（从数据库）"""
     config = ContainerEngineConfig.get_config()
@@ -35,12 +26,10 @@ def _get_connection_pool_config():
         'block': config.k8s_connection_pool_block
     }
 
-# 配置全局 HTTPConnectionPool（懒加载）
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 _http_pool_manager = None
 
 def _get_http_pool_manager():
-    """获取HTTP连接池管理器（懒加载）"""
     global _http_pool_manager
     if _http_pool_manager is None:
         pool_config = _get_connection_pool_config()
@@ -64,28 +53,18 @@ class K8sServiceException(ContainerServiceException):
 
 
 class K8sService(ContainerServiceBase):
-    """
-    Kubernetes 容器服务类
     
-    负责 Pod 的创建、配置和生命周期管理
-    """
     
     def __init__(self, engine, team_namespace=None):
-        """
-        初始化 K8s 服务
         
-        Args:
-            engine: DockerEngine 对象，包含所有配置信息
-            team_namespace: AWD队伍专用namespace（可选，用于AWD比赛隔离）
-        """
         self.engine = engine
         self.kubeconfig_path = engine.kubeconfig_file_path
-        # AWD模式：使用队伍专用namespace；CTF模式：使用默认namespace
+      
         self.namespace = team_namespace or engine.namespace or 'ctf-challenges'
         self.is_awd_mode = bool(team_namespace)  # 标识是否为AWD模式
         self.verify_ssl = engine.verify_ssl
         
-        # 安全配置
+        
         self.enable_network_policy = engine.enable_network_policy
         self.enable_seccomp = engine.enable_seccomp
         self.enable_service_account = engine.enable_service_account
@@ -109,30 +88,23 @@ class K8sService(ContainerServiceBase):
             logger.error(f"获取 K8s API 客户端失败: {str(e)}")
             raise K8sServiceException(f"K8s 配置加载失败: {str(e)}")
         
-        # 优化：确保命名空间存在（使用独立的管理器，带缓存）
         K8sNamespaceManager.ensure_namespace(self.core_api, self.namespace)
         
-        # 初始化资源监控器（防止节点过载崩溃）
         self.resource_monitor = K8sResourceMonitor(self.core_api, self.namespace)
         
-        # 网络策略管理（带缓存优化）
         policy_cache_key = f'k8s:network_policy:{self.namespace}:{self.enable_network_policy}:{self.is_awd_mode}'
         policy_ensured = cache.get(policy_cache_key)
         
         if not policy_ensured:
-            # 缓存未命中，需要检查/应用策略
             if self.enable_network_policy:
-                # 网络策略已启用：确保策略存在
                 if self.is_awd_mode:
-                    # AWD模式：允许队伍间互相访问（攻击），但阻止外网访问
                     self._ensure_awd_network_policies()
                     
                 else:
-                    # CTF模式：完全隔离
                     self._ensure_network_policies()
                     
             else:
-                # 网络策略已关闭：删除现有的网络策略（如果有）
+               
                 try:
                     result = self.remove_network_policies()
                     if result['deleted_policies']:
@@ -142,7 +114,6 @@ class K8sService(ContainerServiceBase):
                 except Exception as e:
                     logger.warning(f"删除网络策略失败（可能不存在）: {str(e)}")
             
-            #  缓存策略状态（5 分钟），避免高并发时重复检查
             cache.set(policy_cache_key, True, timeout=300)
         else:
             logger.debug(f" 使用缓存的网络策略状态: {self.namespace}")
@@ -150,27 +121,9 @@ class K8sService(ContainerServiceBase):
     # ==================== 核心方法 ====================
     
     def create_containers(self, challenge, user, flag, memory_limit, cpu_limit, target_node=None):
-        """
-        创建容器（K8s Pod）- 支持单镜像和拓扑编排
-        
-        Args:
-            challenge: 题目对象
-            user: 用户对象
-            flag: Flag 值（字符串或列表）
-            memory_limit: 内存限制 (MB)
-            cpu_limit: CPU 限制（核心数）
-            target_node: 目标节点名称（可选，建议在views.py预检时传入）
-            
-        Returns:
-            Tuple[List[dict], dict]: (所有容器信息列表, Web容器信息)
-        
-        Raises:
-            K8sServiceException: Pod 创建失败
-        """
-        # 保存目标节点到实例变量，供后续使用
+
         self._target_node = target_node
 
-        # 🆕 优先检查是否有网络拓扑配置（多容器场景）
         if hasattr(challenge, 'network_topology_config') and challenge.network_topology_config:
             logger.info(f"检测到网络拓扑配置，创建多容器场景: {challenge.network_topology_config.name}")
             return self._create_topology_containers(
@@ -182,7 +135,6 @@ class K8sService(ContainerServiceBase):
                 target_node=target_node
             )
 
-        #  兜底使用 DockerImage（单容器）
         docker_image = challenge.docker_image
         
         if not docker_image:
@@ -191,20 +143,12 @@ class K8sService(ContainerServiceBase):
         service = None
         pod_name = None
         try:
-            # 验证镜像配置
             self._validate_docker_image(docker_image)
-            
-            # 高并发优化：禁用创建时清理（避免惊群效应）
-            # 原因：100个并发任务同时清理会瞬间打爆K8s API
-            # 改为只依赖定时任务 cleanup_failed_and_pending_pods (每分钟执行)
             logger.debug("高并发模式：跳过创建时清理，由定时任务负责")
             
-            # 节点选择：必须由 views.py 预检时传入（避免重复检查）
-            # target_node 应该在 create_containers 参数中传入
             target_node = getattr(self, '_target_node', None)
             
             if not target_node:
-                #  不再兜底选择，直接报错（说明views.py预检有问题）
                 logger.error(
                     "致命错误：未收到目标节点！这说明 views.py 的预检没有正确传递 target_node。"
                     "请检查 views.py 是否正确设置了 selected_node 变量。"
@@ -213,15 +157,12 @@ class K8sService(ContainerServiceBase):
                     "容器创建失败：缺少目标节点信息（内部错误）"
                 )
             
-            logger.info(f"✓ 使用预选节点: {target_node}")
+            logger.info(f" 使用预选节点: {target_node}")
             
-            # 生成唯一 Pod 名称
             pod_name = self._generate_pod_name(challenge, user)
             
-            # 准备 Flag 环境变量
             env_vars = self._prepare_flag_environment(docker_image, challenge, flag)
             
-            # 创建 Pod 配置
             pod_manifest = self._build_pod_manifest(
                 pod_name=pod_name,
                 docker_image=docker_image,
@@ -230,33 +171,27 @@ class K8sService(ContainerServiceBase):
                 user=user,
                 memory_limit=memory_limit,
                 cpu_limit=cpu_limit,
-                flags=flag,  # 传递 flags 用于脚本注入
-                target_node=target_node  # 🆕 传递目标节点
+                flags=flag, 
+                target_node=target_node  
             )
             
-            # 创建 Pod
-            #logger.info(f"创建 Pod: {pod_name}")
             pod = self.core_api.create_namespaced_pod(
                 namespace=self.namespace,
                 body=pod_manifest
             )
             
-            # 使用 try-except 确保失败时清理资源
             service = None
             try:
-                # 等待 Pod 就绪
                 self._wait_for_pod_ready(pod_name)
                 
-                # 创建 Service 暴露端口
                 service = self._create_service(pod_name, docker_image, challenge, user)
                 
-                # 重新读取 Pod 状态（获取调度后的节点信息）
+              
                 pod = self.core_api.read_namespaced_pod(
                     name=pod_name,
                     namespace=self.namespace
                 )
                 
-                # 提取容器信息（格式与 Docker 保持一致）
                 container_info = self._extract_container_info(pod, service, pod_name)
                 
                 logger.info(
@@ -265,15 +200,15 @@ class K8sService(ContainerServiceBase):
                     f"节点={pod.spec.node_name}"
                 )
                 
-                # 注意：节点预占的释放由调用方（tasks.py的finally块）统一处理，避免双重释放
+           
                 
                 return [container_info], container_info
                 
             except Exception as e:
-                #  Pod或Service创建失败时，清理已创建的资源
+             
                 logger.error(f"Pod/Service创建失败，开始清理资源: {pod_name}")
                 
-                # 清理 Service（如果已创建）
+       
                 if service:
                     try:
                         service_name = service.metadata.name
@@ -281,7 +216,7 @@ class K8sService(ContainerServiceBase):
                             name=service_name,
                             namespace=self.namespace
                         )
-                        logger.info(f"✓ 已清理失败的 Service: {service_name}")
+                        logger.info(f" 已清理失败的 Service: {service_name}")
                     except ApiException as cleanup_err:
                         if cleanup_err.status == 404:
                             logger.debug(f"Service 已不存在（可能已被清理）: {service_name}")
@@ -290,14 +225,14 @@ class K8sService(ContainerServiceBase):
                     except Exception as cleanup_err:
                         logger.warning(f"清理 Service 失败: {cleanup_err}")
                 
-                # 清理 Pod
+           
                 try:
                     self.core_api.delete_namespaced_pod(
                         name=pod_name,
                         namespace=self.namespace,
                         grace_period_seconds=0  
                     )
-                    logger.info(f"✓ 已清理失败的 Pod: {pod_name}")
+                    logger.info(f" 已清理失败的 Pod: {pod_name}")
                 except ApiException as cleanup_err:
                     if cleanup_err.status == 404:
                         logger.debug(f"Pod 已不存在（可能已在检测阶段清理）: {pod_name}")
@@ -305,57 +240,48 @@ class K8sService(ContainerServiceBase):
                         logger.warning(f"清理 Pod 失败: {cleanup_err.reason}")
                 except Exception as cleanup_err:
                     logger.warning(f"清理 Pod 失败: {cleanup_err}")
-                
-                # 注意：节点预占的释放由调用方（tasks.py的finally块）统一处理，避免双重释放
-                
-                # 重新抛出原始异常
+              
                 raise
             
         except ApiException as e:
-            #  输出详细的 API 错误信息（改进诊断）
+        
             error_msg = f"Pod 创建失败: {e.reason} (状态码: {e.status})"
-            
-            # 特殊处理 404 错误，提供更详细的诊断信息
+          
             if e.status == 404:
-                # 检查是否是 namespace 不存在导致的
+              
                 try:
                     self.core_api.read_namespace(name=self.namespace)
-                    # namespace 存在，说明是其他资源不存在（如镜像、节点等）
+                   
                     error_msg = f"容器创建失败: 引用的资源不存在 - {e.reason}"
                     logger.error(error_msg)
                 except ApiException as ns_err:
                     if ns_err.status == 404:
-                        # namespace 不存在！这是缓存问题
+                       
                         error_msg = f"容器创建失败: 命名空间 '{self.namespace}' 不存在（缓存已过期）"
                         logger.error(f"{error_msg}")
-                        # 清除错误的缓存
+             
                         cache.delete(f'k8s:namespace_exists:{self.namespace}')
                         logger.info(f"已清除命名空间缓存: {self.namespace}，请重试")
                     else:
                         error_msg = "容器创建失败,请稍后再试"
                         logger.error(f"Pod 创建失败: {e.reason}")
             else:
-                # 其他错误
+          
                 logger.error(f"Pod 创建失败: {error_msg}")
                 error_msg = "容器创建失败,请稍后再试"
             
             raise K8sServiceException(error_msg)
         except K8sServiceException:
-            # 重新抛出K8s服务异常
+    
             raise
         except Exception as e:
             logger.error(f"创建 Pod 失败: {str(e)}", exc_info=True)
             raise K8sServiceException(f"容器创建失败,请稍后再试")
     
     def stop_and_remove_container(self, container_id):
-        """
-        停止并删除容器（删除 Pod 和 Service）- 支持拓扑场景
-        
-        Args:
-            container_id: Pod 名称或拓扑配置ID（格式: topology-{config_id}）
-        """
+      
         try:
-            # 🆕 检查是否是拓扑场景的清理请求
+        
             if isinstance(container_id, str) and container_id.startswith('topology-'):
                 topology_config_id = container_id.replace('topology-', '')
                 self._cleanup_topology_containers(topology_config_id)
@@ -368,7 +294,7 @@ class K8sService(ContainerServiceBase):
             service_existed = False
             service_delete_error = None
             
-            # 删除 Pod
+    
             logger.info(f"删除 Pod: {pod_name}")
             try:
                 self.core_api.delete_namespaced_pod(
@@ -383,7 +309,7 @@ class K8sService(ContainerServiceBase):
                 else:
                     raise
             
-            # 删除关联的 Service（增强：重试机制 + 详细日志）
+
             logger.debug(f"删除 Service: {service_name}")
             max_retries = 3
             for attempt in range(max_retries):
@@ -393,7 +319,7 @@ class K8sService(ContainerServiceBase):
                         namespace=self.namespace
                     )
                     service_existed = True
-                    logger.info(f"✓ Service 删除成功: {service_name}")
+                    logger.info(f" Service 删除成功: {service_name}")
                     break
                 except ApiException as e:
                     if e.status == 404:
@@ -411,10 +337,10 @@ class K8sService(ContainerServiceBase):
                     logger.error(f"删除 Service 异常: {service_name} - {str(e)}")
                     break
             
-            # 删除关联的 NetworkPolicy
+
             netpol_existed = False
-            netpol_name = f"{pod_name}-netpol"  # 新策略命名
-            legacy_netpol_name = f"{pod_name}-egress"  # 旧策略命名（兼容）
+            netpol_name = f"{pod_name}-netpol" 
+            legacy_netpol_name = f"{pod_name}-egress" 
             
             for policy_name in [netpol_name, legacy_netpol_name]:
                 try:
@@ -423,7 +349,7 @@ class K8sService(ContainerServiceBase):
                         namespace=self.namespace
                     )
                     netpol_existed = True
-                    logger.info(f"✓ NetworkPolicy 删除成功: {policy_name}")
+                    logger.info(f" NetworkPolicy 删除成功: {policy_name}")
                 except ApiException as e:
                     if e.status == 404:
                         logger.debug(f"NetworkPolicy 不存在: {policy_name}")
@@ -431,17 +357,15 @@ class K8sService(ContainerServiceBase):
                         logger.warning(f"删除 NetworkPolicy 失败: {policy_name} - {e.reason}")
                 except Exception as e:
                     logger.warning(f"删除 NetworkPolicy 异常: {policy_name} - {str(e)}")
-            
-            # 只有在资源真正存在时才记录成功日志
+
             if pod_existed or service_existed or netpol_existed:
                 if service_delete_error:
                     logger.warning(f"Pod 清理完成但 Service 删除失败: {pod_name} (Service错误: {service_delete_error})")
                 else:
-                    logger.info(f"✓ Pod、Service 和 NetworkPolicy 清理完成: {pod_name}")
+                    logger.info(f" Pod、Service 和 NetworkPolicy 清理完成: {pod_name}")
             else:
                 logger.debug(f"Pod、Service 和 NetworkPolicy 已不存在，无需清理: {pod_name}")
-            
-            # 如果 Service 删除失败，记录到数据库或缓存以便后续清理
+
             if service_delete_error:
                 self._mark_orphan_service(service_name, pod_name)
             
@@ -456,17 +380,13 @@ class K8sService(ContainerServiceBase):
             raise K8sServiceException(f"Pod 清理失败: {str(e)}")
     
     def get_container_status(self, container_id: str) -> str:
-        """
-        获取 Pod 状态（兼容方法，返回简单状态字符串）
         
-        详细状态请使用 get_container_details()
-        """
         try:
             pod = self.core_api.read_namespaced_pod(
                 name=container_id,
                 namespace=self.namespace
             )
-            # 转换 K8s 状态到通用状态
+
             phase = pod.status.phase
             if phase == 'Running':
                 return 'RUNNING'
@@ -478,7 +398,7 @@ class K8sService(ContainerServiceBase):
                 return 'UNKNOWN'
         except ApiException as e:
             if e.status == 404:
-                # Pod 不存在，使用 debug 级别避免日志刷屏
+           
                 logger.debug(f"Pod 不存在: {container_id}")
                 return 'NOT_FOUND'
             logger.warning(f"获取 Pod 状态失败: {container_id}, 错误: {e.reason}")
@@ -499,8 +419,7 @@ class K8sService(ContainerServiceBase):
                 name=container_id,
                 namespace=self.namespace
             )
-            
-            # 基本信息
+
             details = {
                 'id': pod.metadata.name,
                 'name': pod.metadata.name,
@@ -511,8 +430,7 @@ class K8sService(ContainerServiceBase):
                 'ip': pod.status.pod_ip,
                 'node': pod.spec.node_name,
             }
-            
-            # 容器状态详情
+
             if pod.status.container_statuses:
                 container_status = pod.status.container_statuses[0]
                 details['container'] = {
@@ -521,8 +439,7 @@ class K8sService(ContainerServiceBase):
                     'image': container_status.image,
                     'image_id': container_status.image_id,
                 }
-                
-                # 容器状态细节
+
                 if container_status.state:
                     if container_status.state.running:
                         details['container']['state'] = 'running'
@@ -536,8 +453,7 @@ class K8sService(ContainerServiceBase):
                         details['container']['reason'] = container_status.state.terminated.reason
                         details['container']['exit_code'] = container_status.state.terminated.exit_code
                         details['container']['finished_at'] = container_status.state.terminated.finished_at.isoformat() if container_status.state.terminated.finished_at else None
-            
-            # 获取 Pod 事件（用于诊断）
+
             try:
                 events = self.core_api.list_namespaced_event(
                     namespace=self.namespace,
@@ -568,16 +484,7 @@ class K8sService(ContainerServiceBase):
             raise K8sServiceException(f"获取容器详细状态失败: {str(e)}")
     
     def get_container_metrics(self, container_id: str) -> dict:
-        """
-        获取 Pod 资源使用指标（增强版）
-            
-        Returns:
-            dict: 包含 CPU、内存、网络等使用情况
-            
-        Note: 
-            - CPU/内存指标需要部署 Metrics Server
-            - 网络流量统计需要通过 /proc 或 Prometheus
-        """
+      
         metrics_data = {
             'cpu_usage': 0,
             'cpu_percent': 0,
@@ -589,8 +496,7 @@ class K8sService(ContainerServiceBase):
             'available': False,
             'source': None
         }
-        
-        # 1. 尝试从 Metrics Server 获取 CPU/内存
+
         try:
             custom_api = client.CustomObjectsApi()
             metrics = custom_api.get_namespaced_custom_object(
@@ -605,17 +511,14 @@ class K8sService(ContainerServiceBase):
                 container = metrics['containers'][0]
                 cpu_usage_str = container['usage'].get('cpu', '0')
                 memory_usage_str = container['usage'].get('memory', '0')
-                
-                # 解析 CPU 使用（转换为毫核）
+
                 metrics_data['cpu_usage'] = self._parse_cpu(cpu_usage_str)
-                
-                # 解析内存使用（转换为字节）
+
                 metrics_data['memory_usage'] = self._parse_memory(memory_usage_str)
                 
                 metrics_data['available'] = True
                 metrics_data['source'] = 'metrics-server'
-                
-                # 获取资源限制（从 Pod 配置）
+
                 try:
                     pod = self.core_api.read_namespaced_pod(
                         name=container_id,
@@ -671,23 +574,10 @@ class K8sService(ContainerServiceBase):
         
         return {}
     
-    # ==================== 私有方法 ====================
+
     
     def _create_topology_containers(self, challenge, user, flag, memory_limit, cpu_limit, target_node=None):
-        """
-        创建网络拓扑场景的多容器环境
-        
-        Args:
-            challenge: 题目对象
-            user: 用户对象
-            flag: Flag 值（字符串或列表）
-            memory_limit: 内存限制 (MB)
-            cpu_limit: CPU 限制（核心数）
-            target_node: 目标节点名称
-            
-        Returns:
-            Tuple[List[dict], dict]: (所有容器信息列表, Web容器信息)
-        """
+       
         from container.models import DockerImage
         
         topology_config = challenge.network_topology_config
@@ -717,10 +607,9 @@ class K8sService(ContainerServiceBase):
                 raise K8sServiceException("网络拓扑配置中没有节点，请在可视化编辑器中添加节点并保存")
             
             logger.info(f"开始创建拓扑场景: {topology_config.name}, 共 {len(nodes_data)} 个节点")
-            
-            # 2. 为每个节点创建 Pod
-            pod_name_mapping = {}  # node_id -> pod_name
-            node_info_mapping = {}  # node_id -> {is_entry_point, is_target, ...}
+
+            pod_name_mapping = {} 
+            node_info_mapping = {}  
             all_containers = []
             
             for node_element in nodes_data:
@@ -731,11 +620,10 @@ class K8sService(ContainerServiceBase):
                 network_area = node_data.get('networkArea', 'INTERNAL')
                 is_entry_point = node_data.get('isEntryPoint', False)
                 is_target = node_data.get('isTarget', False)
-                protocol = node_data.get('protocol', 'http')  # 🆕 读取协议信息，默认http
-                
-                #  读取网络策略配置
+                protocol = node_data.get('protocol', 'http') 
+     
                 network_policy = node_data.get('networkPolicy', 'ISOLATED')  # 默认隔离外网
-                # 向后兼容：INTERNAL_ONLY 等同于 ISOLATED
+
                 if network_policy == 'INTERNAL_ONLY':
                     network_policy = 'ISOLATED'
                 allow_reverse_shell = node_data.get('allowReverseShell', False)
@@ -770,8 +658,7 @@ class K8sService(ContainerServiceBase):
                     'egress_whitelist': egress_whitelist
                 }
                 
-                # 准备环境变量
-                # 只有攻击目标才注入 flag，其他节点（入口点、跳板机等）不需要 flag
+ 
                 if is_target:
                     env_vars = self._prepare_flag_environment(docker_image, challenge, flag)
                     logger.debug(f"节点 {node_id} 是攻击目标，注入 flag")
@@ -787,22 +674,19 @@ class K8sService(ContainerServiceBase):
                     'TOPOLOGY_IS_ENTRY': str(is_entry_point).lower(),
                     'TOPOLOGY_IS_TARGET': str(is_target).lower(),
                 })
-                
-                # 🔧 使用节点镜像自己的资源配置（而不是总资源）
+
                 node_memory_limit = docker_image.memory_limit or 512
                 node_cpu_limit = docker_image.cpu_limit or 1.0
-                
-                # 创建 Pod
-                # 注意：flags 参数仅用于脚本注入，只有攻击目标才传递
+
                 pod_manifest = self._build_pod_manifest(
                     pod_name=pod_name,
                     docker_image=docker_image,
                     env_vars=env_vars,
                     challenge=challenge,
                     user=user,
-                    memory_limit=node_memory_limit,  # 🔧 使用节点自己的资源限制
-                    cpu_limit=node_cpu_limit,        # 🔧 使用节点自己的资源限制
-                    flags=flag if is_target else None,  # 只有目标节点才注入 flag 脚本
+                    memory_limit=node_memory_limit, 
+                    cpu_limit=node_cpu_limit,       
+                    flags=flag if is_target else None,  
                     target_node=target_node
                 )
                 
@@ -818,11 +702,9 @@ class K8sService(ContainerServiceBase):
                     body=pod_manifest
                 )
                 created_pods.append(pod)
-                
-                # 等待 Pod 就绪
+
                 self._wait_for_pod_ready(pod_name)
-                
-                # 创建 Service（根据是否入口节点决定类型）
+
                 service = self._create_topology_service(
                     pod_name=pod_name,
                     docker_image=docker_image,
@@ -832,22 +714,20 @@ class K8sService(ContainerServiceBase):
                     node_id=node_id
                 )
                 created_services.append(service)
-                
-                # 重新读取 Pod 状态
+
                 pod = self.core_api.read_namespaced_pod(
                     name=pod_name,
                     namespace=self.namespace
                 )
-                
-                # 提取容器信息
+
                 container_info = self._extract_container_info(pod, service, pod_name)
                 container_info['node_id'] = node_id
                 container_info['node_label'] = label or docker_image.name
                 container_info['network_area'] = network_area
                 container_info['is_entry_point'] = is_entry_point
                 container_info['is_target'] = is_target
-                container_info['protocol'] = protocol  # 🆕 添加协议信息
-                #  添加网络策略信息
+                container_info['protocol'] = protocol  #  添加协议信息
+
                 container_info['network_policy'] = network_policy
                 container_info['allow_reverse_shell'] = allow_reverse_shell
                 container_info['egress_whitelist'] = egress_whitelist
@@ -867,8 +747,7 @@ class K8sService(ContainerServiceBase):
                 if not is_entry_point and not is_target:
                     node_role.append("跳板")
                 role_str = "/".join(node_role)
-                
-                # 构建网络策略描述
+
                 policy_desc = {
                     'ISOLATED': '隔离外网',
                     'ALLOW_INGRESS': '允许反连',
@@ -878,23 +757,21 @@ class K8sService(ContainerServiceBase):
                 
                 if is_entry_point:
                     logger.info(
-                        f"✓ 拓扑节点创建成功【{role_str}】: {node_id} ({label}), "
+                        f" 拓扑节点创建成功【{role_str}】: {node_id} ({label}), "
                         f"Pod={pod_name}, 网络区域={network_area}, "
                         f"外部端口={container_info.get('ports', {})}, "
                         f"网络策略={policy_desc}, "
-                        f"Flag={'✓' if is_target else '✗'}"
+                        f"Flag={'' if is_target else '✗'}"
                     )
                 else:
                     logger.info(
-                        f"✓ 拓扑节点创建成功【{role_str}】: {node_id} ({label}), "
+                        f" 拓扑节点创建成功【{role_str}】: {node_id} ({label}), "
                         f"Pod={pod_name}, 网络区域={network_area}, "
                         f"集群内访问={container_info.get('service_name')}, "
                         f"网络策略={policy_desc}, "
-                        f"Flag={'✓' if is_target else '✗'}"
+                        f"Flag={'' if is_target else '✗'}"
                     )
-            
-            # 3. 创建网络策略（模拟节点之间的连接）
-            # 🔒 检查引擎是否启用了网络策略
+
             if self.enable_network_policy:
                 edges_data = elements.get('edges', [])
                 if edges_data:
@@ -908,13 +785,11 @@ class K8sService(ContainerServiceBase):
                     logger.info(f"拓扑场景没有连线，跳过网络策略创建")
             else:
                 logger.warning(
-                    f"⚠️ 引擎已禁用网络策略 (enable_network_policy=False)，"
+                    f" 引擎已禁用网络策略 (enable_network_policy=False)，"
                     f"拓扑编排中配置的网络隔离策略将不生效。"
                     f"所有容器可以自由访问外网和相互通信。"
                 )
-            
-            # 4. 返回结果
-            # 如果没有指定入口点，使用第一个容器
+
             if not web_container and all_containers:
                 web_container = all_containers[0]
                 web_container['type'] = 'web'
@@ -927,7 +802,7 @@ class K8sService(ContainerServiceBase):
             network_policy_status = "已启用" if self.enable_network_policy else "已禁用（容器可自由访问外网）"
             
             logger.info(
-                f"✅ 拓扑场景创建完成: {topology_config.name}, "
+                f" 拓扑场景创建完成: {topology_config.name}, "
                 f"共 {len(all_containers)} 个容器, "
                 f"入口={', '.join(entry_nodes) if entry_nodes else 'N/A'}, "
                 f"目标={', '.join(target_nodes) if target_nodes else 'N/A'}, "
@@ -937,7 +812,7 @@ class K8sService(ContainerServiceBase):
             return all_containers, web_container
             
         except Exception as e:
-            # 清理已创建的资源
+           
             logger.error(f"拓扑场景创建失败，开始清理资源: {str(e)}")
             
             # 清理 Service
@@ -947,7 +822,7 @@ class K8sService(ContainerServiceBase):
                         name=service.metadata.name,
                         namespace=self.namespace
                     )
-                    logger.debug(f"✓ 清理 Service: {service.metadata.name}")
+                    logger.debug(f" 清理 Service: {service.metadata.name}")
                 except Exception as cleanup_err:
                     logger.warning(f"清理 Service 失败: {cleanup_err}")
             
@@ -959,7 +834,7 @@ class K8sService(ContainerServiceBase):
                         namespace=self.namespace,
                         grace_period_seconds=0
                     )
-                    logger.debug(f"✓ 清理 Pod: {pod.metadata.name}")
+                    logger.debug(f" 清理 Pod: {pod.metadata.name}")
                 except Exception as cleanup_err:
                     logger.warning(f"清理 Pod 失败: {cleanup_err}")
             
@@ -975,7 +850,7 @@ class K8sService(ContainerServiceBase):
                             name=policy.metadata.name,
                             namespace=self.namespace
                         )
-                        logger.debug(f"✓ 清理 NetworkPolicy: {policy.metadata.name}")
+                        logger.debug(f" 清理 NetworkPolicy: {policy.metadata.name}")
                     except Exception as cleanup_err:
                         logger.warning(f"清理 NetworkPolicy 失败: {cleanup_err}")
             except Exception as cleanup_err:
@@ -994,14 +869,7 @@ class K8sService(ContainerServiceBase):
             raise K8sServiceException("镜像已被禁用")
     
     def _cleanup_user_pods(self, user, challenge):
-        """
-        清理用户的失败Pod（智能版：只清理确实失败的，不影响Pending）
-        
-        优化策略：
-        1. 只清理Failed状态的Pod
-        2. 不清理Pending Pod（可能正在调度）
-        3. 使用后台任务清理，不阻塞主流程
-        """
+
         try:
             # 只清理Failed Pod（立即释放资源配额）
             failed_pods = self.core_api.list_namespaced_pod(
@@ -1059,14 +927,9 @@ class K8sService(ContainerServiceBase):
                     if creation_time < timeout_threshold:
                         timed_out_pending.append(pod)
             
-            # 3.高并发优化：禁用重复Pod清理（避免误删正在创建的Pod）
-            # 原因：高并发时，多个请求几乎同时创建Pod，清理逻辑可能误认为是重复
-            # 改为通过数据库层面的唯一性约束来防止重复，而不是在K8s层面清理
             duplicate_pods = []
-            
-            # 注释掉原有的重复清理逻辑，改为仅记录警告
             try:
-                # 查找该用户该题目的所有 Running Pod
+          
                 running_pods = self.core_api.list_namespaced_pod(
                     namespace=self.namespace,
                     label_selector=f'ctf.user={user.id},ctf.challenge={challenge.uuid}',
@@ -1078,12 +941,11 @@ class K8sService(ContainerServiceBase):
                         f"发现用户 {user.username} 题目 {challenge.uuid} 有 {len(running_pods.items)} 个Running Pod，"
                         f"高并发模式下不自动清理，由定时任务处理"
                     )
-                    # 高并发场景：不删除，避免误杀正在创建的Pod
-                    # duplicate_pods = sorted_pods[1:]  # 已禁用
+                    
             except Exception as e:
                 logger.debug(f"检查重复容器失败: {e}")
             
-            # 合并要清理的 Pod
+       
             pods_to_clean = list(failed_pods.items) + timed_out_pending + duplicate_pods
             
             if pods_to_clean:
@@ -1106,8 +968,7 @@ class K8sService(ContainerServiceBase):
                             grace_period_seconds=0  # 立即删除
                         )
                         logger.info(f" 已清理 {pod_status} Pod: {pod_name}")
-                        
-                        # 同时删除关联的 Service
+                     
                         service_name = f"{pod_name}-svc"
                         try:
                             self.core_api.delete_namespaced_service(
@@ -1122,11 +983,10 @@ class K8sService(ContainerServiceBase):
                         if e.status != 404:
                             logger.warning(f"清理 Pod 失败: {pod_name}, {e.reason}")
                 
-                # 等待一小段时间让 K8s 更新资源配额
                 time.sleep(1.0)
                 logger.info(f" 用户 {user.username} 的问题 Pod 清理完成，已释放资源配额")
         except Exception as e:
-            # 清理失败不影响后续流程
+            
             logger.warning(f"清理用户 Pod 出错（忽略）: {str(e)}")
     
     def _async_cleanup_pods(self, pods):
@@ -1146,8 +1006,7 @@ class K8sService(ContainerServiceBase):
                     namespace=self.namespace,
                     grace_period_seconds=0
                 )
-                
-                # 删除关联的Service
+
                 service_name = f"{pod_name}-svc"
                 try:
                     self.core_api.delete_namespaced_service(
@@ -1158,19 +1017,14 @@ class K8sService(ContainerServiceBase):
                     if e.status != 404:
                         logger.debug(f"清理Service失败: {e.reason}")
                 
-                logger.info(f"✓ 异步清理Failed Pod: {pod_name}")
+                logger.info(f" 异步清理Failed Pod: {pod_name}")
                 
             except Exception as e:
                 logger.debug(f"清理Pod失败: {e}")
     
     def _cleanup_all_timed_out_pending_pods(self):
-        """
-        清理所有超时的 Pending Pod（定时任务调用，不在创建流程中）
         
-        优化：改为定时任务执行，不阻塞Pod创建
-        """
-        # 在Pod创建流程中跳过全局清理
-        # 改为由定时任务（每分钟）执行
+   
         logger.debug("跳过全局Pending清理（由定时任务负责）")
         try:
             from datetime import timedelta
@@ -1185,9 +1039,8 @@ class K8sService(ContainerServiceBase):
             if not pending_pods.items:
                 return
             
-            #  统一使用 Django timezone，确保带时区信息
-            #  性能优化：全局清理超时时间改为1分钟（快速释放卡住的Pod）
-            timeout_minutes = 1  # 从3分钟改为1分钟（高并发优化）
+
+            timeout_minutes = 1 
             now = timezone.now()
             # 确保 now 有时区信息
             if timezone.is_naive(now):
@@ -1249,23 +1102,7 @@ class K8sService(ContainerServiceBase):
             logger.warning(f"全局清理超时 Pending Pod 出错（忽略）: {str(e)}")
     
     def check_cluster_capacity_with_limit(self, memory_limit_mb, cpu_limit):
-        """
-        检查集群容量（优化版：使用Dry Run模式）
         
-        核心改进：
-        1. 废弃并发计数器 - 改用令牌桶（已在ResourceReservationManager实现）
-        2. 使用K8s Dry Run - 让调度器告诉我们能否创建Pod
-        3. 快速失败 - 1秒内返回结果
-        
-        Args:
-            memory_limit_mb: 请求的内存限制（MB）
-            cpu_limit: 请求的 CPU 限制（核心数）
-            
-        Raises:
-            K8sServiceException: 资源不足时抛出
-        """
-        # 新架构：资源检查已通过Dry Run在create_containers中完成
-        # 这里只做基本的节点健康检查
         try:
             self._quick_health_check()
         except K8sServiceException:
@@ -1274,14 +1111,8 @@ class K8sService(ContainerServiceBase):
             logger.warning(f"健康检查失败（降级跳过）: {e}")
     
     def _quick_health_check(self):
-        """
-        快速健康检查（<1秒）
-        
-        只检查关键指标：
-        1. 至少有一个Ready节点
-        2. API Server响应正常
-        """
-        # 使用缓存避免频繁调用K8s API
+       
+      
         cache_key = f'k8s:health_check:{self.namespace}'
         cached_result = cache.get(cache_key)
         
@@ -1320,31 +1151,15 @@ class K8sService(ContainerServiceBase):
             # 降级跳过，让K8s调度器决定
     
     def increment_creating_count(self, timeout=120):
-        """
-        【废弃】增加创建计数（保留以兼容旧代码）
         
-        新架构使用令牌桶，不再需要计数器
-        """
         logger.debug("跳过创建计数（已使用令牌桶替代）")
     
     def decrement_creating_count(self):
-        """
-        【废弃】减少创建计数（保留以兼容旧代码）
         
-        新架构使用令牌桶，不再需要计数器
-        """
         logger.debug("跳过创建计数（已使用令牌桶替代）")
     
     def _get_cluster_resources(self):
-        """
-        获取集群资源信息（用于资源预占）- 基于 requests 已分配量
         
-        关键修复：不再依赖Metrics API（有延迟），而是统计所有Pod的 requests 总量
-        这样可以准确反映K8s调度器的视角，防止过度调度导致节点崩溃
-        
-        Returns:
-            tuple: (total_memory_mb, total_cpu_cores, allocated_memory_mb, allocated_cpu_cores)
-        """
         try:
             use_max_node = self.config.k8s_use_max_node_capacity
             
@@ -1450,7 +1265,7 @@ class K8sService(ContainerServiceBase):
                 allocated_cpu = max_node['allocated_cpu']
                 
                 logger.warning(
-                    f"⚙️ K8s资源策略: 单节点容量（保守）\n"
+                    f" K8s资源策略: 单节点容量（保守）\n"
                     f"   目标节点: {max_node['name']}\n"
                     f"   可用内存: {total_memory - allocated_memory:.0f}MB / {total_memory:.0f}MB\n"
                     f"   可用CPU: {total_cpu - allocated_cpu:.2f}核 / {total_cpu:.2f}核"
@@ -1463,7 +1278,7 @@ class K8sService(ContainerServiceBase):
                 allocated_cpu = sum(n['allocated_cpu'] for n in node_resources)
                 
                 logger.info(
-                    f"⚙️ K8s资源策略: 集群总资源（激进）\n"
+                    f" K8s资源策略: 集群总资源（激进）\n"
                     f"   节点数: {len(node_resources)}个\n"
                     f"   可用内存: {total_memory - allocated_memory:.0f}MB / {total_memory:.0f}MB\n"
                     f"   可用CPU: {total_cpu - allocated_cpu:.2f}核 / {total_cpu:.2f}核"
@@ -1476,15 +1291,7 @@ class K8sService(ContainerServiceBase):
             raise K8sServiceException(f"无法获取集群资源信息: {str(e)}")
     
     def _parse_memory_to_mb(self, memory_str):
-        """
-        解析K8s内存字符串为MB
         
-        Args:
-            memory_str: 如 "4Gi", "512Mi", "1024Ki", "1073741824"
-            
-        Returns:
-            float: 内存大小（MB）
-        """
         memory_str = memory_str.strip()
         
         # 处理带单位的情况
@@ -1501,15 +1308,7 @@ class K8sService(ContainerServiceBase):
             return float(memory_str) / (1024 * 1024)
     
     def _parse_cpu_to_cores(self, cpu_str):
-        """
-        解析K8s CPU字符串为核心数
         
-        Args:
-            cpu_str: 如 "2", "500m", "44351213n", "0.5"
-            
-        Returns:
-            float: CPU核心数
-        """
         cpu_str = cpu_str.strip()
         
         # 处理nanocore（如 "44351213n"）
@@ -1524,16 +1323,7 @@ class K8sService(ContainerServiceBase):
             return float(cpu_str)
     
     def _check_cluster_resources(self, memory_limit_mb, cpu_limit):
-        """
-        检查集群是否有足够的资源（内部方法，由check_cluster_capacity_with_limit调用）
-        
-        Args:
-            memory_limit_mb: 请求的内存限制（MB）
-            cpu_limit: 请求的 CPU 限制（核心数）
-            
-        Raises:
-            K8sServiceException: 资源不足时抛出
-        """
+       
         try:
             from django.conf import settings
             
@@ -1685,7 +1475,7 @@ class K8sService(ContainerServiceBase):
                 "\n".join(resource_info)
             )
             
-            #  优先检查：如果没有Ready节点，立即失败（避免调度到NotReady节点）
+            
             if not has_ready_node:
                 logger.error("K8s 集群没有可用的 Ready 节点")
                 detailed_report = "\n".join(resource_info)
@@ -1695,8 +1485,7 @@ class K8sService(ContainerServiceBase):
                     "集群节点不可用，所有节点都处于 NotReady 或 Unschedulable 状态。"
                     "请联系管理员检查 Kubernetes 集群状态。"
                 )
-            
-            # 如果没有节点满足需求，抛出友好错误
+
             if not has_sufficient_node:
                 logger.warning(f"K8s 集群资源不足，所有节点资源使用率超过阈值")
                 logger.warning(f" 将触发智能降级机制，尝试切换到其他可用引擎")
@@ -1711,7 +1500,7 @@ class K8sService(ContainerServiceBase):
                 )
         
         except K8sServiceException:
-            # 重新抛出业务异常
+           
             raise
         except Exception as e:
             # 资源检查失败不阻止创建（降级处理）
@@ -1750,30 +1539,14 @@ class K8sService(ContainerServiceBase):
             return None
     
     def _build_resource_requirements(self, memory_limit, cpu_limit):
-        """
-        构建资源需求配置（优化版：智能分级策略）
         
-        核心改进：
-        1. 默认requests=40% limits（大幅提升资源利用率）
-        2. 小容器更激进（30%），大容器更保守（50%）
-        3. 设置合理的最小值避免OOM
-        
-        Args:
-            memory_limit: 内存限制 (MB)
-            cpu_limit: CPU 限制（核心数）
-            
-        Returns:
-            client.V1ResourceRequirements: 资源需求对象
-        """
         from container.models import ContainerEngineConfig
         config = ContainerEngineConfig.get_config()
         
         #  智能分级策略（从数据库配置读取基准值）
         default_ratio = config.k8s_requests_ratio  # 从数据库配置读取
         
-        # 小容器（<1GB）：更激进，30%
-        # 中容器（1-4GB）：平衡，使用配置值
-        # 大容器（>4GB）：保守，50%
+
         if memory_limit < 1024 and cpu_limit < 2:
             requests_ratio = min(default_ratio, 0.3)
         elif memory_limit > 4096 or cpu_limit > 4:
@@ -1858,7 +1631,7 @@ class K8sService(ContainerServiceBase):
             security_context=self._build_container_security_context()
         )
         
-        # 🆕 节点选择器（防止节点过载）
+        #  节点选择器（防止节点过载）
         node_selector = None
         if target_node:
             node_selector = {
@@ -1866,37 +1639,27 @@ class K8sService(ContainerServiceBase):
             }
             logger.debug(f"Pod将被调度到节点: {target_node}")
         
-        # 构建 Pod 规格
-        # 多层防护策略：
-        # 1. NetworkPolicy：拒绝所有出站流量（防止攻击外网）
-        # 2. SecurityContext：移除危险的 capabilities（防止容器逃逸）
-        # 3. 资源限制：防止 DDoS 和挖矿
-        # 4. 禁用 ServiceAccount：防止通过 K8s API 攻击
-        # 5. Seccomp：限制系统调用（减少攻击面）
-        # 6. 节点选择器：基于资源使用率选择安全节点（防止节点崩溃）
-        # 注意：K8s 调度器默认不会调度到 NotReady 节点（通过 taint/toleration 机制）
-        # 如果 Pod 被调度后节点才变 NotReady，会在 _wait_for_pod_ready 中检测并清理
+
         pod_spec = client.V1PodSpec(
             containers=[container],
-            restart_policy="Never",  # CTF 容器不自动重启
+            restart_policy="Never", 
             
-            # 禁用自动挂载 ServiceAccount Token（防止通过 K8s API 攻击）
+
             automount_service_account_token=False,
             
-            # Pod 级别安全上下文
+
             security_context=self._build_pod_security_context(),
             
-            # 禁用宿主机网络/PID/IPC 命名空间（防止逃逸到宿主机）
+
             host_network=False,
             host_pid=False,
             host_ipc=False,
             
-            # 🆕 节点选择器（指定调度节点）
+
             node_selector=node_selector,
         )
         
-        # 构建 Pod 元数据
-        # 注意：labels 只能包含字母数字、'-'、'_' 或 '.'，不能有中文
+
         pod_metadata = client.V1ObjectMeta(
             name=pod_name,
             labels={
@@ -1968,20 +1731,7 @@ class K8sService(ContainerServiceBase):
         )
     
     def _create_topology_service(self, pod_name, docker_image, challenge, user, is_entry_point, node_id):
-        """
-        为拓扑节点创建 Service
-        
-        Args:
-            pod_name: Pod 名称
-            docker_image: Docker 镜像对象
-            challenge: 题目对象
-            user: 用户对象
-            is_entry_point: 是否为入口节点
-            node_id: 节点 ID
-            
-        Returns:
-            Service 对象
-        """
+       
         service_name = f"{pod_name}-svc"
         
         # 获取端口配置
@@ -1999,13 +1749,13 @@ class K8sService(ContainerServiceBase):
                 )
             )
         
-        # 根据是否入口节点决定 Service 类型
+
         if is_entry_point:
-            # 入口节点：使用 NodePort，对外暴露
+           
             service_type = "NodePort"
             logger.info(f"创建 NodePort Service（入口节点）: {service_name}")
         else:
-            # 内部节点：使用 ClusterIP，仅集群内访问
+          
             service_type = "ClusterIP"
             logger.info(f"创建 ClusterIP Service（内部节点）: {service_name}")
         
@@ -2079,15 +1829,15 @@ class K8sService(ContainerServiceBase):
             if not docker_image.flag_env_name:
                 raise K8sServiceException("自定义环境变量未配置变量名")
             
-            # 自定义环境变量（主 flag）
+           
             if flags:
                 environment[docker_image.flag_env_name] = flags[0]
             
-            # 标准环境变量（兼容性）
+          
             if flags:
                 environment['SNOW_FLAG'] = flags[0]
             
-            # 仅在多flag时添加额外的环境变量
+          
             if is_multi_flag:
                 environment['SNOW_FLAGS'] = ','.join(flags)
                 environment['SNOW_FLAG_COUNT'] = str(flag_count)
@@ -2101,8 +1851,7 @@ class K8sService(ContainerServiceBase):
                 logger.debug(f"Flag 映射: SNOW_FLAG -> {docker_image.flag_env_name}（单flag模式）")
             
         elif docker_image.flag_inject_method == 'SCRIPT':
-            # K8s 通过 postStart 钩子支持脚本注入
-            # 同时提供环境变量供脚本使用
+          
             if flags:
                 environment['SNOW_FLAG'] = flags[0]
             
@@ -2115,13 +1864,9 @@ class K8sService(ContainerServiceBase):
                 logger.debug(f"脚本注入模式（单flag）")
             
         elif docker_image.flag_inject_method == 'NONE':
-            # 镜像不需要注入 flag
+       
             if challenge.flag_type == 'DYNAMIC':
-                # 警告：可能的配置冲突，但允许继续
-                # 合理场景：
-                # 1. 镜像内置了动态flag生成逻辑
-                # 2. 容器通过API或其他方式获取flag
-                # 3. 配置错误但不应阻止容器启动
+                
                 logger.warning(
                     f"配置提示：镜像 {docker_image.name} 设置为'无需注入flag'，"
                     f"但题目 {challenge.title} 配置为'动态flag'。"
@@ -2132,16 +1877,7 @@ class K8sService(ContainerServiceBase):
         return environment
     
     def _prepare_flag_script(self, docker_image, flags):
-        """
-        准备 Flag 注入脚本 - 支持多段 flag
         
-        Args:
-            docker_image: DockerImage 对象
-            flags: Flag 值（字符串或列表）
-            
-        Returns:
-            str: 替换占位符后的脚本内容
-        """
         if not docker_image.flag_script:
             return ""
         
@@ -2301,7 +2037,7 @@ class K8sService(ContainerServiceBase):
                                         namespace=self.namespace,
                                         grace_period_seconds=0  # 立即删除
                                     )
-                                    logger.info(f"✓ 已清理被错误调度的 Pod: {pod_name}")
+                                    logger.info(f" 已清理被错误调度的 Pod: {pod_name}")
                                 except Exception as cleanup_err:
                                     logger.warning(f"清理 Pod 失败（忽略）: {cleanup_err}")
                                 
@@ -2347,23 +2083,18 @@ class K8sService(ContainerServiceBase):
                                 "请稍后再试或联系管理员扩容服务器资源。"
                             )
                     except K8sServiceException:
-                        raise  # 重新抛出业务异常
+                        raise  
                     except Exception:
-                        pass  # 获取事件失败不影响继续等待
+                        pass  
                 
             except K8sServiceException:
-                # 业务异常（如 NotReady 节点、资源不足等），直接向上抛出，不继续等待
+                
                 raise
             except ApiException as e:
                 if e.status == 404:
-                    # Pod 不存在，可能是：
-                    # 1. 被 K8s 系统清理（资源不足）
-                    # 2. 调度失败后自动删除
-                    # 3. 用户取消任务
                     
-                    #  关键诊断：获取Pod被删除前的完整状态
                     try:
-                        # 先尝试获取Pod的最终状态（可能还能读到）
+                       
                         try:
                             final_pod = self.core_api.read_namespaced_pod(
                                 name=pod_name,
@@ -2405,15 +2136,14 @@ class K8sService(ContainerServiceBase):
                     except Exception:
                         pass
                     
-                    # 高并发优化：在高并发场景下，Pod 可能被临时清理后重新调度
-                    # 不立即失败，而是等待一段时间看是否恢复
+                    
                     elapsed_time = time.time() - start_time
-                    if elapsed_time < 30:  # 前 30 秒内给予宽容
+                    if elapsed_time < 30: 
                         logger.warning(f"Pod 暂时不存在（可能正在调度），继续等待: {pod_name}")
-                        time.sleep(3)  # 等待 3 秒后重试
+                        time.sleep(3)  
                         continue
                     else:
-                        # 超过 30 秒仍然 404，真的被删除了
+                       
                         logger.error(f"Pod 已不存在，停止等待: {pod_name}")
                         raise K8sServiceException(
                             "K8s 集群资源不足，Pod 被系统清理，请稍后再试"
@@ -2421,7 +2151,7 @@ class K8sService(ContainerServiceBase):
                 else:
                     logger.warning(f"检查 Pod 状态失败: {e.reason}")
             except Exception as e:
-                # 其他异常也记录，但不中断等待
+                
                 logger.debug(f"检查 Pod 状态时发生异常: {str(e)}")
             
             time.sleep(2)
@@ -2532,8 +2262,8 @@ class K8sService(ContainerServiceBase):
             'ports': ports,
             'node_ip': node_ip,
             'service_type': service_type,
-            'cluster_ip': cluster_ip,  # ClusterIP Service 的集群内部 IP
-            'service_name': service.metadata.name  # Service 名称（用于集群内访问）
+            'cluster_ip': cluster_ip, 
+            'service_name': service.metadata.name  
         }
     
     def _generate_topology_pod_name(self, challenge, user, node_id):
@@ -2550,36 +2280,31 @@ class K8sService(ContainerServiceBase):
         """
         from pypinyin import lazy_pinyin
         
-        # 转换为拼音
+      
         title_pinyin = ''.join(lazy_pinyin(challenge.title))
         username_pinyin = ''.join(lazy_pinyin(user.username))
         
-        # K8s 名称只能包含小写字母、数字和连字符
+       
         challenge_name = re.sub(r'[^a-z0-9-]', '-', title_pinyin.lower())[:15]
         user_name = re.sub(r'[^a-z0-9-]', '-', username_pinyin.lower())[:10]
         node_id_safe = re.sub(r'[^a-z0-9-]', '-', node_id.lower())[:10]
         
-        # 添加随机后缀避免冲突
+      
         random_suffix = uuid.uuid4().hex[:6]
         
         name = f"{challenge_name}-{user_name}-{node_id_safe}-{random_suffix}"
         
-        # 确保名称不以连字符开头或结尾
+       
         name = name.strip('-')
         
-        # 确保名称长度不超过 K8s 限制（63字符）
+       
         if len(name) > 63:
             name = name[:63].rstrip('-')
         
         return name
     
     def _cleanup_topology_containers(self, topology_config_id):
-        """
-        清理拓扑场景的所有容器和网络策略
         
-        Args:
-            topology_config_id: NetworkTopologyConfig 的 ID
-        """
         try:
             logger.info(f"开始清理拓扑场景: config_id={topology_config_id}")
             
@@ -2612,7 +2337,7 @@ class K8sService(ContainerServiceBase):
                         grace_period_seconds=10
                     )
                     cleaned_pods += 1
-                    logger.debug(f"✓ 删除拓扑 Pod: {pod_name}")
+                    logger.debug(f" 删除拓扑 Pod: {pod_name}")
                 except ApiException as e:
                     if e.status != 404:
                         logger.warning(f"删除 Pod 失败: {pod_name} - {e.reason}")
@@ -2624,7 +2349,7 @@ class K8sService(ContainerServiceBase):
                         namespace=self.namespace
                     )
                     cleaned_services += 1
-                    logger.debug(f"✓ 删除拓扑 Service: {service_name}")
+                    logger.debug(f" 删除拓扑 Service: {service_name}")
                 except ApiException as e:
                     if e.status != 404:
                         logger.warning(f"删除 Service 失败: {service_name} - {e.reason}")
@@ -2638,7 +2363,7 @@ class K8sService(ContainerServiceBase):
                         namespace=self.namespace
                     )
                     cleaned_policies += 1
-                    logger.debug(f"✓ 删除拓扑 NetworkPolicy: {policy_name}")
+                    logger.debug(f" 删除拓扑 NetworkPolicy: {policy_name}")
                 except ApiException as e:
                     if e.status != 404:
                         logger.warning(f"删除 NetworkPolicy 失败: {policy_name} - {e.reason}")
@@ -2653,16 +2378,7 @@ class K8sService(ContainerServiceBase):
             raise K8sServiceException(f"清理拓扑场景失败: {str(e)}")
     
     def _get_ports_for_protocol(self, protocol_name):
-        """
-        根据协议名称返回对应的端口配置
         
-        Args:
-            protocol_name: 协议名称（如 'SSH', 'HTTP', 'MySQL' 等）
-            
-        Returns:
-            list: V1NetworkPolicyPort 对象列表，如果协议不需要端口限制则返回 None
-        """
-        # 协议到端口的映射
         protocol_ports = {
             'SSH': [client.V1NetworkPolicyPort(protocol='TCP', port=22)],
             'HTTP': [client.V1NetworkPolicyPort(protocol='TCP', port=80)],
@@ -2696,35 +2412,13 @@ class K8sService(ContainerServiceBase):
         return protocol_ports.get(protocol_upper, None)
     
     def _create_topology_network_policies_from_json(self, topology_config, pod_name_mapping, node_info_mapping, edges_data):
-        """
-        创建拓扑的网络策略（基于 JSON 中的连接数据）
         
-        关键设计：
-        1. 为每个 Pod 创建默认拒绝所有的策略（Ingress + Egress）
-        2. 根据连线添加允许规则（同时配置出站和入站）
-        3. 入口节点允许来自所有源的 Ingress（支持 NodePort 外部访问）
-        4. 允许必要的系统流量（DNS）
-        5.  根据节点网络策略配置（ISOLATED/ALLOW_INGRESS/ALLOW_EGRESS/ALLOW_BOTH/INTERNAL_ONLY）
-        
-        网络策略说明：
-        - ISOLATED: 完全隔离，无法出网，无法反连（默认，最安全）
-        - ALLOW_INGRESS: 允许反连，可以反弹shell到外部攻击机
-        - ALLOW_EGRESS: 允许出网，可以访问外部资源（wget、curl等）
-        - ALLOW_BOTH: 双向通信，既可反连也可出网
-        - INTERNAL_ONLY: 仅允许拓扑内部节点间通信
-        
-        Args:
-            topology_config: NetworkTopologyConfig 对象
-            pod_name_mapping: node_id -> pod_name 的映射
-            node_info_mapping: node_id -> {is_entry_point, is_target, network_policy, ...} 的映射
-            edges_data: JSON 中的 edges 数据列表
-        """
         try:
             logger.info(f"开始创建网络策略，共 {len(edges_data)} 个连接")
             
-            # 收集每个节点的出站和入站连接
-            node_egress = {}  # node_id -> 允许出站到的目标列表
-            node_ingress = {}  # node_id -> 允许入站来自的源列表
+          
+            node_egress = {}
+            node_ingress = {}  
             
             # 初始化所有节点
             for node_id in pod_name_mapping.keys():
@@ -2873,25 +2567,24 @@ class K8sService(ContainerServiceBase):
                         )
                         logger.info(f"节点 {node_id} 允许访问所有外网地址（反弹shell、wget等）")
                 
-                # 构建入站规则
+             
                 ingress_rules = []
                 
                 is_entry_point = node_info.get('is_entry_point', False)
                 allow_reverse_shell = node_info.get('allow_reverse_shell', False)
                 
-                #  根据网络策略配置添加入站规则
+                
                 if is_entry_point or network_policy in ['ALLOW_INGRESS', 'ALLOW_BOTH']:
-                    # 情况1：入口节点 - 必须允许所有入站（支持 NodePort 外部访问）
-                    # 情况2：配置了允许反连 - 可以反弹shell到外部攻击机
+                    
                     ingress_rules.append(
-                        client.V1NetworkPolicyIngressRule()  # 空规则 = 允许所有
+                        client.V1NetworkPolicyIngressRule() 
                     )
                     if is_entry_point:
                         logger.debug(f"入口节点 {node_id} 允许所有入站流量（NodePort访问）")
                     else:
                         logger.info(f"节点 {node_id} 允许反连入站流量（反弹shell支持）")
                 else:
-                    # 非入口节点且不允许反连：只允许来自拓扑内部的入站流量
+                    
                     for source in node_ingress.get(node_id, []):
                         if not source['source_pod_name']:
                             continue
@@ -2973,59 +2666,43 @@ class K8sService(ContainerServiceBase):
                     egress_desc = str(egress_count)
                 
                 logger.info(
-                    f"✓ 创建网络策略: {policy_name}, "
+                    f" 创建网络策略: {policy_name}, "
                     f"策略={policy_desc}, 出站={egress_desc}, 入站={ingress_desc}"
                 )
             
             logger.info(
-                f"✅ 网络策略创建完成，共 {len(pod_name_mapping)} 个策略\n"
-                f"📌 重要说明：\n"
-                f"  • 拓扑内连线的节点自动允许通信（无论策略如何）\n"
-                f"  • 网络策略仅控制外网访问和反连能力\n"
-                f"  • 所有节点都允许DNS查询（必需）"
+                f" 网络策略创建完成，共 {len(pod_name_mapping)} 个策略\n"
+                f" 重要说明：\n"
+                f"  拓扑内连线的节点自动允许通信（无论策略如何）\n"
+                f"  网络策略仅控制外网访问和反连能力\n"
+                f"  所有节点都允许DNS查询（必需）"
             )
             
         except Exception as e:
             logger.warning(f"创建网络策略失败（不影响容器运行）: {str(e)}")
-            # 网络策略创建失败不影响容器运行，仅记录警告
+            
     
     def _generate_pod_name(self, challenge, user, max_retries=3):
-        """
-        生成 Pod 名称（符合 K8s 命名规范 + 冲突检查）
-        
-        Args:
-            challenge: 题目对象
-            user: 用户对象
-            max_retries: 最大重试次数（默认3次）
-            
-        Returns:
-            str: 唯一的 Pod 名称
-        """
+       
         from pypinyin import lazy_pinyin
         
         # 转换为拼音
         title_pinyin = ''.join(lazy_pinyin(challenge.title))
         username_pinyin = ''.join(lazy_pinyin(user.username))
         
-        # K8s 名称只能包含小写字母、数字和连字符
         challenge_name = re.sub(r'[^a-z0-9-]', '-', title_pinyin.lower())[:20]
         user_name = re.sub(r'[^a-z0-9-]', '-', username_pinyin.lower())[:15]
         
-        #  重试机制：如果名称冲突，使用更长的随机后缀
         for attempt in range(max_retries):
-            # 第一次用8位，后续用12位、16位
             suffix_length = 8 + (attempt * 4)
             random_suffix = uuid.uuid4().hex[:suffix_length]
             
             name = f"{challenge_name}-{user_name}-{random_suffix}"
             
-            # 确保名称不以连字符开头或结尾
             name = name.strip('-')
             
-            # 确保名称长度不超过 K8s 限制（63字符）
             if len(name) > 63:
-                # 动态调整前缀长度
-                available_length = 63 - len(random_suffix) - 2  # 2个连字符
+                available_length = 63 - len(random_suffix) - 2  
                 challenge_part = max(10, available_length // 2)
                 user_part = available_length - challenge_part
                 name = f"{challenge_name[:challenge_part]}-{user_name[:user_part]}-{random_suffix}"
@@ -3042,15 +2719,12 @@ class K8sService(ContainerServiceBase):
                 continue
             except ApiException as e:
                 if e.status == 404:
-                    # Pod 不存在，名称可用
-                    logger.debug(f"✓ 生成唯一 Pod 名称: {name}")
+                    logger.debug(f" 生成唯一 Pod 名称: {name}")
                     return name
                 else:
-                    # 其他错误，记录但继续
                     logger.warning(f"检查 Pod 名称时出错: {e.reason}")
                     return name
         
-        # 所有重试都失败，返回最后一个名称（概率极低）
         logger.warning(f"Pod 名称生成重试次数用尽，使用最后名称: {name}")
         return name
     
@@ -3098,8 +2772,6 @@ class K8sService(ContainerServiceBase):
             for policy in policies.items:
                 policy_name = policy.metadata.name
                 
-                # 从策略名称推断 Pod 名称
-                # 格式：{pod_name}-netpol 或 {pod_name}-egress
                 pod_name = None
                 if policy_name.endswith('-netpol'):
                     pod_name = policy_name[:-7]  # 去掉 '-netpol'
@@ -3115,14 +2787,14 @@ class K8sService(ContainerServiceBase):
                         )
                         result['orphan_policies'] += 1
                         result['deleted_policies'].append(policy_name)
-                        logger.info(f"✓ 清理孤儿 NetworkPolicy: {policy_name} (Pod {pod_name} 已不存在)")
+                        logger.info(f" 清理孤儿 NetworkPolicy: {policy_name} (Pod {pod_name} 已不存在)")
                     except ApiException as e:
                         error_msg = f"删除孤儿 NetworkPolicy {policy_name} 失败: {e.reason}"
                         result['errors'].append(error_msg)
                         logger.warning(error_msg)
             
             logger.info(
-                f"✅ 孤儿 NetworkPolicy 清理完成: "
+                f" 孤儿 NetworkPolicy 清理完成: "
                 f"总计={result['total_policies']}, "
                 f"孤儿={result['orphan_policies']}, "
                 f"已删除={len(result['deleted_policies'])}"
@@ -3232,22 +2904,7 @@ class K8sService(ContainerServiceBase):
             logger.warning("清除所有 K8s 缓存需要重启服务或等待缓存过期")
     
     def _ensure_network_policies(self):
-        """
-        确保命名空间有正确的网络策略（安全防护）
-        
-        功能：
-        1. 默认拒绝所有出站流量（防止攻击外网）
-        2. 仅允许 DNS 查询（53/UDP）
-        3. ⚠️ 允许所有入站流量（用户隔离由应用层负责）
-        
-        注意：
-        - 出站限制可以防止用户利用题目容器攻击外网
-        - 入站允许所有访问，因为：
-          1. CTF 比赛中，用户需要通过 NodePort 访问自己的容器
-          2. K8s NetworkPolicy 无法基于"用户身份"进行入站过滤
-          3. 如果启用入站限制，会导致用户无法访问任何容器
-        - 如需用户隔离，请在应用层实现（如：认证中间件、反向代理）
-        """
+       
         policies_to_apply = []
         
         # 1. 默认拒绝所有出站流量，但允许所有入站流量
@@ -3266,12 +2923,11 @@ class K8sService(ContainerServiceBase):
                 pod_selector=client.V1LabelSelector(),  # 应用于所有 Pod
                 policy_types=['Egress', 'Ingress'],  # 同时定义出站和入站策略
                 egress=[],  # 空列表 = 拒绝所有出站
-                ingress=[{}]  # ⚠️ 允许所有入站（无法在网络层区分用户）
+                ingress=[{}]  #  允许所有入站（无法在网络层区分用户）
             )
         )
         policies_to_apply.append(('ctf-deny-all-egress', deny_all_egress))
         
-        # 2. 允许 DNS 查询（必须，否则无法解析域名）
         allow_dns = client.V1NetworkPolicy(
             api_version='networking.k8s.io/v1',
             kind='NetworkPolicy',
@@ -3333,15 +2989,7 @@ class K8sService(ContainerServiceBase):
                 logger.error(f"应用网络策略失败 ({policy_name}): {str(e)}")
     
     def _ensure_awd_network_policies(self):
-        """
-        确保AWD比赛的网络策略（队伍隔离 + 互相攻击）
-        
-        功能：
-        1. 拒绝访问外网（防止利用靶场攻击外网）
-        2. 允许DNS查询（必需）
-        3. 允许其他namespace（其他队伍）访问本namespace的服务端口
-        4. 允许SSH连接（用于防御）
-        """
+       
         policies_to_apply = []
         
         # 1. 拒绝所有出站流量（防止攻击外网）
@@ -3438,15 +3086,7 @@ class K8sService(ContainerServiceBase):
                 logger.error(f" 应用AWD网络策略失败 ({policy_name}): {str(e)}")
     
     def _get_network_stats(self, container_id: str) -> dict:
-        """
-        获取网络流量统计（通过读取 /proc/net/dev）
-        
-        Args:
-            container_id: Pod 名称
-            
-        Returns:
-            dict: 包含 rx_bytes 和 tx_bytes
-        """
+       
         try:
             # 在 Pod 中执行命令读取网络统计
             command = ['/bin/sh', '-c', 'cat /proc/net/dev 2>/dev/null || echo "not-available"']
@@ -3596,18 +3236,7 @@ class K8sService(ContainerServiceBase):
         return self._build_container_security_context()
     
     def _create_service_for_pod(self, pod_name, ports, challenge, user):
-        """
-        为Pod创建NodePort Service
-        
-        Args:
-            pod_name: Pod名称
-            ports: 端口列表（字符串列表）
-            challenge: 题目对象
-            user: 用户对象
-            
-        Returns:
-            Service对象
-        """
+      
         service_name = f"{pod_name}-svc"
         
         # 构建Service端口列表

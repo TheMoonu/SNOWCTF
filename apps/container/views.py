@@ -107,19 +107,19 @@ class StaticFileCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             return self.form_invalid(form)
     
     def form_invalid(self, form):
-        # 生成新的验证码
+    
         captcha_data = create_captcha_for_registration()
         form.initial['captcha_key'] = captcha_data['captcha_key']
         self.captcha_image = captcha_data['captcha_image']
         
-        # 记录表单验证失败日志
+       
         errors = {field: error_list[0] for field, error_list in form.errors.items()}
         logger.warning(f'用户 {self.request.user.username} 上传静态文件表单验证失败: {errors}',
                       extra={'request': self.request})
         
         #messages.error(self.request, '表单验证失败，请检查您的输入')
         
-        # 如果是AJAX请求，返回JSON响应
+       
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'success': False,

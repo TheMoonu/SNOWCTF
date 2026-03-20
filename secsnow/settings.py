@@ -262,9 +262,7 @@ TOOL_FLAG = os.getenv('SNOW_TOOL_FLAG', 'True').upper() == 'TRUE'
 # 是否开启[API]应用
 API_FLAG = os.getenv('SNOW_API_FLAG', 'False').upper() == 'TRUE'
 
-# ── 模块功能开关 ──────────────────────────────────────────────────────────
-# 每个开关同时控制：导航栏入口显示 + 对应搜索类型选项
-# 在 .env 中配置，True=启用，False=隐藏
+
 MODULE_COMPETITION  = os.getenv('SNOW_MODULE_COMPETITION',  'True').upper() == 'TRUE'   # 竞赛中心
 MODULE_PRACTICE     = os.getenv('SNOW_MODULE_PRACTICE',     'True').upper() == 'TRUE'   # 漏洞靶场
 MODULE_QUIZ         = os.getenv('SNOW_MODULE_QUIZ',         'True').upper() == 'TRUE'   # 知识竞赛
@@ -310,8 +308,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 USE_OBJECT_STORAGE = os.getenv('SNOW_USE_OBJECT_STORAGE', 'False').lower() == 'true'
 
 if USE_OBJECT_STORAGE:
-    # 使用对象存储（RustFS - S3 兼容）
-    # Django 4.2+ 新的 STORAGES 配置方式
     STORAGES = {
         "default": {
             # 使用自定义存储后端，解决 Docker 内部地址无法访问的问题
@@ -327,14 +323,8 @@ if USE_OBJECT_STORAGE:
     AWS_SECRET_ACCESS_KEY = os.getenv('SNOW_STORAGE_SECRET_KEY', '')
     AWS_STORAGE_BUCKET_NAME = os.getenv('SNOW_STORAGE_BUCKET_NAME', '')
     
-    # AWS_S3_ENDPOINT_URL 是 boto3 内部连接对象存储的地址
-    # 默认使用 Docker 内部地址（不对外暴露），通过 Nginx 代理访问
-    # 注意：不要在 URL 中包含 bucket 名称！
     AWS_S3_ENDPOINT_URL = os.getenv('SNOW_STORAGE_ENDPOINT_URL', '')
     
-    # AWS_LOCATION: 文件在 bucket 中的路径前缀（留空表示存储在 bucket 根目录）
-    # 如果设置为 'media'，文件会存储在 s3://secsnow/media/uploads/file.jpg
-    # 当前留空，文件存储在 s3://secsnow/uploads/file.jpg
     AWS_LOCATION = os.getenv('SNOW_STORAGE_LOCATION', '')
     
     AWS_S3_REGION_NAME = os.getenv('SNOW_STORAGE_REGION', 'us-east-1')
@@ -366,12 +356,10 @@ if USE_OBJECT_STORAGE:
     storage_public_url = os.getenv('SNOW_STORAGE_PUBLIC_URL', '')
     endpoint_url = AWS_S3_ENDPOINT_URL
     
-    # 检测是否为 Docker 内部地址
+    
     is_internal = any(keyword in endpoint_url for keyword in ['rustfs', 'localhost', '127.0.0.1'])
     
     if storage_public_url:
-        # 方案1：使用自定义公网访问地址（推荐用于生产环境暴露服务）
-        # 例如：SNOW_STORAGE_PUBLIC_URL=http://你的公网IP:7900
         from urllib.parse import urlparse
         parsed = urlparse(storage_public_url)
         
@@ -392,8 +380,6 @@ if USE_OBJECT_STORAGE:
         MEDIA_URL = '/media/'
         
     else:
-        # 方案3：外部对象存储地址（直接访问）
-        # 适用于使用外网 IP 或第三方对象存储服务
         AWS_S3_CUSTOM_DOMAIN = None
         MEDIA_URL = f'{endpoint_url}/{AWS_STORAGE_BUCKET_NAME}/'
 else:
@@ -499,11 +485,11 @@ HAYSTACK_SIGNAL_PROCESSOR = 'haystack.signals.RealtimeSignalProcessor'  # 实时
 
 
 # *************************************** celery 配置开始 ***************************************
-# 跟缓存的redis配置类似，使用不同的库就行
+
 CELERY_BROKER_URL = redis_celery_url
-# 时区跟Django的一致
+
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_ENABLE_UTC = False  # 不使用 UTC
+CELERY_ENABLE_UTC = False  
 # 注意：django-celery-beat 需要 Django USE_TZ=True 才能正常工作
 
 # 支持数据库django-db和缓存django-cache存储任务状态及结果
@@ -511,29 +497,19 @@ CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = 'django-cache'
 # 使用 django-celery-beat 官方调度器（从数据库读取配置）
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-# Beat状态文件存储路径（自动在当前目录创建）
-# celery内容等消息的格式设置，默认json
+
 CELERY_ACCEPT_CONTENT = ['application/json', ]
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 # 每个 worker 最多执行n个任务就会被销毁，可防止内存泄露和数据库连接泄露
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 100
 
-#  【关键配置】修改 Celery 默认队列名（从 'celery' 改为 'default'）
-# 原因：Celery 内置默认队列名是 'celery'，但我们的 Worker 监听的是 'default' 队列
-# 如果不设置这个，Django Admin 手动运行的任务会进入 'celery' 队列，导致没有 Worker 处理
+
 CELERY_TASK_DEFAULT_QUEUE = 'default'
 CELERY_TASK_DEFAULT_EXCHANGE = 'default'
 CELERY_TASK_DEFAULT_ROUTING_KEY = 'default'
 
-#  数据库连接管理优化（防止 connection already closed 错误）
-# Worker 预取任务数量（全局默认值，各 Worker 可在启动命令中覆盖）
-# 注意：
-#   - prefetch_count = 并发数 × PREFETCH_MULTIPLIER
-#   - 默认模式：单 Worker (gevent 50并发) → prefetch=50 (50×1)
-#   - 高性能模式：
-#     * 容器 Worker (gevent 150并发) → prefetch=300 (150×2, 在命令行覆盖)
-#     * 通用 Worker (prefork 6并发) → prefetch=6 (6×1, 在命令行覆盖)
+
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # 全局默认值
 
 # 禁用连接池（让每个任务使用独立的连接）
@@ -543,30 +519,25 @@ CELERY_BROKER_CONNECTION_MAX_RETRIES = 10  # 最大重试次数
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # 任务优先级配置（0-9，数字越大优先级越高）
-CELERY_TASK_ACKS_ON_FAILURE_OR_TIMEOUT = True  # 任务失败或超时也确认，避免重复执行
-CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Worker 丢失时拒绝任务
-CELERY_WORKER_DISABLE_RATE_LIMITS = False  # 启用速率限制（防止任务风暴）
+CELERY_TASK_ACKS_ON_FAILURE_OR_TIMEOUT = True  
+CELERY_TASK_REJECT_ON_WORKER_LOST = True  
+CELERY_WORKER_DISABLE_RATE_LIMITS = False  
 
-# 为存储结果设置过期日期，默认1天过期。如果beat开启，Celery每天会自动清除，0表示永不清理
-# 这里可以设置成0，然后自己创建清理结果的机制，比较好控制
+
 CELERY_RESULT_EXPIRES = 0
 CELERY_BROKER_CONNECTION_RETRY = True
 
 # 心跳配置（解决 Worker 心跳丢失问题）
-CELERY_BROKER_HEARTBEAT = 60  # Broker 心跳间隔：60秒（默认120秒，增加心跳频率）
-CELERY_BROKER_HEARTBEAT_CHECKRATE = 2  # 心跳检查频率：每2秒检查一次
-CELERY_EVENT_QUEUE_EXPIRES = 60  # 事件队列过期时间：60秒
-CELERY_WORKER_SEND_TASK_EVENTS = False  # 关闭任务事件发送（减少 Redis 写入）
+CELERY_BROKER_HEARTBEAT = 60  
+CELERY_BROKER_HEARTBEAT_CHECKRATE = 2  
+CELERY_EVENT_QUEUE_EXPIRES = 60 
+CELERY_WORKER_SEND_TASK_EVENTS = False 
 
 # 关键配置：任务确认和状态追踪
-CELERY_TASK_ACKS_LATE = True  # 任务执行后才确认，revoke 才能生效
-CELERY_TASK_TRACK_STARTED = False  # 关闭任务状态追踪（减少 Redis 写入，提升性能）
+CELERY_TASK_ACKS_LATE = True  
+CELERY_TASK_TRACK_STARTED = False  
 
-# 任务超时配置（防止任务卡死占用 worker）
-# 注意：
-#   - 快速任务（容器创建）：1-2分钟足够
-#   - 慢速任务（批量清理）：可能需要 10-30 分钟
-#   - expires_seconds 应该 > time_limit，否则任务可能执行到一半被撤销
+
 CELERY_TASK_TIME_LIMIT = 1800  # 硬超时：30分钟（给慢任务足够时间）
 CELERY_TASK_SOFT_TIME_LIMIT = 1740  # 软超时：29分钟（提前1分钟警告）
 # 任务路由配置（将不同类型的任务分配到不同队列）
@@ -703,27 +674,27 @@ CELERY_TASK_ROUTES = {
     },
 }
 
-#  任务优先级配置（0-9，9最高）
+
 CELERY_TASK_DEFAULT_PRIORITY = 5
 CELERY_TASK_QUEUE_MAX_PRIORITY = 10
 
-#  任务级别的详细配置（限流、超时等）
+
 CELERY_TASK_ANNOTATIONS = {
     # ==================== 容器创建任务 ====================
     'competition.tasks.create_container_async': {
-        'rate_limit': '150/m',  # 每分钟最多150个容器创建任务（匹配 gevent 并发数）
+        'rate_limit': '150/m',  
         'time_limit': 300,
         'soft_time_limit': 240,
-        'priority': 8,  # 最高优先级（比赛）
+        'priority': 8,  
     },
     'practice.tasks.create_container_async': {
-        'rate_limit': '150/m',  # 与比赛共享限流
+        'rate_limit': '150/m',  
         'time_limit': 300,
         'soft_time_limit': 240,
-        'priority': 7,  # 稍低于比赛
+        'priority': 7,  
     },
     
-    # ==================== 容器清理任务 ====================
+
     'easytask.tasks.cleanup_expired_containers_bucket': {
         'rate_limit': '200/m',
         'time_limit': 120,
@@ -852,9 +823,6 @@ CELERY_TASK_ANNOTATIONS = {
     },
 }
 
-# Celery Beat 定期任务配置（使用 DatabaseScheduler，可在 Django Admin 中管理）
-# 默认任务：定期清理过期容器
-# 注意：旧版 CELERYBEAT_SCHEDULE 已废弃，任务已迁移到下方的 CELERY_BEAT_SCHEDULE
 # *************************************** celery 配置结束 ***************************************
 
 
@@ -867,9 +835,7 @@ if admin_email_user:
         a_user, a_email = each.split('|')
         ADMINS.append((a_user, a_email))
 
-# 邮箱配置
-# 使用自定义邮件后端，支持动态从数据库读取配置
-# 优先使用数据库配置，如果数据库未配置则回退到以下环境变量配置
+
 EMAIL_BACKEND = 'public.email_backend.DynamicEmailBackend'
 
 # 环境变量配置作为后备（当数据库未配置时使用）
@@ -950,9 +916,7 @@ LOGS_DIR = os.path.join(BASE_DIR, 'log')
 if not os.path.exists(LOGS_DIR):
     os.makedirs(LOGS_DIR)
 
-# 日志级别环境变量配置
-# 使用方式: export LOG_LEVEL=INFO 或 export LOG_LEVEL_CONTAINER=DEBUG
-# 优先级: 应用特定环境变量 > 全局环境变量 > 默认值
+
 DEFAULT_LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 
 # 各应用的日志级别（支持独立配置）
@@ -1011,7 +975,7 @@ LOGGING = {
             'formatter': 'standard',
         },
         'database': {
-            'level': 'WARNING',  # 只记录警告和错误到数据库
+            'level': 'WARNING', 
             'class': 'apps.logs.log_handlers.DatabaseLogHandler',
             'formatter': 'standard',
         },
@@ -1030,62 +994,57 @@ LOGGING = {
         },
         'django.request': {
             'handlers': ['mail_admins', 'file'],
-            'level': 'ERROR',  # 请求错误始终记录
+            'level': 'ERROR', 
             'propagate': False,
         },
-        'apps': {  # 通用应用日志
+        'apps': {  
             'handlers': ['console', 'file'],
             'level': LOG_LEVEL_APPS,
             'propagate': False,
         },
-        'apps.competition': {  # 比赛应用（重要）
+        'apps.competition': {  
             'handlers': ['console', 'file', 'database'],
             'level': LOG_LEVEL_COMPETITION,
             'propagate': False,
         },
-        'apps.quiz': {  # 竞赛应用
+        'apps.quiz': { 
             'handlers': ['console', 'file'],
             'level': LOG_LEVEL_QUIZ,
             'propagate': False,
         },
-        'apps.container': {  # 容器应用（重要）
+        'apps.container': {  
             'handlers': ['console', 'file', 'database'],
             'level': LOG_LEVEL_CONTAINER,
             'propagate': False,
         },
-        'apps.practice': {  # 练习应用
+        'apps.practice': {  
             'handlers': ['console', 'file'],
             'level': LOG_LEVEL_PRACTICE,
             'propagate': False,
         },
-        'apps.recruit': {  # 招聘应用
+        'apps.recruit': {  
             'handlers': ['console', 'file'],
             'level': LOG_LEVEL_RECRUIT,
             'propagate': False,
         },
-        'apps.tool': {  # 工具应用
+        'apps.tool': {  
             'handlers': ['console', 'file'],
             'level': LOG_LEVEL_TOOL,
             'propagate': False,
         },
-        'apps.public': {  # 公共应用
+        'apps.public': {  
             'handlers': ['console', 'file'],
             'level': LOG_LEVEL_PUBLIC,
             'propagate': False,
         },
-        'apps.oauth': {  # 认证应用（重要）
+        'apps.oauth': { 
             'handlers': ['console', 'file', 'database'],
             'level': LOG_LEVEL_OAUTH,
             'propagate': False,
         },
-        'apps.easytask': {  # 任务应用
+        'apps.easytask': { 
             'handlers': ['console', 'file', 'database'],
             'level': LOG_LEVEL_EASYTASK,
-            'propagate': False,
-        },
-        'apps.snowai': {  # AI 应用
-            'handlers': ['console', 'file', 'database'],
-            'level': LOG_LEVEL_SNOWAI,
             'propagate': False,
         },
     }
