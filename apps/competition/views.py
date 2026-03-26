@@ -397,70 +397,7 @@ def create_web_container(request, slug):
                 "message": "容器已存在"
             }, status=200)
         
-        # 11. 提交任务前的资源预检（全局并发、K8s 节点 / Docker 令牌预占）
-        precheck = None
-        precheck_result = None
-        try:
-            memory_limit = 512
-            cpu_limit = 1.0
-
-            if challenge.docker_image:
-                docker_image = challenge.docker_image
-                memory_limit = docker_image.memory_limit or 512
-                cpu_limit = docker_image.cpu_limit or 1.0
-            elif challenge.network_topology_config:
-                topology_config = challenge.network_topology_config
-                memory_limit, cpu_limit = topology_config.get_max_resources()
-
-            if challenge.docker_image or challenge.network_topology_config:
-                from container.container_resource_precheck import (
-                    ContainerResourcePrecheck,
-                    get_http_status_for_error,
-                )
-
-                precheck = ContainerResourcePrecheck(
-                    memory_limit=memory_limit,
-                    cpu_limit=cpu_limit,
-                    challenge=challenge,
-                )
-                success, error_msg = precheck.check(user_id=request.user.id)
-
-                if not success:
-                    status_code = get_http_status_for_error(error_msg)
-                    logger.warning(
-                        f"资源预检失败，拒绝任务提交: user={request.user.id}, "
-                        f"challenge={challenge_uuid}, 错误={error_msg}"
-                    )
-                    return JsonResponse({
-                        "error": error_msg,
-                        "retry_after": 5,
-                    }, status=status_code)
-
-                precheck_result = precheck.get_result_for_celery()
-                logger.info(
-                    f"资源预检通过: user={request.user.id}, "
-                    f"engine_type={precheck_result['engine_type']}, "
-                    f"engine_id={precheck_result['engine_id']}, "
-                    f"details={precheck_result}"
-                )
-
-        except Exception as e:
-            logger.error(
-                f"资源预检异常: user={request.user.id}, "
-                f"challenge={challenge_uuid}, 错误={str(e)}",
-                exc_info=True,
-            )
-            if precheck:
-                try:
-                    precheck.cleanup_on_error()
-                except Exception:
-                    pass
-            return JsonResponse({
-                "error": "资源预检失败，请稍后再试或联系管理员",
-                "retry_after": 5,
-            }, status=500)
-
-        # 12. 提交异步任务到Celery队列
+        # 11. 提交异步任务到Celery队列
         from competition.tasks import create_container_async
         
         # 准备请求元数据
@@ -468,8 +405,6 @@ def create_web_container(request, slug):
             'REMOTE_ADDR': request.META.get('REMOTE_ADDR'),
             'HTTP_USER_AGENT': request.META.get('HTTP_USER_AGENT'),
         }
-        if precheck_result:
-            request_meta.update(precheck_result)
         
         logger.debug(f"提交任务元数据: {request_meta}")
         
@@ -486,7 +421,7 @@ def create_web_container(request, slug):
             f"task_id={task.id}, 题目={challenge.title}"
         )
         
-        # 13. 返回任务ID（前端通过此ID轮询状态）
+        # 12. 返回任务ID（前端通过此ID轮询状态）
         return JsonResponse({
             "status": "queued",
             "task_id": task.id,
