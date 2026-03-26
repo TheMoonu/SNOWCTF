@@ -48,16 +48,19 @@ def create_container_async(self, challenge_uuid, user_id, request_meta=None):
         }
     """
     from django.db import close_old_connections
+    from container.resource_reservation import ResourceReservationManager
     
     task_id = self.request.id
     cache_key = f"container_task:{task_id}"
     container_lock_key = f"container_lock:{user_id}:{challenge_uuid}"
     
     #  提取资源预占标识、目标节点和资源需求
+    reserve_key = None
     target_node = None
     memory_requests = None
     cpu_requests = None
     if request_meta:
+        reserve_key = request_meta.get('reserve_key')
         target_node = request_meta.get('target_node')
         memory_requests = request_meta.get('memory_requests')
         cpu_requests = request_meta.get('cpu_requests')
@@ -286,6 +289,13 @@ def create_container_async(self, challenge_uuid, user_id, request_meta=None):
                     )
         except Exception as e:
             logger.error(f"[Task {task_id}] 释放节点预占失败: {str(e)}")
+        
+        try:
+            if reserve_key:
+                ResourceReservationManager.release(reserve_key)
+                logger.debug(f"[Task {task_id}] 已归还 Docker 资源令牌: {reserve_key}")
+        except Exception as e:
+            logger.error(f"[Task {task_id}] 归还令牌失败: {str(e)}")
         
         # 🔧 确保清理数据库连接（防止连接泄漏）
         try:

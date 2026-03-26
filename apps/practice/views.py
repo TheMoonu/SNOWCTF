@@ -301,97 +301,75 @@ def create_web_container(request):
         
         # 设置锁（5分钟超时）
         cache.set(container_lock_key, True, timeout=300)
+
+        # 资源预检（与比赛接口一致：削峰、节点/令牌预占，避免 Celery 队列堆积）
+        precheck = None
+        precheck_result = None
+        try:
+            try:
+                pc_challenge = PC_Challenge.objects.select_related(
+                    'docker_image', 'network_topology_config'
+                ).get(uuid=challenge_uuid)
+            except PC_Challenge.DoesNotExist:
+                cache.delete(container_lock_key)
+                return JsonResponse({"error": "题目不存在"}, status=404)
+
+            memory_limit = 512
+            cpu_limit = 1.0
+            if pc_challenge.docker_image:
+                di = pc_challenge.docker_image
+                memory_limit = di.memory_limit or 512
+                cpu_limit = di.cpu_limit or 1.0
+            elif pc_challenge.network_topology_config:
+                memory_limit, cpu_limit = pc_challenge.network_topology_config.get_max_resources()
+
+            if pc_challenge.docker_image or pc_challenge.network_topology_config:
+                from container.container_resource_precheck import (
+                    ContainerResourcePrecheck,
+                    get_http_status_for_error,
+                )
+
+                precheck = ContainerResourcePrecheck(
+                    memory_limit=memory_limit,
+                    cpu_limit=cpu_limit,
+                    challenge=pc_challenge,
+                )
+                success, error_msg = precheck.check(user_id=user.id)
+                if not success:
+                    cache.delete(container_lock_key)
+                    status_code = get_http_status_for_error(error_msg)
+                    logger.warning(
+                        f"练习资源预检失败: user={user.id}, challenge={challenge_uuid}, 错误={error_msg}"
+                    )
+                    return JsonResponse({
+                        "error": error_msg,
+                        "retry_after": 5,
+                    }, status=status_code)
+                precheck_result = precheck.get_result_for_celery()
+        except Exception as e:
+            logger.error(
+                f"练习资源预检异常: user={user.id}, challenge={challenge_uuid}, 错误={str(e)}",
+                exc_info=True,
+            )
+            if precheck:
+                try:
+                    precheck.cleanup_on_error()
+                except Exception:
+                    pass
+            cache.delete(container_lock_key)
+            return JsonResponse({
+                "error": "资源预检失败，请稍后再试或联系管理员",
+                "retry_after": 5,
+            }, status=500)
         
-        # 提取请求元数据（用于日志）
+        # 提取请求元数据（用于日志与 Celery 消费预检结果）
         request_meta = {
             'REMOTE_ADDR': request.META.get('REMOTE_ADDR'),
             'HTTP_USER_AGENT': request.META.get('HTTP_USER_AGENT'),
             'HTTP_X_FORWARDED_FOR': request.META.get('HTTP_X_FORWARDED_FOR'),
         }
-        
-        # 资源预检（防止集群崩溃）
-        precheck_result = None
-        try:
-            # 获取题目信息（需要知道资源限制）
-            from practice.models import PC_Challenge
-            challenge = PC_Challenge.objects.select_related('docker_image', 'network_topology_config').get(uuid=challenge_uuid)
-            
-            # 确定资源限制（单镜像 or 拓扑）
-            memory_limit = 512
-            cpu_limit = 1.0
-            
-            if challenge.docker_image:
-                # 单镜像场景
-                docker_image = challenge.docker_image
-                memory_limit = docker_image.memory_limit or 512
-                cpu_limit = docker_image.cpu_limit or 1.0
-            elif hasattr(challenge, 'network_topology_config') and challenge.network_topology_config:
-                # 拓扑场景：从拓扑配置中获取最大资源限制
-                topology_config = challenge.network_topology_config
-                memory_limit, cpu_limit = topology_config.get_max_resources()
-            
-            # 只有配置了镜像或拓扑时才执行资源预检
-            if challenge.docker_image or (hasattr(challenge, 'network_topology_config') and challenge.network_topology_config):
-                from container.container_resource_precheck import (
-                    ContainerResourcePrecheck,
-                    get_http_status_for_error
-                )
-                
-                # 创建资源预检管理器
-                precheck = ContainerResourcePrecheck(
-                    memory_limit=memory_limit,
-                    cpu_limit=cpu_limit,
-                    challenge=challenge
-                )
-                
-                # 执行资源预检
-                success, error_msg = precheck.check(user_id=user.id)
-                
-                if not success:
-                    # 释放锁
-                    cache.delete(container_lock_key)
-                    
-                    status_code = get_http_status_for_error(error_msg)
-                    logger.warning(
-                        f"资源预检失败: user={user.id}, challenge={challenge_uuid}, "
-                        f"错误={error_msg}"
-                    )
-                    return JsonResponse({
-                        "error": error_msg,
-                        "retry_after": 5
-                    }, status=status_code)
-                
-                # 预检通过，获取结果传递给Celery
-                precheck_result = precheck.get_result_for_celery()
-                
-                logger.info(
-                    f"资源预检通过: user={user.id}, "
-                    f"engine_type={precheck_result['engine_type']}, "
-                    f"engine_id={precheck_result['engine_id']}, "
-                    f"target_node={precheck_result.get('target_node', 'N/A')}"
-                )
-                
-                # 合并预检结果到request_meta
-                request_meta.update(precheck_result)
-        
-        except PC_Challenge.DoesNotExist:
-            cache.delete(container_lock_key)
-            return JsonResponse({"error": "题目不存在"}, status=404)
-        except Exception as e:
-            cache.delete(container_lock_key)
-            logger.error(f"资源预检异常: {str(e)}", exc_info=True)
-            
-            # 清理可能已预占的资源
-            if precheck_result:
-                try:
-                    precheck.cleanup_on_error()
-                except:
-                    pass
-            
-            return JsonResponse({
-                "error": "资源预检失败，请稍后再试",
-                "retry_after": 5
-            }, status=500)
+        if precheck_result:
+            request_meta.update(precheck_result)
         
         # 4. 创建异步任务
         from practice.tasks import create_container_async

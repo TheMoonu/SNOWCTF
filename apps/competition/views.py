@@ -162,7 +162,7 @@ def check_container_status(request):
 
    
 @require_http_methods(["POST"])
-#@csrf_exempt  # 临时禁用CSRF验证用于负载测试
+@csrf_exempt  # 临时禁用CSRF验证用于负载测试
 @login_required  # 临时注释用于测试
 def create_web_container(request, slug):
     """
@@ -244,7 +244,7 @@ def create_web_container(request, slug):
         # 6. 获取题目和比赛信息（使用 select_related 减少查询）
         try:
             challenge = Challenge.objects.select_related(
-                'docker_image'
+                'docker_image', 'network_topology_config'
             ).get(uuid=challenge_uuid)
         except Challenge.DoesNotExist:
             logger.warning(f"用户 {request.user.id} 尝试访问不存在的题目: {challenge_uuid}")
@@ -397,85 +397,69 @@ def create_web_container(request, slug):
                 "message": "容器已存在"
             }, status=200)
         
-        # 11. 关键：提交任务前的资源预检（防止集群被爆）
-        # 使用新的资源预检模块（统一管理，避免代码重复）
+        # 11. 提交任务前的资源预检（全局并发、K8s 节点 / Docker 令牌预占）
+        precheck = None
         precheck_result = None
         try:
-            # 确定资源限制（单镜像 or 拓扑）
             memory_limit = 512
             cpu_limit = 1.0
-            
+
             if challenge.docker_image:
-                # 单镜像场景
                 docker_image = challenge.docker_image
                 memory_limit = docker_image.memory_limit or 512
                 cpu_limit = docker_image.cpu_limit or 1.0
-            elif hasattr(challenge, 'network_topology_config') and challenge.network_topology_config:
-                # 拓扑场景：从拓扑配置中获取最大资源限制
+            elif challenge.network_topology_config:
                 topology_config = challenge.network_topology_config
                 memory_limit, cpu_limit = topology_config.get_max_resources()
-            
-            # 检查题目是否需要容器
-            if challenge.docker_image or (hasattr(challenge, 'network_topology_config') and challenge.network_topology_config):
+
+            if challenge.docker_image or challenge.network_topology_config:
                 from container.container_resource_precheck import (
                     ContainerResourcePrecheck,
-                    get_http_status_for_error
+                    get_http_status_for_error,
                 )
-                
-                # 创建资源预检管理器
+
                 precheck = ContainerResourcePrecheck(
                     memory_limit=memory_limit,
                     cpu_limit=cpu_limit,
-                    challenge=challenge
+                    challenge=challenge,
                 )
-                
-                # 执行资源预检（多层防护：并发限流 + K8s节点选择 + Docker资源检查）
                 success, error_msg = precheck.check(user_id=request.user.id)
-                
+
                 if not success:
-                    # 预检失败，返回友好的错误信息
                     status_code = get_http_status_for_error(error_msg)
-                    
                     logger.warning(
                         f"资源预检失败，拒绝任务提交: user={request.user.id}, "
                         f"challenge={challenge_uuid}, 错误={error_msg}"
                     )
-                    
                     return JsonResponse({
                         "error": error_msg,
-                        "retry_after": 5  # 建议5秒后重试
+                        "retry_after": 5,
                     }, status=status_code)
-                
-                # 预检通过，保存结果（用于传递给Celery任务）
+
                 precheck_result = precheck.get_result_for_celery()
-                
                 logger.info(
                     f"资源预检通过: user={request.user.id}, "
                     f"engine_type={precheck_result['engine_type']}, "
                     f"engine_id={precheck_result['engine_id']}, "
                     f"details={precheck_result}"
                 )
-            
+
         except Exception as e:
-            # 预检过程异常（非预期错误）
             logger.error(
                 f"资源预检异常: user={request.user.id}, "
                 f"challenge={challenge_uuid}, 错误={str(e)}",
-                exc_info=True
+                exc_info=True,
             )
-            
-            # 清理可能已预占的资源
-            if precheck_result:
+            if precheck:
                 try:
                     precheck.cleanup_on_error()
-                except:
+                except Exception:
                     pass
-            
             return JsonResponse({
                 "error": "资源预检失败，请稍后再试或联系管理员",
-                "retry_after": 5
+                "retry_after": 5,
             }, status=500)
-        
+
         # 12. 提交异步任务到Celery队列
         from competition.tasks import create_container_async
         
@@ -484,8 +468,6 @@ def create_web_container(request, slug):
             'REMOTE_ADDR': request.META.get('REMOTE_ADDR'),
             'HTTP_USER_AGENT': request.META.get('HTTP_USER_AGENT'),
         }
-        
-        # 合并预检结果（如果有）
         if precheck_result:
             request_meta.update(precheck_result)
         
@@ -587,17 +569,16 @@ def query_container_task_status(request, slug, task_id):
                 "percent": task_info.get('progress', 0)
             }
             
-            # 如果任务成功，包含容器/场景数据
+      
             if status == 'success' and task_info.get('data'):
                 response_data['result'] = task_info['data']
-            
-            # 如果任务失败，包含错误信息
+         
             if status in ('failed', 'timeout') and task_info.get('error'):
                 response_data['error'] = task_info['error']
             
             return JsonResponse(response_data)
         
-        # 如果cache中没有，从Celery的AsyncResult读取
+      
         from celery.result import AsyncResult
         async_result = AsyncResult(task_id)
         
