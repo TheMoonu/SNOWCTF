@@ -41,7 +41,7 @@
 
 ## 个人版文档与支持
 
-- **文档中心**：[官方文档](https://www.secsnow.cn/wiki/subject/article/this-one/)
+- **文档中心**：[官方文档](https://docs.secsnow.cn)
 - **社区 QQ 群**：517929458
 
 ## 网络安全综合学习系统-专业版

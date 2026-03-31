@@ -39,7 +39,7 @@ The Cybersecurity Learning System is an integrated learning platform built for c
 ## Personal Edition Documentation & Support
 
 - **Online Demo**: [www.secsnow.cn](https://www.secsnow.cn/)
-- **Documentation**: [Official Docs](https://www.secsnow.cn/wiki/subject/article/this-one/)
+- **Documentation**: [Official Docs](https://docs.secsnow.cn)
 - **Community QQ Group**: 517929458
 
 ## Cybersecurity Learning System — Professional Edition
@@ -54,7 +54,6 @@ The Professional Edition targets **enterprises, universities, and commercial use
 | **Performance** | 1x TPS | 5x TPS |
 | **Core Features** | CTF, vulnerability labs, knowledge competitions | CTF, vulnerability labs, knowledge competitions, attack-defense competitions (not yet officially released) |
 | **Feature Differences** | Optional competition themes, non-core features | Multi-FLAG scenarios, dynamic/static scoring and flags, full admin backend, compliance (e.g. level protection), security audit, access control, container proxy and access limits, AWD/AWDP support (not yet released), integrated theory + practice competition mode, enhanced anti-cheating and auditing |
-| **Demo** | None | Client: [http://111.228.44.199:8282/](http://111.228.44.199:8282/), Admin: [http://111.228.44.199:8787/](http://111.228.44.199:8787/), Login: **ctfer** / **ctf@5678** |
 
 > For Professional Edition deployment and partnership, contact: **secsnowteam@gmail.com**
 
