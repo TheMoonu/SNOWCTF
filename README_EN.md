@@ -1,6 +1,6 @@
 <div align="right">
 
-**🌐 Document Language:** **English** | [简体中文](README.md)
+**Document Language:** **English** | [简体中文](README.md)
 
 </div>
 
@@ -12,7 +12,7 @@
 
 [![Community](https://img.shields.io/badge/QQ_Group-517929458-blue)](https://qm.qq.com/cgi-bin/qm/qr?k=xxx)
 [![Official Site](https://img.shields.io/badge/Official_Site-www.secsnow.cn-green)](https://www.secsnow.cn)
-[![Documentation](https://img.shields.io/badge/Documentation-View_Docs-orange)](https://www.secsnow.cn/wiki/subject/article/this-one/)
+[![Documentation](https://img.shields.io/badge/Documentation-View_Docs-orange)](https://docs.secsnow.cn)
 
 </div>
 
@@ -55,7 +55,6 @@ The Professional Edition targets **enterprises, universities, and commercial use
 | **Core Features** | CTF, vulnerability labs, knowledge competitions | CTF, vulnerability labs, knowledge competitions, attack-defense competitions (not yet officially released) |
 | **Feature Differences** | Optional competition themes, non-core features | Multi-FLAG scenarios, dynamic/static scoring and flags, full admin backend, compliance (e.g. level protection), security audit, access control, container proxy and access limits, AWD/AWDP support (not yet released), integrated theory + practice competition mode, enhanced anti-cheating and auditing |
 
-> For Professional Edition deployment and partnership, contact: **secsnowteam@gmail.com**
 
 ## Personal Edition — Anime Theme Preview
 

@@ -4,7 +4,7 @@
 
 </div>
 
-# CTF平台-网络安全综合学习系统-个人版（SNOWCTF）（可简称：SCTF）
+# CTF平台-网络安全综合学习系统-个人版（SNOWCTF）
 
 <div align="center">
 
@@ -14,7 +14,7 @@
 
 [![社区群](https://img.shields.io/badge/QQ群-517929458-blue)](https://qm.qq.com/cgi-bin/qm/qr?k=xxx)
 [![官网](https://img.shields.io/badge/官网-www.secsnow.cn-green)](https://www.secsnow.cn)
-[![文档](https://img.shields.io/badge/文档中心-查看文档-orange)](https://www.secsnow.cn/wiki/subject/article/this-one/)
+[![文档](https://img.shields.io/badge/文档中心-查看文档-orange)](https://docs.secsnow.cn)
 
 </div>
 
@@ -50,16 +50,8 @@
 
 ### 个人版 vs 专业版
 
-| | 个人版 | 专业版 |
-|--|--------|--------|
-| **适用场景** | 个人学习、小型团队、普通校赛与训练 | 企业/高校、商业部署与推广、中大规模竞赛和培训 |
-| **性能** | 1x TPS | 5x TPS  |
-| **核心功能** | CTF竞赛、漏洞靶场、知识竞赛 | CTF竞赛、漏洞靶场、知识竞赛、攻防竞赛（未正式上线）  |
-| **功能差异** | 可选的竞赛模板，非核心功能支持 | 竞赛多FLAG场景、动静态分数与flag、完善的后台管理系统、等级保护与合规、安全审计、访问控制、容器代理与访问限制、攻防对抗赛制支持、完全融合的理论与实操的竞赛模式、加强版作弊监测和审计  |
-| **演示demo** | [www.secsnow.cn](https://www.secsnow.cn/)  | 客户端：[http://111.228.44.199:8282/](http://111.228.44.199:8282/) ，后台：[http://111.228.44.199:8787/](http://111.228.44.199:8787/) ，账号：ctfer，密码：ctf@5678 |
+如果需要了解请查看[个人版与专业版差异](https://docs.secsnow.cn/node/019d423f-fe38-734d-b52b-78cf147249e5)
 
-
-> 专业版部署与合作联系 邮箱 ：**secsnowteam@gmail.com**
 
 
 ## 个人版-二次元版界面预览
@@ -121,9 +113,6 @@
 ![比赛界面](https://cdn.jsdelivr.net/gh/TheMoonu/TheMoonu/个人信息页面.png)
 
 ---
-
-
-
 
 
 
