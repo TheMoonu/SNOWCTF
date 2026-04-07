@@ -860,18 +860,31 @@ SECSNOW_VERSION  = os.getenv('SECSNOW_VERSION', 'v1.0.1')
 
 #使用分析功能
 SIMPLEUI_ANALYSIS = False
-
+SIMPLEUI_STATIC_OFFLINE = True
 SIMPLEUI_HOME_INFO = False
 # 自定义后台logo
-SNOW_HOME_TITLE = os.getenv('SNOW_SIMPLEUI_HOME_TITLE', "SECSNOW")
-SNOW_SIMPLEUI_LOGO = os.getenv('SNOW_SIMPLEUI_LOGO','https://www.secsnow.cn/static/blog/img/logo.svg')
+SNOW_HOME_TITLE = os.getenv('SNOW_SIMPLEUI_HOME_TITLE', "开源个人版")
+SNOW_SIMPLEUI_LOGO = os.getenv('SNOW_SIMPLEUI_LOGO','')
 SIMPLEUI_LOGO = f'{SNOW_SIMPLEUI_LOGO}'
 
 # 自定义菜单图标
 SIMPLEUI_ICON = {
     'K8s编排': 'fas fa-layer-group',
-    'Group results': 'fas fa-tasks',  # Celery 任务结果
-    '任务组结果': 'fas fa-object-group',  # Celery 任务组结果
+    'Group results': 'fas fa-tasks', 
+    '任务组结果': 'fas fa-object-group',  
+}
+
+
+SIMPLEUI_CONFIG = {
+    'system_keep': True,
+    'menus': [
+        {
+            'name': '升级专业版',
+            'icon': 'fas fa-crown',
+            'url': 'https://docs.secsnow.cn/node/019d41e2-734e-7eaf-9960-c949e01d6250',
+            'newTab': True,
+        },
+    ]
 }
 # ***************************************** 网站配置结束 *****************************************
 # Password validation
